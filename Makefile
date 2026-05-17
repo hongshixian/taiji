@@ -12,7 +12,7 @@ dev:
 
 # 运行测试
 test:
-	cd backend && python -m pytest tests/ -v
+	cd backend && /usr/bin/python3 -m pytest tests/ -v
 
 # 构建 Docker 镜像
 build:
