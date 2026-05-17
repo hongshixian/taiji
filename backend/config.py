@@ -36,3 +36,4 @@ class TestConfig(Config):
     """测试配置"""
     TESTING = True
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+    CELERY_TASK_ALWAYS_EAGER = True

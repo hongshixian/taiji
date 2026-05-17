@@ -36,6 +36,10 @@ def create_app(config_obj=Config):
     jwt.init_app(flask_app)
     CORS(flask_app, supports_credentials=True)
 
+    # 初始化 Celery
+    from celery_app import init_celery
+    init_celery(flask_app)
+
     # 注册错误处理器
     register_error_handlers(flask_app)
 
