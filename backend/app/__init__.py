@@ -24,20 +24,23 @@ def create_app(config_obj=Config):
     Returns:
         Flask: 应用实例
     """
-    app = Flask(__name__)
-    app.config.from_object(config_obj)
+    # 先导入模型，确保 SQLAlchemy 能发现它们
+    import app.models  # noqa: F401
+
+    flask_app = Flask(__name__)
+    flask_app.config.from_object(config_obj)
 
     # 初始化扩展
-    db.init_app(app)
-    migrate.init_app(app, db)
-    jwt.init_app(app)
-    CORS(app, supports_credentials=True)
+    db.init_app(flask_app)
+    migrate.init_app(flask_app, db)
+    jwt.init_app(flask_app)
+    CORS(flask_app, supports_credentials=True)
 
     # 注册错误处理器
-    register_error_handlers(app)
+    register_error_handlers(flask_app)
 
     # 健康检查路由（不需要鉴权）
-    @app.route("/api/health")
+    @flask_app.route("/api/health")
     def health():
         return jsonify({"status": "ok"})
 
@@ -45,8 +48,8 @@ def create_app(config_obj=Config):
     from app.api.auth import auth_bp
     from app.api.analyze import analyze_bp
 
-    app.register_blueprint(auth_bp, url_prefix="/api/auth")
-    app.register_blueprint(analyze_bp, url_prefix="/api/analyze")
+    flask_app.register_blueprint(auth_bp, url_prefix="/api/auth")
+    flask_app.register_blueprint(analyze_bp, url_prefix="/api/analyze")
 
     # 注册 JWT 错误处理器
     @jwt.expired_token_loader
@@ -61,4 +64,4 @@ def create_app(config_obj=Config):
     def missing_token_callback(_reason):
         return jsonify({"code": 401, "message": "缺少认证 Token"}), 401
 
-    return app
+    return flask_app
