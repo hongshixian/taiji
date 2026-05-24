@@ -12,7 +12,7 @@ services:
   # ─── Flask 后端 ────────────────────────────────
   backend:
     build:
-      context: ..
+      context: .
       dockerfile: docker/Dockerfile.backend
     environment:
       - FLASK_ENV=production
@@ -30,7 +30,7 @@ services:
   # ─── Celery Worker ─────────────────────────────
   worker:
     build:
-      context: ..
+      context: .
       dockerfile: docker/Dockerfile.worker
     environment:
       - FLASK_ENV=production
@@ -48,7 +48,7 @@ services:
   # ─── Vue 前端 ──────────────────────────────────
   frontend:
     build:
-      context: ..
+      context: .
       dockerfile: docker/Dockerfile.frontend
     ports:
       - "80:80"
