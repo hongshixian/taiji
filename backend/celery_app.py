@@ -45,3 +45,8 @@ def create_celery_app():
 
     flask_app = create_app()
     return init_celery(flask_app)
+
+
+# 模块级 app 实例 —— Celery CLI 自动发现
+# 用法: celery -A celery_app worker -l info --concurrency=2
+app = create_celery_app()
