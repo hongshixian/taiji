@@ -22,20 +22,20 @@
             class="side-menu"
           >
             <el-menu-item index="/">
-              <span>🏠</span>
-              <span>主页</span>
+              <span class="menu-icon">🏠</span>
+              <template #title>主页</template>
             </el-menu-item>
             <el-menu-item index="/tasks">
-              <span>📋</span>
-              <span>任务管理</span>
+              <span class="menu-icon">📋</span>
+              <template #title>任务管理</template>
             </el-menu-item>
             <el-menu-item index="/users">
-              <span>👥</span>
-              <span>用户管理</span>
+              <span class="menu-icon">👥</span>
+              <template #title>用户管理</template>
             </el-menu-item>
             <el-menu-item index="/settings">
-              <span>⚙️</span>
-              <span>通用设置</span>
+              <span class="menu-icon">⚙️</span>
+              <template #title>通用设置</template>
             </el-menu-item>
           </el-menu>
         </el-aside>
@@ -121,9 +121,7 @@ body {
   border-right: none !important;
   height: 100%;
 }
-.side-menu .el-menu-item span:first-child {
-  margin-right: 8px;
-}
+.side-menu .menu-icon { font-size: 16px; }
 .app-main {
   background: #f5f7fa;
   min-height: calc(100vh - 56px);
