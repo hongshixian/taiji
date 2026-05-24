@@ -15,4 +15,4 @@ RUN chmod +x /entrypoint.sh
 
 # Celery Worker
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["celery", "-A", "celery_app:create_celery_app()", "worker", "-l", "info", "--concurrency=2"]
+CMD ["celery", "-A", "celery_app:create_celery_app", "worker", "-l", "info", "--concurrency=2"]
