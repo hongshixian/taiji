@@ -7,21 +7,9 @@ from app import db
 from app.models.user import User
 
 
+# ─── 认证 ────────────────────────────────
+
 def register_user(username: str, email: str, password: str) -> User:
-    """注册新用户
-
-    Args:
-        username: 用户名
-        email: 邮箱
-        password: 明文密码
-
-    Returns:
-        User: 新创建的用户对象
-
-    Raises:
-        ValueError: 用户名或邮箱已存在
-    """
-    # 检查唯一性
     if User.query.filter_by(username=username).first():
         raise ValueError("用户名已存在")
     if User.query.filter_by(email=email).first():
@@ -38,21 +26,11 @@ def register_user(username: str, email: str, password: str) -> User:
 
 
 def login_user(username: str, password: str) -> dict:
-    """用户登录，返回 JWT token
-
-    Args:
-        username: 用户名
-        password: 明文密码
-
-    Returns:
-        dict: {"access_token": ..., "refresh_token": ..., "user": {...}}
-
-    Raises:
-        ValueError: 用户名或密码错误
-    """
     user = User.query.filter_by(username=username).first()
     if not user or not check_password_hash(user.password_hash, password):
         raise ValueError("用户名或密码错误")
+    if not user.is_active:
+        raise ValueError("账户已被禁用")
 
     access_token = create_access_token(identity=str(user.id))
     refresh_token = create_refresh_token(identity=str(user.id))
@@ -65,14 +43,92 @@ def login_user(username: str, password: str) -> dict:
 
 
 def get_user_by_id(user_id: int) -> User | None:
-    """根据 ID 查询用户"""
     return db.session.get(User, user_id)
 
 
 def user_to_dict(user: User) -> dict:
-    """将 User 对象转为字典（避免泄露密码哈希）"""
     return {
         "id": user.id,
         "username": user.username,
         "email": user.email,
+        "role": user.role,
+        "is_active": user.is_active,
+        "created_at": user.created_at.isoformat() if user.created_at else None,
     }
+
+
+# ─── 管理员操作用户 ──────────────────────
+
+def list_users(page: int, per_page: int) -> tuple[list, int]:
+    """分页查询所有用户"""
+    pagination = User.query.order_by(User.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    return [user_to_dict(u) for u in pagination.items], pagination.total
+
+
+def create_user(username: str, email: str, password: str, role: str) -> User:
+    if User.query.filter_by(username=username).first():
+        raise ValueError("用户名已存在")
+    if User.query.filter_by(email=email).first():
+        raise ValueError("邮箱已注册")
+
+    user = User(
+        username=username,
+        email=email,
+        password_hash=generate_password_hash(password),
+        role=role,
+    )
+    db.session.add(user)
+    db.session.commit()
+    return user
+
+
+def update_user(user_id: int, data: dict) -> User:
+    user = db.session.get(User, user_id)
+    if not user:
+        raise ValueError("用户不存在")
+
+    if "username" in data and data["username"] != user.username:
+        if User.query.filter_by(username=data["username"]).first():
+            raise ValueError("用户名已存在")
+        user.username = data["username"]
+    if "email" in data and data["email"] != user.email:
+        if User.query.filter_by(email=data["email"]).first():
+            raise ValueError("邮箱已注册")
+        user.email = data["email"]
+    if "role" in data:
+        user.role = data["role"]
+    if "is_active" in data:
+        user.is_active = data["is_active"]
+    if "password" in data and data["password"]:
+        user.password_hash = generate_password_hash(data["password"])
+
+    db.session.commit()
+    return user
+
+
+def delete_user(user_id: int, current_user_id: int):
+    if user_id == current_user_id:
+        raise ValueError("不能删除自己")
+    user = db.session.get(User, user_id)
+    if not user:
+        raise ValueError("用户不存在")
+    db.session.delete(user)
+    db.session.commit()
+
+
+def seed_admin(username: str, email: str, password: str):
+    """确保存在管理员账号（不存在则创建）"""
+    admin = User.query.filter_by(role="admin").first()
+    if admin:
+        return admin
+    admin = User(
+        username=username,
+        email=email,
+        password_hash=generate_password_hash(password),
+        role="admin",
+    )
+    db.session.add(admin)
+    db.session.commit()
+    return admin

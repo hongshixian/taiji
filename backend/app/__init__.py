@@ -51,9 +51,12 @@ def create_app(config_obj=Config):
     # 注册蓝图
     from app.api.auth import auth_bp
     from app.api.analyze import analyze_bp
+    from app.api.admin import admin_bp
 
     flask_app.register_blueprint(auth_bp, url_prefix="/api/auth")
     flask_app.register_blueprint(analyze_bp, url_prefix="/api/analyze")
+    flask_app.register_blueprint(admin_bp, url_prefix="/api/admin")
+
 
     # 注册 JWT 错误处理器
     @jwt.expired_token_loader

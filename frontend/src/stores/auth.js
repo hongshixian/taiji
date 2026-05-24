@@ -7,6 +7,9 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
   const isLoggedIn = ref(!!localStorage.getItem('accessToken'))
 
+  /* 当前用户是否管理员 */
+  const isAdmin = () => user.value?.role === 'admin'
+
   async function login(username, password) {
     const { data } = await loginApi({ username, password })
     const { access_token, refresh_token, user: userInfo } = data.data
@@ -40,5 +43,5 @@ export const useAuthStore = defineStore('auth', () => {
     router.push('/login')
   }
 
-  return { user, isLoggedIn, login, register, fetchUser, logout }
+  return { user, isLoggedIn, isAdmin, login, register, fetchUser, logout }
 })
