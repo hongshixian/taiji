@@ -23,7 +23,7 @@ def analyze_webpage(self, task_id: int):
     try:
         with celery.flask_app.app_context():
             execute_analysis(task_id)
-        db.session.remove()
+            db.session.remove()
     except Exception as e:
         logger.exception(f"Celery 任务 {task_id} 致命异常")
         # 任务层面的异常已在 execute_analysis 内处理
