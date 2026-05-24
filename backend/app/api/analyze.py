@@ -7,6 +7,7 @@ from app.services.analyze_service import (
     create_task,
     get_task,
     get_user_tasks,
+    retry_task,
     task_to_dict,
 )
 from app.tasks.analyze_task import analyze_webpage
@@ -78,4 +79,17 @@ def list_analyses():
             "per_page": pagination.per_page,
             "pages": pagination.pages,
         },
+    }), 200
+@analyze_bp.route("/<int:task_id>/retry", methods=["POST"])
+@jwt_required()
+def retry_analysis(task_id):
+    """Retry failed or timeout analysis task"""
+    user_id = int(get_jwt_identity())
+    task = retry_task(task_id, user_id)
+    if not task:
+        return jsonify({"code": 404, "message": "task not found or not authorized"}), 404
+    return jsonify({
+        "code": 0,
+        "message": "task resubmitted",
+        "data": task_to_dict(task),
     }), 200

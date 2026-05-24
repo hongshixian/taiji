@@ -188,3 +188,34 @@ def _fail_task(task: AnalyzeTask, message: str) -> None:
     task.completed_at = datetime.now(timezone.utc)
     db.session.commit()
     logger.warning(f"任务 {task.id} 失败: {message}")
+
+def retry_task(task_id: int, user_id: int) -> AnalyzeTask | None:
+    """重试失败或超时的任务
+
+    Args:
+        task_id: 任务 ID
+        user_id: 用户 ID
+
+    Returns:
+        AnalyzeTask | None: 重置后的任务，不存在或无权限返回 None
+    """
+    task = AnalyzeTask.query.filter_by(id=task_id, user_id=user_id).first()
+    if not task:
+        return None
+
+    # 清除旧结果，重置为 PENDING
+    task.status = TaskStatus.PENDING
+    task.title = None
+    task.summary = None
+    task.keywords = None
+    task.error_message = None
+    task.started_at = None
+    task.completed_at = None
+    db.session.commit()
+
+    # 重新提交到 Celery
+    from app.tasks.analyze_task import analyze_webpage
+    analyze_webpage.delay(task.id)
+
+    logger.info(f"任务 {task.id} 已重新提交")
+    return task
