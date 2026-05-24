@@ -18,12 +18,9 @@
       </template>
     </el-dialog>
 
-    <!-- 任务卡片 -->
-    <div v-if="taskList.length === 0 && !submitting" class="empty-state">
-      <p>暂无任务，点击上方按钮创建</p>
-    </div>
-
-    <div v-for="task in taskList" :key="task.id" class="result-card">
+    <!-- 进行中任务卡片 -->
+    <h3 v-if="activeTasks.length" class="section-title">进行中</h3>
+    <div v-for="task in activeTasks" :key="'a-' + task.id" class="result-card">
       <el-card>
         <template #header>
           <div class="card-header">
@@ -33,80 +30,71 @@
             </el-tag>
           </div>
         </template>
-
-        <el-skeleton v-if="['submitting', 'pending', 'running'].includes(task.frontendStatus)" :rows="4" animated />
-        <div v-if="['pending', 'running'].includes(task.frontendStatus)" class="elapsed-time">
-          已等待 {{ task.elapsed }} 秒
-        </div>
-
-        <template v-else-if="task.frontendStatus === 'success'">
-          <div class="result-item"><strong>标题：</strong>{{ task.title }}</div>
-          <div class="result-item"><strong>摘要：</strong><p class="summary-text">{{ task.summary }}</p></div>
-          <div v-if="task.keywords?.length" class="result-item">
-            <strong>关键词：</strong>
-            <el-tag v-for="kw in task.keywords" :key="kw" class="keyword-tag" size="small">{{ kw }}</el-tag>
-          </div>
-          <div class="result-meta">完成于 {{ formatTime(task.completed_at) }}</div>
-        </template>
-
-        <el-alert
-          v-else-if="task.frontendStatus === 'submit_failed'"
-          title="提交失败" :description="task.error" type="error" show-icon :closable="false">
-          <template #default>
-            <el-button size="small" type="primary" @click="retrySubmit(task)">重新提交</el-button>
-            <el-button size="small" @click="removeTask(task.id)">关闭</el-button>
-          </template>
-        </el-alert>
-
-        <el-alert
-          v-else-if="task.frontendStatus === 'failed'"
-          title="分析失败" :description="task.error_message" type="error" show-icon :closable="false">
-          <template #default>
-            <el-button size="small" type="primary" :loading="task.retrying" @click="retryTask(task)">重新分析</el-button>
-            <el-button size="small" @click="removeTask(task.id)">关闭</el-button>
-          </template>
-        </el-alert>
-
-        <el-alert
-          v-else-if="task.frontendStatus === 'timeout'"
-          title="分析超时" description="超过 60 秒未完成" type="warning" show-icon :closable="false">
-          <template #default>
-            <el-button size="small" type="primary" :loading="task.retrying" @click="retryTask(task)">重新分析</el-button>
-            <el-button size="small" @click="removeTask(task.id)">关闭</el-button>
-          </template>
-        </el-alert>
-
-        <el-alert
-          v-else-if="task.frontendStatus === 'not_found'"
-          title="任务丢失" description="Worker 可能异常" type="warning" show-icon :closable="false">
-          <template #default>
-            <el-button size="small" type="primary" :loading="task.retrying" @click="retryTask(task)">重新分析</el-button>
-            <el-button size="small" @click="removeTask(task.id)">关闭</el-button>
-          </template>
-        </el-alert>
-
-        <el-alert
-          v-else-if="task.frontendStatus === 'query_error'"
-          title="查询失败" description="正在自动重试..." type="info" show-icon :closable="false">
-          <template #default>
-            <el-button size="small" @click="removeTask(task.id)">关闭</el-button>
-          </template>
-        </el-alert>
+        <el-skeleton :rows="3" animated />
+        <div class="elapsed-time">已等待 {{ task.elapsed }} 秒</div>
       </el-card>
+    </div>
+
+    <!-- 历史任务表格 -->
+    <h3 v-if="historyTasks.length" class="section-title">历史记录</h3>
+    <el-table v-if="historyTasks.length" :data="historyTasks" stripe v-loading="tableLoading" class="history-table">
+      <el-table-column label="URL" min-width="280">
+        <template #default="{ row }">
+          <span class="url-text">{{ row.url }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="标题" min-width="180">
+        <template #default="{ row }">{{ row.title || '—' }}</template>
+      </el-table-column>
+      <el-table-column label="状态" width="100">
+        <template #default="{ row }">
+          <el-tag :type="dbStatusTag(row.status)" size="small">{{ dbStatusLabel(row.status) }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="提交时间" width="170">
+        <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
+      </el-table-column>
+      <el-table-column label="操作" width="120">
+        <template #default="{ row }">
+          <el-button v-if="row.status === 'failed'" text type="primary" size="small" @click="retryDbTask(row)">重新分析</el-button>
+          <span v-else style="color:#c0c4cc">—</span>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <!-- 分页 -->
+    <el-pagination
+      v-if="total > perPage"
+      v-model:current-page="page"
+      :page-size="perPage"
+      :total="total"
+      layout="prev, pager, next"
+      class="pagination"
+      @current-change="fetchHistoryTasks"
+    />
+
+    <!-- 空状态 -->
+    <div v-if="activeTasks.length === 0 && historyTasks.length === 0 && !tableLoading" class="empty-state">
+      <el-empty description="暂无任务，点击上方按钮创建" />
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { submitAnalysis, getAnalysis, retryAnalysis } from '../api/analyze'
+import { submitAnalysis, getAnalysis, retryAnalysis, listAnalyses } from '../api/analyze'
 
 const MAX_POLLS = 30
 const showDialog = ref(false)
 const url = ref('')
 const submitting = ref(false)
-const taskList = ref([])
+const activeTasks = ref([])      // 进行中的（前端追踪）
+const historyTasks = ref([])      // 历史任务（后端加载）
+const tableLoading = ref(false)
+const page = ref(1)
+const perPage = 20
+const total = ref(0)
 
 const statusLabel = (s) => {
   const map = { submitting:'提交中', submit_failed:'提交失败', pending:'排队中', running:'分析中', success:'已完成', failed:'失败', timeout:'超时', not_found:'任务丢失', query_error:'查询异常' }
@@ -116,7 +104,47 @@ const statusTag = (s) => {
   const map = { submitting:'info', submit_failed:'danger', pending:'info', running:'warning', success:'success', failed:'danger', timeout:'warning', not_found:'warning', query_error:'info' }
   return map[s] || 'info'
 }
+const dbStatusLabel = (s) => {
+  const map = { pending:'排队中', running:'分析中', success:'已完成', failed:'失败' }
+  return map[s] || s
+}
+const dbStatusTag = (s) => {
+  const map = { pending:'info', running:'warning', success:'success', failed:'danger' }
+  return map[s] || 'info'
+}
 function formatTime(iso) { return iso ? new Date(iso).toLocaleString('zh-CN') : '' }
+
+// ─── 历史任务 ─────────────────────────────
+
+async function fetchHistoryTasks() {
+  tableLoading.value = true
+  try {
+    const { data } = await listAnalyses(page.value, perPage)
+    historyTasks.value = data.data.items
+    total.value = data.data.total
+  } catch {
+    // ignore
+  } finally {
+    tableLoading.value = false
+  }
+}
+
+async function retryDbTask(row) {
+  try {
+    const { data } = await retryAnalysis(row.id)
+    // 从历史列表移除，加入进行中
+    historyTasks.value = historyTasks.value.filter(t => t.id !== row.id)
+    total.value--
+    const task = { ...data.data, frontendStatus: 'pending', pollCount: 0, pollTimer: null, elapsed: 0, elapsedTimer: null, retrying: false }
+    activeTasks.value.unshift(task)
+    startPolling(task)
+    ElMessage.success('已重新提交')
+  } catch (err) {
+    ElMessage.error('重试失败：' + (err.response?.data?.message || '网络异常'))
+  }
+}
+
+// ─── 创建任务 ─────────────────────────────
 
 async function handleSubmit() {
   const trimmed = url.value.trim()
@@ -128,7 +156,7 @@ async function handleSubmit() {
   url.value = ''
   const taskId = Date.now()
   const task = { id: taskId, url: trimmed, frontendStatus: 'submitting', pollCount: 0, pollTimer: null, elapsed: 0, elapsedTimer: null, retrying: false, error: '' }
-  taskList.value.unshift(task)
+  activeTasks.value.unshift(task)
   submitting.value = true
 
   try {
@@ -145,20 +173,6 @@ async function handleSubmit() {
   }
 }
 
-async function retrySubmit(task) {
-  task.frontendStatus = 'submitting'
-  try {
-    const { data } = await submitAnalysis(task.url)
-    task.id = data.data.id
-    task.frontendStatus = 'pending'
-    startPolling(task)
-    ElMessage.success('已重新提交')
-  } catch (err) {
-    task.frontendStatus = 'submit_failed'
-    task.error = err.response?.data?.message || '提交失败'
-  }
-}
-
 function startPolling(task) {
   stopPolling(task)
   task.pollCount = 0
@@ -170,8 +184,11 @@ function startPolling(task) {
       const { data } = await getAnalysis(task.id)
       const s = data.data.status
       if (s === 'success' || s === 'failed') {
-        Object.assign(task, data.data, { frontendStatus: s })
         stopPolling(task)
+        // 移到历史列表
+        activeTasks.value = activeTasks.value.filter(t => t.id !== task.id)
+        historyTasks.value.unshift(data.data)
+        total.value++
         if (s === 'success') ElMessage.success('分析完成')
       } else {
         task.frontendStatus = s
@@ -194,38 +211,20 @@ function stopPolling(task) {
   task.elapsedTimer = null
 }
 
-async function retryTask(task) {
-  task.retrying = true
-  try {
-    const { data } = await retryAnalysis(task.id)
-    task.frontendStatus = 'pending'
-    task.pollCount = 0
-    task.error_message = ''
-    startPolling(task)
-    ElMessage.success('已重新提交到队列')
-  } catch (err) {
-    ElMessage.error('重试失败：' + (err.response?.data?.message || '网络异常'))
-  } finally { task.retrying = false }
-}
-
-function removeTask(taskId) {
-  const idx = taskList.value.findIndex(t => t.id === taskId)
-  if (idx !== -1) { stopPolling(taskList.value[idx]); taskList.value.splice(idx, 1) }
-}
-
-onUnmounted(() => taskList.value.forEach(stopPolling))
+onMounted(fetchHistoryTasks)
+onUnmounted(() => activeTasks.value.forEach(stopPolling))
 </script>
 
 <style scoped>
-.task-management { max-width: 900px; }
+.task-management { max-width: 1000px; }
 .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-.empty-state { text-align: center; color: #909399; padding: 60px 0; }
-.result-card { margin-bottom: 16px; }
+.section-title { margin-bottom: 12px; color: #303133; font-size: 15px; }
+.result-card { margin-bottom: 12px; }
 .card-header { display: flex; justify-content: space-between; align-items: center; }
 .card-url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%; font-size: 13px; color: #606266; }
-.result-item { margin-bottom: 12px; }
-.summary-text { color: #606266; line-height: 1.6; margin-top: 4px; }
-.keyword-tag { margin-right: 4px; }
-.result-meta { color: #c0c4cc; font-size: 12px; margin-top: 12px; }
 .elapsed-time { color: #909399; font-size: 12px; margin-top: 8px; }
+.history-table { width: 100%; }
+.url-text { color: #409eff; cursor: pointer; word-break: break-all; }
+.pagination { margin-top: 16px; justify-content: center; }
+.empty-state { padding: 40px 0; }
 </style>

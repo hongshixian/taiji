@@ -29,6 +29,10 @@
               <span>📋</span>
               <span>任务管理</span>
             </el-menu-item>
+            <el-menu-item index="/users">
+              <span>👥</span>
+              <span>用户管理</span>
+            </el-menu-item>
             <el-menu-item index="/settings">
               <span>⚙️</span>
               <span>通用设置</span>
