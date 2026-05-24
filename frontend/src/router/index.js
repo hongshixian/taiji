@@ -16,14 +16,20 @@ const routes = [
   },
   {
     path: '/',
-    name: 'Dashboard',
-    component: () => import('../views/Dashboard.vue'),
+    name: 'Home',
+    component: () => import('../views/Home.vue'),
     meta: { requiresAuth: true },
   },
   {
-    path: '/history',
-    name: 'TaskHistory',
-    component: () => import('../views/TaskHistory.vue'),
+    path: '/tasks',
+    name: 'TaskManagement',
+    component: () => import('../views/TaskManagement.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/settings',
+    name: 'Settings',
+    component: () => import('../views/Settings.vue'),
     meta: { requiresAuth: true },
   },
 ]
@@ -33,7 +39,6 @@ const router = createRouter({
   routes,
 })
 
-// 导航守卫
 router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore()
   const hasToken = !!localStorage.getItem('accessToken')
@@ -46,7 +51,6 @@ router.beforeEach(async (to, _from, next) => {
     return next('/')
   }
 
-  // 有 token 但用户信息未加载，先获取
   if (hasToken && !authStore.user) {
     try {
       await authStore.fetchUser()
