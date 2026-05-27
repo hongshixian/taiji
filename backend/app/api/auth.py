@@ -1,76 +1,91 @@
 """认证接口"""
 
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
-from app.services.auth_service import register_user, login_user, get_user_by_id, user_to_dict
+from app.services.auth_service import (
+    register_user,
+    login_user,
+    get_user_by_id,
+    user_to_dict,
+)
+from app.schemas.auth_schema import RegisterSchema, LoginSchema
+from app.utils.validation import validate_schema
 
 auth_bp = Blueprint("auth", __name__)
 
+# 本蓝图限流器 — 对敏感接口独立限制
+auth_limiter = Limiter(key_func=get_remote_address)
+
 
 @auth_bp.route("/register", methods=["POST"])
+@auth_limiter.limit("5 per minute")
 def register():
-    """用户注册"""
+    """用户注册 — 限流 5次/分钟"""
     data = request.get_json()
     if not data:
         return jsonify({"code": 400, "message": "请求体不能为空"}), 400
 
-    username = data.get("username", "").strip()
-    email = data.get("email", "").strip()
-    password = data.get("password", "")
-
-    # 参数校验
-    if not username or not email or not password:
-        return jsonify({"code": 400, "message": "用户名、邮箱和密码不能为空"}), 400
-    if len(username) < 3 or len(username) > 80:
-        return jsonify({"code": 400, "message": "用户名长度应为 3-80 个字符"}), 400
-    if len(password) < 6:
-        return jsonify({"code": 400, "message": "密码长度至少为 6 个字符"}), 400
+    parsed, error = validate_schema(RegisterSchema(), data)
+    if error:
+        return error
 
     try:
-        user = register_user(username, email, password)
-        return jsonify({
-            "code": 0,
-            "message": "注册成功",
-            "data": user_to_dict(user),
-        }), 201
+        user = register_user(
+            username=parsed["username"],
+            email=parsed["email"],
+            password=parsed["password"],
+        )
     except ValueError as e:
         return jsonify({"code": 400, "message": str(e)}), 400
 
+    return jsonify({
+        "code": 0,
+        "message": "注册成功",
+        "data": user_to_dict(user),
+    }), 201
+
 
 @auth_bp.route("/login", methods=["POST"])
+@auth_limiter.limit("10 per minute")
 def login():
-    """用户登录"""
+    """用户登录 — 限流 10次/分钟"""
     data = request.get_json()
     if not data:
         return jsonify({"code": 400, "message": "请求体不能为空"}), 400
 
-    username = data.get("username", "")
-    password = data.get("password", "")
-
-    if not username or not password:
-        return jsonify({"code": 400, "message": "用户名和密码不能为空"}), 400
+    parsed, error = validate_schema(LoginSchema(), data)
+    if error:
+        return error
 
     try:
-        result = login_user(username, password)
-        return jsonify({
-            "code": 0,
-            "message": "登录成功",
-            "data": result,
-        }), 200
+        result = login_user(
+            username=parsed["username"],
+            password=parsed["password"],
+        )
     except ValueError as e:
         return jsonify({"code": 401, "message": str(e)}), 401
+
+    return jsonify({
+        "code": 0,
+        "message": "登录成功",
+        "data": result,
+    }), 200
 
 
 @auth_bp.route("/refresh", methods=["POST"])
 @jwt_required(refresh=True)
 def refresh():
     """刷新 access token"""
-    user_id = get_jwt_identity()
-    access_token = create_access_token(identity=user_id)
+    user_id = int(get_jwt_identity())
+    from flask_jwt_extended import create_access_token
+    access_token = create_access_token(identity=str(user_id))
+
     return jsonify({
         "code": 0,
-        "message": "Token 刷新成功",
+        "message": "Token 已刷新",
         "data": {"access_token": access_token},
     }), 200
 
@@ -83,6 +98,7 @@ def me():
     user = get_user_by_id(user_id)
     if not user:
         return jsonify({"code": 404, "message": "用户不存在"}), 404
+
     return jsonify({
         "code": 0,
         "message": "ok",

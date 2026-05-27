@@ -31,6 +31,12 @@ class Config:
     JWT_ACCESS_TOKEN_EXPIRES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRES", "1800"))   # 30 分钟
     JWT_REFRESH_TOKEN_EXPIRES = int(os.getenv("JWT_REFRESH_TOKEN_EXPIRES", "604800"))  # 7 天
 
+    # 接口限流 (flask-limiter)
+    # 默认使用内存存储，生产环境建议配置 RATELIMIT_STORAGE_URL
+    RATELIMIT_DEFAULT = os.getenv("RATELIMIT_DEFAULT", "100 per minute;20 per second")
+    RATELIMIT_STORAGE_URL = os.getenv("RATELIMIT_STORAGE_URL", "memory://")
+    RATELIMIT_STRATEGY = os.getenv("RATELIMIT_STRATEGY", "fixed-window")
+
 
 class TestConfig(Config):
     """测试配置"""

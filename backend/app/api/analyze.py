@@ -11,28 +11,30 @@ from app.services.analyze_service import (
     task_to_dict,
 )
 from app.tasks.analyze_task import analyze_webpage
+from app.schemas.analyze_schema import AnalyzeSubmitSchema, AnalyzeQuerySchema
+from app.utils.validation import validate_schema
+from app import limiter
 
 analyze_bp = Blueprint("analyze", __name__)
 
 
 @analyze_bp.route("/", methods=["POST"])
 @jwt_required()
+@limiter.limit("30 per minute")
 def submit_analysis():
-    """提交网页分析任务"""
+    """提交网页分析任务 — 限流 30次/分钟"""
     user_id = int(get_jwt_identity())
 
     data = request.get_json()
     if not data:
         return jsonify({"code": 400, "message": "请求体不能为空"}), 400
 
-    url = data.get("url", "").strip()
-    if not url:
-        return jsonify({"code": 400, "message": "URL 不能为空"}), 400
-    if not url.startswith(("http://", "https://")):
-        return jsonify({"code": 400, "message": "URL 必须以 http:// 或 https:// 开头"}), 400
+    parsed, error = validate_schema(AnalyzeSubmitSchema(), data)
+    if error:
+        return error
 
     # 创建任务
-    task = create_task(user_id, url)
+    task = create_task(user_id, parsed["url"])
 
     # 提交到 Celery
     analyze_webpage.delay(task.id)
@@ -64,10 +66,12 @@ def get_analysis(task_id):
 def list_analyses():
     """分页查询历史任务"""
     user_id = int(get_jwt_identity())
-    page = request.args.get("page", 1, type=int)
-    per_page = request.args.get("per_page", 20, type=int)
 
-    pagination = get_user_tasks(user_id, page, per_page)
+    parsed, error = validate_schema(AnalyzeQuerySchema(), request.args)
+    if error:
+        return error
+
+    pagination = get_user_tasks(user_id, parsed["page"], parsed["per_page"])
 
     return jsonify({
         "code": 0,

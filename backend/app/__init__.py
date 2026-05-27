@@ -5,6 +5,8 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 from config import Config
 from app.utils.errors import register_error_handlers
@@ -13,6 +15,10 @@ from app.utils.errors import register_error_handlers
 db = SQLAlchemy()
 migrate = Migrate()
 jwt = JWTManager()
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=[],  # 不用全局默认限制，由各路由自行声明
+)
 
 
 def create_app(config_obj=Config):
@@ -34,6 +40,7 @@ def create_app(config_obj=Config):
     db.init_app(flask_app)
     migrate.init_app(flask_app, db)
     jwt.init_app(flask_app)
+    limiter.init_app(flask_app)
     CORS(flask_app, supports_credentials=True)
 
     # 初始化 Celery
@@ -42,6 +49,14 @@ def create_app(config_obj=Config):
 
     # 注册错误处理器
     register_error_handlers(flask_app)
+
+    # ── 限流超出处理器 ──────────────────────────────────────
+    @flask_app.errorhandler(429)
+    def ratelimit_error(e):
+        return jsonify({
+            "code": 429,
+            "message": f"请求过于频繁，请 {e.description} 后再试",
+        }), 429
 
     # 健康检查路由（不需要鉴权）
     @flask_app.route("/api/health")
