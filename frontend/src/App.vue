@@ -64,6 +64,7 @@
         <el-aside :width="collapsed ? '64px' : '210px'" class="app-aside">
           <el-menu
             :default-active="currentRoute"
+            :default-openeds="defaultOpeneds"
             :collapse="collapsed"
             router
             class="side-menu"
@@ -72,10 +73,16 @@
               <el-icon><HomeFilled /></el-icon>
               <template #title>主页</template>
             </el-menu-item>
-            <el-menu-item index="/tasks" v-if="has('task:read')">
-              <el-icon><Tickets /></el-icon>
-              <template #title>任务管理</template>
-            </el-menu-item>
+            <el-sub-menu index="/tasks" v-if="has('task:read')">
+              <template #title>
+                <el-icon><Tickets /></el-icon>
+                <span>任务管理</span>
+              </template>
+              <el-menu-item :index="TASK_TYPE_ROUTES[WEBPAGE_ANALYSIS_TASK_TYPE]">
+                <el-icon><Document /></el-icon>
+                <template #title>网页内容分析</template>
+              </el-menu-item>
+            </el-sub-menu>
             <el-menu-item index="/users" v-if="has('user:read')">
               <el-icon><User /></el-icon>
               <template #title>用户管理</template>
@@ -127,6 +134,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { usePermission } from './composables/usePermission'
 import TenantSwitcher from './components/TenantSwitcher.vue'
+import { TASK_TYPE_ROUTES, WEBPAGE_ANALYSIS_TASK_TYPE } from './constants/taskTypes'
 
 const route = useRoute()
 const router = useRouter()
@@ -138,6 +146,9 @@ const isDark = ref(document.documentElement.classList.contains('dark'))
 
 const isLoggedIn = computed(() => authStore.isLoggedIn)
 const currentRoute = computed(() => route.path)
+const defaultOpeneds = computed(() => (
+  route.path.startsWith('/tasks') ? ['/tasks'] : []
+))
 const avatarInitial = computed(() => {
   const name = authStore.user?.username || '?'
   return name.charAt(0).toUpperCase()
@@ -290,11 +301,16 @@ onUnmounted(() => window.removeEventListener('resize', handleResize))
   border-right: none !important;
   flex: 1;
 }
-.side-menu .el-menu-item {
+.side-menu .el-menu-item,
+.side-menu .el-sub-menu__title {
   height: 48px;
   line-height: 48px;
   margin: 4px 8px;
   border-radius: var(--taiji-radius-sm);
+}
+.side-menu .el-sub-menu .el-menu-item {
+  margin-left: 12px;
+  min-width: 0;
 }
 .side-menu .el-menu-item.is-active {
   background: var(--el-color-primary-light-9);

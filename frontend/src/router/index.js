@@ -1,5 +1,9 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import {
+  TASK_TYPE_ROUTES,
+  WEBPAGE_ANALYSIS_TASK_TYPE,
+} from '../constants/taskTypes'
 
 const routes = [
   {
@@ -22,9 +26,18 @@ const routes = [
   },
   {
     path: '/tasks',
-    name: 'TaskManagement',
+    redirect: TASK_TYPE_ROUTES[WEBPAGE_ANALYSIS_TASK_TYPE],
+    meta: { requiresAuth: true, requiresPermission: 'task:read' },
+  },
+  {
+    path: TASK_TYPE_ROUTES[WEBPAGE_ANALYSIS_TASK_TYPE],
+    name: 'WebpageAnalysisTasks',
     component: () => import('../views/TaskManagement.vue'),
-    meta: { requiresAuth: true },
+    meta: {
+      requiresAuth: true,
+      requiresPermission: 'task:read',
+      taskType: WEBPAGE_ANALYSIS_TASK_TYPE,
+    },
   },
   {
     path: '/users',

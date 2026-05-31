@@ -14,6 +14,8 @@ logger = get_logger(__name__)
 
 # 抓取超时（秒）
 REQUEST_TIMEOUT = 30
+WEBPAGE_ANALYSIS_TASK_TYPE = "webpage_content_analysis"
+WEBPAGE_ANALYSIS_TASK_TYPE_NAME = "网页内容分析"
 
 
 def create_task(user_id: int, url: str) -> AnalyzeTask:
@@ -126,6 +128,8 @@ def task_to_dict(task: AnalyzeTask) -> dict:
     """将任务对象转为字典"""
     return {
         "id": task.id,
+        "task_type": WEBPAGE_ANALYSIS_TASK_TYPE,
+        "task_type_name": WEBPAGE_ANALYSIS_TASK_TYPE_NAME,
         "url": task.url,
         "status": task.status if isinstance(task.status, str) else task.status.value,
         "title": task.title,

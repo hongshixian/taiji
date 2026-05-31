@@ -35,6 +35,8 @@ class TestAnalyzeAPI:
         data = resp.get_json()
         assert data["code"] == 0
         assert data["data"]["status"] == "pending"
+        assert data["data"]["task_type"] == "webpage_content_analysis"
+        assert data["data"]["task_type_name"] == "网页内容分析"
         assert "id" in data["data"]
         mock_delay.assert_called_once()
 
@@ -73,6 +75,7 @@ class TestAnalyzeAPI:
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["data"]["status"] == "pending"
+        assert data["data"]["task_type"] == "webpage_content_analysis"
 
     def test_get_task_not_found(self, client):
         """查询不存在的任务"""
@@ -92,6 +95,9 @@ class TestAnalyzeAPI:
         data = resp.get_json()
         assert len(data["data"]["items"]) == 2
         assert data["data"]["total"] == 2
+        assert {item["task_type"] for item in data["data"]["items"]} == {
+            "webpage_content_analysis",
+        }
 
 
 # ═══════════════════════════════════════════════════════════════

@@ -14,12 +14,12 @@
           </el-tag>
         </div>
         <h1 class="hero-title">欢迎使用<span class="taiji-gradient-text">太极</span>平台</h1>
-        <p class="hero-desc">异步任务驱动 · 一站式网页内容分析</p>
+        <p class="hero-desc">异步任务驱动 · 一站式任务管理</p>
         <div class="hero-actions">
-          <el-button type="primary" size="large" @click="$router.push('/tasks')">
+          <el-button type="primary" size="large" @click="$router.push(webpageAnalysisRoute)">
             <el-icon><Plus /></el-icon>&nbsp;新建分析任务
           </el-button>
-          <el-button size="large" plain @click="$router.push('/tasks')">
+          <el-button size="large" plain @click="$router.push(webpageAnalysisRoute)">
             <el-icon><Document /></el-icon>&nbsp;查看任务列表
           </el-button>
         </div>
@@ -109,7 +109,7 @@
           <template #header>
             <div class="card-title">
               <span><el-icon><Clock /></el-icon>&nbsp;最近任务</span>
-              <el-link type="primary" :underline="false" @click="$router.push('/tasks')">查看全部 →</el-link>
+              <el-link type="primary" :underline="false" @click="$router.push(webpageAnalysisRoute)">查看全部 →</el-link>
             </div>
           </template>
           <div v-if="recentTasks.length === 0" class="empty-mini">
@@ -136,10 +136,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { listAnalyses } from '../api/analyze'
+import { TASK_TYPE_ROUTES, WEBPAGE_ANALYSIS_TASK_TYPE } from '../constants/taskTypes'
 
 const authStore = useAuthStore()
 const stats = ref({ total: 0, success: 0, running: 0, failed: 0 })
 const recentTasks = ref([])
+const webpageAnalysisRoute = TASK_TYPE_ROUTES[WEBPAGE_ANALYSIS_TASK_TYPE]
 
 const tenantName = computed(() => authStore.currentTenant?.name || '')
 

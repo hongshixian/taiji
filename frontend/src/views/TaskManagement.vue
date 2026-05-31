@@ -3,7 +3,7 @@
     <div class="top-bar">
       <div class="page-title">
         <el-icon class="page-icon"><Tickets /></el-icon>
-        <h2>任务管理</h2>
+        <h2>网页内容分析</h2>
       </div>
       <el-button type="primary" size="default" @click="showDialog = true">
         <el-icon><Plus /></el-icon>&nbsp;创建任务
