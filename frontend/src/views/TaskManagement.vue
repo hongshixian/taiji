@@ -1,8 +1,13 @@
 <template>
   <div class="task-management">
     <div class="top-bar">
-      <h2>任务管理</h2>
-      <el-button type="primary" @click="showDialog = true">+ 创建任务</el-button>
+      <div class="page-title">
+        <el-icon class="page-icon"><Tickets /></el-icon>
+        <h2>任务管理</h2>
+      </div>
+      <el-button type="primary" size="default" @click="showDialog = true">
+        <el-icon><Plus /></el-icon>&nbsp;创建任务
+      </el-button>
     </div>
 
     <!-- 创建任务弹窗 -->
@@ -216,15 +221,19 @@ onUnmounted(() => activeTasks.value.forEach(stopPolling))
 </script>
 
 <style scoped>
-.task-management { max-width: 1000px; }
+.task-management { max-width: 1200px; margin: 0 auto; }
 .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-.section-title { margin-bottom: 12px; color: #303133; font-size: 15px; }
+.page-title { display: flex; align-items: center; gap: 10px; }
+.page-title h2 { margin: 0; font-weight: 600; color: var(--el-text-color-primary); }
+.page-icon { font-size: 22px; color: var(--taiji-accent); }
+.section-title { margin: 0 0 12px; color: var(--el-text-color-regular); font-size: 14px; font-weight: 500; letter-spacing: 1px; }
 .result-card { margin-bottom: 12px; }
 .card-header { display: flex; justify-content: space-between; align-items: center; }
-.card-url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%; font-size: 13px; color: #606266; }
-.elapsed-time { color: #909399; font-size: 12px; margin-top: 8px; }
-.history-table { width: 100%; }
-.url-text { color: #409eff; cursor: pointer; word-break: break-all; }
+.card-url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%; font-size: 13px; color: var(--el-text-color-regular); }
+.elapsed-time { color: var(--el-text-color-secondary); font-size: 12px; margin-top: 8px; }
+.history-table { width: 100%; border-radius: var(--taiji-radius-sm); overflow: hidden; }
+.url-text { color: var(--el-color-primary); cursor: pointer; word-break: break-all; }
+.url-text:hover { color: var(--taiji-accent); text-decoration: underline; }
 .pagination { margin-top: 16px; justify-content: center; }
-.empty-state { padding: 40px 0; }
+.empty-state { padding: 60px 0; }
 </style>

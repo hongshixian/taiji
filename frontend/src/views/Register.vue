@@ -1,43 +1,69 @@
 <template>
-  <div class="register-container">
-    <el-card class="register-card">
-      <h2>太极 · 注册</h2>
-      <el-form
-        ref="formRef"
-        :model="form"
-        :rules="rules"
-        label-width="0"
-        @submit.prevent="handleRegister"
-      >
-        <el-form-item prop="username">
-          <el-input v-model="form.username" placeholder="用户名" />
-        </el-form-item>
-        <el-form-item prop="email">
-          <el-input v-model="form.email" placeholder="邮箱" />
-        </el-form-item>
-        <el-form-item prop="password">
-          <el-input
-            v-model="form.password"
-            type="password"
-            placeholder="密码（至少6位）"
-            show-password
-          />
-        </el-form-item>
-        <el-form-item>
-          <el-button
-            type="primary"
-            native-type="submit"
-            :loading="loading"
-            class="register-btn"
-          >
-            注册
-          </el-button>
-        </el-form-item>
-      </el-form>
-      <p class="login-link">
-        已有账号？<router-link to="/login">返回登录</router-link>
-      </p>
-    </el-card>
+  <div class="auth-page">
+    <div class="brand-side">
+      <div class="brand-content">
+        <img src="../assets/taiji-logo.svg" alt="taiji" class="brand-logo" />
+        <h1 class="brand-title">太极</h1>
+        <p class="brand-slogan">阴阳相生 · 万象归一</p>
+        <p class="brand-desc">注册即可体验完整链路</p>
+      </div>
+      <div class="brand-decoration">
+        <div class="circle circle-1"></div>
+        <div class="circle circle-2"></div>
+        <div class="circle circle-3"></div>
+      </div>
+    </div>
+
+    <div class="form-side">
+      <el-card class="auth-card" shadow="never">
+        <h2 class="auth-title">创建账号</h2>
+        <p class="auth-subtitle">加入太极开始使用</p>
+
+        <el-form
+          ref="formRef"
+          :model="form"
+          :rules="rules"
+          label-width="0"
+          size="large"
+          @submit.prevent="handleRegister"
+        >
+          <el-form-item prop="username">
+            <el-input v-model="form.username" placeholder="用户名（3-80 字符）">
+              <template #prefix><el-icon><User /></el-icon></template>
+            </el-input>
+          </el-form-item>
+          <el-form-item prop="email">
+            <el-input v-model="form.email" placeholder="邮箱">
+              <template #prefix><el-icon><Message /></el-icon></template>
+            </el-input>
+          </el-form-item>
+          <el-form-item prop="password">
+            <el-input
+              v-model="form.password"
+              type="password"
+              placeholder="密码（至少 6 位）"
+              show-password
+            >
+              <template #prefix><el-icon><Lock /></el-icon></template>
+            </el-input>
+          </el-form-item>
+          <el-form-item>
+            <el-button
+              type="primary"
+              native-type="submit"
+              :loading="loading"
+              class="auth-btn"
+            >
+              注 册
+            </el-button>
+          </el-form-item>
+        </el-form>
+
+        <div class="auth-footer">
+          已有账号？<router-link to="/login">返回登录</router-link>
+        </div>
+      </el-card>
+    </div>
   </div>
 </template>
 
@@ -92,32 +118,72 @@ async function handleRegister() {
 </script>
 
 <style scoped>
-.register-container {
+/* 复用 Login 页同款样式 */
+.auth-page {
   display: flex;
-  justify-content: center;
-  align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--el-bg-color);
 }
-.register-card {
-  width: 400px;
-  padding: 20px;
+.brand-side {
+  flex: 1.2;
+  position: relative;
+  background: var(--taiji-gradient-hero);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  overflow: hidden;
 }
-.register-card h2 {
+.brand-content {
+  position: relative;
+  z-index: 2;
   text-align: center;
-  margin-bottom: 30px;
-  color: #303133;
+  padding: 40px;
 }
-.register-btn {
-  width: 100%;
+.brand-logo {
+  width: 96px;
+  height: 96px;
+  filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.3));
+  animation: spin 24s linear infinite;
 }
-.login-link {
-  text-align: center;
-  margin-top: 10px;
-  color: #909399;
+.brand-title {
+  font-size: 56px;
+  font-weight: 700;
+  letter-spacing: 8px;
+  margin: 16px 0 8px;
+  background: linear-gradient(135deg, #fff 0%, #d4a017 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
-.login-link a {
-  color: #409eff;
-  text-decoration: none;
+.brand-slogan { font-size: 16px; letter-spacing: 4px; opacity: 0.9; margin: 0 0 24px; }
+.brand-desc { font-size: 13px; opacity: 0.6; letter-spacing: 1px; }
+.brand-decoration { position: absolute; inset: 0; pointer-events: none; }
+.circle { position: absolute; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.1); }
+.circle-1 { width: 480px; height: 480px; top: -120px; right: -120px; }
+.circle-2 { width: 320px; height: 320px; bottom: -80px; left: -80px; }
+.circle-3 { width: 200px; height: 200px; top: 50%; left: 60%; opacity: 0.5; }
+
+.form-side {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+.auth-card { width: 100%; max-width: 380px; border: none; background: transparent; }
+.auth-card :deep(.el-card__body) { padding: 0; }
+.auth-title { font-size: 28px; font-weight: 600; margin: 0 0 8px; color: var(--el-text-color-primary); }
+.auth-subtitle { font-size: 14px; color: var(--el-text-color-secondary); margin: 0 0 32px; }
+.auth-btn { width: 100%; letter-spacing: 4px; font-weight: 500; }
+.auth-footer { text-align: center; margin-top: 16px; font-size: 14px; color: var(--el-text-color-secondary); }
+.auth-footer a { color: var(--taiji-accent); text-decoration: none; font-weight: 500; margin-left: 4px; }
+.auth-footer a:hover { text-decoration: underline; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 768px) {
+  .brand-side { display: none; }
+  .form-side { flex: 1; }
 }
 </style>

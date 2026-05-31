@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- 纯净太极图：白+黑，无渐变背景，适合在彩色顶栏使用 -->
+  <g transform="translate(50,50)">
+    <!-- 整圆白 -->
+    <circle cx="0" cy="0" r="46" fill="currentColor" opacity="0.08"/>
+    <circle cx="0" cy="0" r="46" fill="none" stroke="currentColor" stroke-width="2"/>
+    <!-- 左半白 -->
+    <path d="M 0,-46 A 46,46 0 0 0 0,46 A 23,23 0 0 0 0,0 A 23,23 0 0 1 0,-46 Z" fill="#f4f1ea"/>
+    <!-- 右半黑 -->
+    <path d="M 0,-46 A 46,46 0 0 1 0,46 A 23,23 0 0 1 0,0 A 23,23 0 0 0 0,-46 Z" fill="#1a1a1a"/>
+    <!-- 上眼 -->
+    <circle cx="0" cy="-23" r="6" fill="#f4f1ea"/>
+    <!-- 下眼 -->
+    <circle cx="0" cy="23" r="6" fill="#1a1a1a"/>
+  </g>
+</svg>

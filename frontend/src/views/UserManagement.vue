@@ -1,8 +1,13 @@
 <template>
   <div class="user-management">
     <div class="top-bar">
-      <h2>用户管理</h2>
-      <el-button type="primary" @click="openCreateDialog">+ 添加用户</el-button>
+      <div class="page-title">
+        <el-icon class="page-icon"><UserFilled /></el-icon>
+        <h2>用户管理</h2>
+      </div>
+      <el-button type="primary" @click="openCreateDialog">
+        <el-icon><Plus /></el-icon>&nbsp;添加用户
+      </el-button>
     </div>
 
     <!-- 用户表格 -->
@@ -203,7 +208,10 @@ onMounted(fetchUsers)
 </script>
 
 <style scoped>
-.user-management { max-width: 1100px; }
+.user-management { max-width: 1200px; margin: 0 auto; }
 .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+.page-title { display: flex; align-items: center; gap: 10px; }
+.page-title h2 { margin: 0; font-weight: 600; color: var(--el-text-color-primary); }
+.page-icon { font-size: 22px; color: var(--taiji-accent); }
 .pagination { margin-top: 16px; justify-content: center; }
 </style>

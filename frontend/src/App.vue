@@ -4,17 +4,59 @@
       <!-- 顶栏 -->
       <el-header class="app-header">
         <div class="header-left">
-          <span class="collapse-btn" @click="collapsed = !collapsed">☰</span>
-          <span class="logo">☯ 太极</span>
+          <el-icon class="collapse-btn" @click="collapsed = !collapsed">
+            <component :is="collapsed ? 'Expand' : 'Fold'" />
+          </el-icon>
+          <div class="brand">
+            <img src="./assets/taiji-logo.svg" alt="taiji" class="brand-logo" />
+            <span class="brand-text">太极</span>
+          </div>
         </div>
+
         <div class="header-right">
-          <span class="username">{{ authStore.user?.username }}</span>
-          <el-button text @click="authStore.logout()">退出</el-button>
+          <!-- 主题切换 -->
+          <el-tooltip :content="isDark ? '切换为浅色' : '切换为深色'" placement="bottom">
+            <el-icon class="header-icon" @click="toggleTheme">
+              <component :is="isDark ? 'Sunny' : 'Moon'" />
+            </el-icon>
+          </el-tooltip>
+
+          <!-- 通知（占位） -->
+          <el-tooltip content="暂无新通知" placement="bottom">
+            <el-badge :is-dot="false" class="header-icon-wrap">
+              <el-icon class="header-icon"><Bell /></el-icon>
+            </el-badge>
+          </el-tooltip>
+
+          <!-- 用户菜单 -->
+          <el-dropdown trigger="click" @command="handleCommand">
+            <div class="user-trigger">
+              <el-avatar :size="32" class="user-avatar">
+                {{ avatarInitial }}
+              </el-avatar>
+              <span class="username">{{ authStore.user?.username }}</span>
+              <el-icon class="caret"><ArrowDown /></el-icon>
+            </div>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item disabled>
+                  <span class="dropdown-role">{{ authStore.user?.role === 'admin' ? '管理员' : '普通用户' }}</span>
+                </el-dropdown-item>
+                <el-dropdown-item divided command="settings">
+                  <el-icon><Setting /></el-icon> 个人设置
+                </el-dropdown-item>
+                <el-dropdown-item command="logout">
+                  <el-icon><SwitchButton /></el-icon> 退出登录
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
       </el-header>
+
       <el-container>
         <!-- 侧边栏 -->
-        <el-aside :width="collapsed ? '64px' : '200px'" class="app-aside">
+        <el-aside :width="collapsed ? '64px' : '210px'" class="app-aside">
           <el-menu
             :default-active="currentRoute"
             :collapse="collapsed"
@@ -22,109 +64,242 @@
             class="side-menu"
           >
             <el-menu-item index="/">
-              <span class="menu-icon">🏠</span>
+              <el-icon><HomeFilled /></el-icon>
               <template #title>主页</template>
             </el-menu-item>
             <el-menu-item index="/tasks">
-              <span class="menu-icon">📋</span>
+              <el-icon><Tickets /></el-icon>
               <template #title>任务管理</template>
             </el-menu-item>
             <el-menu-item index="/users">
-              <span class="menu-icon">👥</span>
+              <el-icon><User /></el-icon>
               <template #title>用户管理</template>
             </el-menu-item>
             <el-menu-item index="/settings">
-              <span class="menu-icon">⚙️</span>
+              <el-icon><Tools /></el-icon>
               <template #title>通用设置</template>
             </el-menu-item>
           </el-menu>
+          <div v-if="!collapsed" class="aside-footer">
+            <span>☯ Taiji v0.1</span>
+          </div>
         </el-aside>
+
         <!-- 主内容区 -->
         <el-main class="app-main">
-          <router-view />
+          <router-view v-slot="{ Component }">
+            <transition name="fade-slide" mode="out-in">
+              <component :is="Component" />
+            </transition>
+          </router-view>
         </el-main>
       </el-container>
     </el-container>
-    <router-view v-else />
+
+    <router-view v-else v-slot="{ Component }">
+      <transition name="fade-slide" mode="out-in">
+        <component :is="Component" />
+      </transition>
+    </router-view>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 
 const route = useRoute()
+const router = useRouter()
 const authStore = useAuthStore()
-const collapsed = ref(false)
+
+const collapsed = ref(window.innerWidth < 900)
+const isDark = ref(document.documentElement.classList.contains('dark'))
 
 const isLoggedIn = computed(() => authStore.isLoggedIn)
 const currentRoute = computed(() => route.path)
+const avatarInitial = computed(() => {
+  const name = authStore.user?.username || '?'
+  return name.charAt(0).toUpperCase()
+})
+
+function toggleTheme() {
+  isDark.value = !isDark.value
+  document.documentElement.classList.toggle('dark', isDark.value)
+  localStorage.setItem('taiji-theme', isDark.value ? 'dark' : 'light')
+}
+
+function handleCommand(cmd) {
+  if (cmd === 'logout') {
+    authStore.logout()
+  } else if (cmd === 'settings') {
+    router.push('/settings')
+  }
+}
+
+// 响应式：小屏自动折叠
+function handleResize() {
+  if (window.innerWidth < 900) {
+    collapsed.value = true
+  }
+}
+onMounted(() => window.addEventListener('resize', handleResize))
+onUnmounted(() => window.removeEventListener('resize', handleResize))
 </script>
 
 <style>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-body {
-  font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Microsoft YaHei', sans-serif;
-}
 .app-layout {
   height: 100vh;
 }
+
+/* ─── 顶栏 ───────────────────────────────── */
 .app-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #fff;
-  border-bottom: 1px solid #e4e7ed;
-  padding: 0 20px;
-  height: 56px;
+  background: var(--el-bg-color);
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  padding: 0 24px;
+  height: 60px;
+  box-shadow: var(--taiji-shadow-sm);
+  z-index: 10;
 }
 .header-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 20px;
 }
 .collapse-btn {
-  font-size: 18px;
+  font-size: 20px;
   cursor: pointer;
-  color: #606266;
-  user-select: none;
+  color: var(--el-text-color-secondary);
+  transition: color 0.2s, transform 0.2s;
 }
 .collapse-btn:hover {
-  color: #409eff;
+  color: var(--el-color-primary);
+  transform: scale(1.1);
 }
-.logo {
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.brand-logo {
+  width: 28px;
+  height: 28px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+.brand-text {
   font-size: 18px;
-  font-weight: bold;
-  color: #409eff;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--el-text-color-primary);
 }
+
 .header-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 18px;
+}
+.header-icon,
+.header-icon-wrap .header-icon {
+  font-size: 18px;
+  color: var(--el-text-color-secondary);
+  cursor: pointer;
+  transition: color 0.2s, transform 0.2s;
+}
+.header-icon:hover {
+  color: var(--taiji-accent);
+  transform: scale(1.1);
+}
+.user-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--taiji-radius-sm);
+  transition: background 0.2s;
+}
+.user-trigger:hover {
+  background: var(--el-fill-color-light);
+}
+.user-avatar {
+  background: var(--taiji-gradient-accent);
+  color: #fff;
+  font-weight: 600;
 }
 .username {
-  color: #606266;
+  color: var(--el-text-color-primary);
   font-size: 14px;
+  font-weight: 500;
 }
+.caret {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+.dropdown-role {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+/* ─── 侧边栏 ─────────────────────────────── */
 .app-aside {
-  background: #fff;
-  border-right: 1px solid #e4e7ed;
+  background: var(--el-bg-color);
+  border-right: 1px solid var(--el-border-color-lighter);
   transition: width 0.3s;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 .side-menu {
   border-right: none !important;
-  height: 100%;
+  flex: 1;
 }
-.side-menu .menu-icon { font-size: 16px; }
+.side-menu .el-menu-item {
+  height: 48px;
+  line-height: 48px;
+  margin: 4px 8px;
+  border-radius: var(--taiji-radius-sm);
+}
+.side-menu .el-menu-item.is-active {
+  background: var(--el-color-primary-light-9);
+  color: var(--taiji-accent);
+  font-weight: 500;
+}
+.side-menu .el-menu-item.is-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  background: var(--taiji-accent);
+  border-radius: 0 2px 2px 0;
+}
+.aside-footer {
+  padding: 12px 16px;
+  color: var(--el-text-color-placeholder);
+  font-size: 12px;
+  text-align: center;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+/* ─── 主内容区 ───────────────────────────── */
 .app-main {
-  background: #f5f7fa;
-  min-height: calc(100vh - 56px);
+  background: var(--el-bg-color-page);
+  min-height: calc(100vh - 60px);
   padding: 24px;
+  overflow-y: auto;
+}
+
+/* ─── 响应式 ─────────────────────────────── */
+@media (max-width: 768px) {
+  .app-header { padding: 0 12px; }
+  .username { display: none; }
+  .header-right { gap: 12px; }
+  .app-main { padding: 12px; }
 }
 </style>

@@ -1,0 +1,127 @@
+/* ────────────────────────────────────────────────
+   太极 (Taiji) 主题系统
+   基调：墨黑 + 朱砂 + 玉白（国风克制）
+   ──────────────────────────────────────────────── */
+
+:root {
+  /* 品牌色 */
+  --taiji-primary: #1a1a1a;          /* 墨黑 */
+  --taiji-accent: #c0392b;           /* 朱砂红（点缀） */
+  --taiji-accent-soft: #e74c3c;
+  --taiji-ink: #2c3e50;              /* 深蓝灰 */
+  --taiji-jade: #16a085;             /* 玉绿 */
+  --taiji-gold: #d4a017;             /* 暖金 */
+
+  /* 渐变 */
+  --taiji-gradient-brand: linear-gradient(135deg, #1e1e2e 0%, #2c3e50 100%);
+  --taiji-gradient-accent: linear-gradient(135deg, #c0392b 0%, #d4a017 100%);
+  --taiji-gradient-hero: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+
+  /* 表面 / 卡片阴影 */
+  --taiji-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.06);
+  --taiji-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --taiji-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.08), 0 4px 8px rgba(0, 0, 0, 0.04);
+  --taiji-shadow-hover: 0 8px 24px rgba(44, 62, 80, 0.12);
+
+  /* 圆角 */
+  --taiji-radius-sm: 6px;
+  --taiji-radius-md: 10px;
+  --taiji-radius-lg: 16px;
+
+  /* Element Plus 主题色覆盖 */
+  --el-color-primary: var(--taiji-ink);
+  --el-color-primary-light-3: #4a6278;
+  --el-color-primary-light-5: #6b7f93;
+  --el-color-primary-light-7: #a8b5c2;
+  --el-color-primary-light-8: #c8d2db;
+  --el-color-primary-light-9: #eaeef2;
+  --el-color-primary-dark-2: #1f2d3a;
+
+  --el-color-danger: var(--taiji-accent);
+  --el-color-success: var(--taiji-jade);
+  --el-color-warning: var(--taiji-gold);
+
+  --el-border-radius-base: var(--taiji-radius-sm);
+}
+
+/* ─── 暗色模式 ──────────────────────────────────── */
+html.dark {
+  --taiji-primary: #f0f0f0;
+  --taiji-ink: #5a8fb8;
+
+  --taiji-gradient-brand: linear-gradient(135deg, #0d1117 0%, #1a2332 100%);
+  --taiji-gradient-hero: linear-gradient(135deg, #000000 0%, #16222a 50%, #2c5364 100%);
+
+  --taiji-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --taiji-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --taiji-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
+  --taiji-shadow-hover: 0 8px 24px rgba(90, 143, 184, 0.2);
+
+  --el-color-primary: #5a8fb8;
+  --el-color-primary-light-3: #4a7596;
+  --el-color-primary-light-5: #3a5d78;
+  --el-color-primary-light-7: #2c4659;
+  --el-color-primary-light-8: #243845;
+  --el-color-primary-light-9: #1a2832;
+}
+
+/* ─── 全局重置 ──────────────────────────────────── */
+* {
+  box-sizing: border-box;
+}
+html, body {
+  margin: 0;
+  padding: 0;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei',
+               'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--el-bg-color);
+  color: var(--el-text-color-primary);
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--el-border-color);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--el-border-color-darker);
+}
+
+/* ─── 路由切换过渡 ──────────────────────────────── */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* ─── 卡片 hover 增强 ──────────────────────────── */
+.el-card.is-hover-shadow:hover {
+  box-shadow: var(--taiji-shadow-hover) !important;
+  transform: translateY(-2px);
+  transition: all 0.25s ease;
+}
+
+/* ─── 通用工具类 ──────────────────────────────── */
+.taiji-gradient-text {
+  background: var(--taiji-gradient-accent);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
