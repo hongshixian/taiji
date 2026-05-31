@@ -3,10 +3,12 @@
 设计：
 - @require_permission(*codes) 是基础装饰器，从 JWT claim 读 perms 列表判断
 - @admin_required 是兼容层，等价于 @require_permission("user:read")（admin 才有此权限）
-- @superuser_required 预留给阶段三（多租户的平台运维）
+- @superuser_required 用于平台运维（可跨 tenant 操作）
 """
 
 from functools import wraps
+from contextlib import contextmanager
+from flask import g
 from flask_jwt_extended import get_jwt
 
 from app.utils.errors import BusinessError, ErrorCode
@@ -46,3 +48,37 @@ def admin_required(fn):
             raise BusinessError(ErrorCode.PERMISSION_DENIED)
         return fn(*args, **kwargs)
     return wrapper
+
+
+def superuser_required(fn):
+    """要求当前用户为平台超级管理员（is_superuser=true）
+
+    用于 superadmin 蓝图——管理 tenants、跨 tenant 操作。
+    """
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        claims = get_jwt()
+        if not claims.get("is_superuser", False):
+            raise BusinessError(
+                ErrorCode.PERMISSION_DENIED,
+                "需要平台超级管理员权限",
+            )
+        return fn(*args, **kwargs)
+    return wrapper
+
+
+@contextmanager
+def bypass_tenant_filter():
+    """临时绕过 tenant filter — 用于需要跨 tenant 查询的内部场景
+
+    用法:
+        with bypass_tenant_filter():
+            all_users = User.query.all()  # 看所有 tenant 的用户
+    """
+    old = getattr(g, "bypass_tenant_filter", False)
+    g.bypass_tenant_filter = True
+    try:
+        yield
+    finally:
+        g.bypass_tenant_filter = old
+

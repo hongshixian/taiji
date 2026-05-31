@@ -267,7 +267,9 @@ class TestRBAC:
         # admin（直接走 service，避免走 register-then-promote 路径）
         with app.app_context():
             from app.services.auth_service import create_user
-            create_user("rbacadmin", "rbacadmin@test.com", "adminpass", "admin")
+            from tests.conftest import DEFAULT_TENANT_ID
+            create_user("rbacadmin", "rbacadmin@test.com", "adminpass", "admin",
+                        tenant_id=DEFAULT_TENANT_ID)
         resp = client.post("/api/v1/auth/login",
                            json={"username": "rbacadmin", "password": "adminpass"})
         self.admin_token = resp.get_json()["data"]["access_token"]

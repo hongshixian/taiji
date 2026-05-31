@@ -22,37 +22,84 @@ def _revoke_marker() -> datetime:
 
 # ─── 认证 ────────────────────────────────
 
-def register_user(username: str, email: str, password: str) -> User:
-    if User.query.filter_by(username=username).first():
-        raise BusinessError(ErrorCode.USER_EXISTS)
-    if User.query.filter_by(email=email).first():
-        raise BusinessError(ErrorCode.EMAIL_EXISTS)
+def register_user(username: str, email: str, password: str,
+                  tenant_slug: str = "guest") -> User:
+    """注册用户
 
-    role_id = _role_id_by_name("user")
-    user = User(
-        username=username,
-        email=email,
-        password_hash=generate_password_hash(password),
-        role="user",
-        role_id=role_id,
-    )
-    db.session.add(user)
-    db.session.commit()
-    return user
+    Args:
+        tenant_slug: 默认进 guest 租户（公开注册不应进 default）
+    """
+    from app.models.tenant import Tenant
+    from flask import g
+
+    # 公开注册需要绕过 tenant filter 查 tenant + 检查用户名冲突
+    g.bypass_tenant_filter = True
+    try:
+        tenant = Tenant.query.filter_by(slug=tenant_slug).first()
+        if not tenant:
+            raise BusinessError(ErrorCode.VALIDATION_ERROR, f"租户 {tenant_slug} 不存在")
+
+        # 同 tenant 内 username/email 唯一
+        if User.query.filter_by(tenant_id=tenant.id, username=username).first():
+            raise BusinessError(ErrorCode.USER_EXISTS)
+        if User.query.filter_by(tenant_id=tenant.id, email=email).first():
+            raise BusinessError(ErrorCode.EMAIL_EXISTS)
+
+        role_id = _role_id_by_name("user")
+        user = User(
+            tenant_id=tenant.id,
+            username=username,
+            email=email,
+            password_hash=generate_password_hash(password),
+            role="user",
+            role_id=role_id,
+        )
+        db.session.add(user)
+        db.session.commit()
+        return user
+    finally:
+        g.bypass_tenant_filter = False
 
 
-def login_user(username: str, password: str) -> dict:
-    user = User.query.filter_by(username=username).first()
+def login_user(username: str, password: str, tenant_slug: str | None = None) -> dict:
+    """登录
+
+    Args:
+        username: 用户名
+        password: 密码
+        tenant_slug: 租户 slug；不提供则在所有 tenant 中按 username 查（兼容旧接口）
+    """
+    from app.models.tenant import Tenant
+    from flask import g
+
+    # 登录是公开接口，需要绕过 tenant filter 才能查到任何 tenant 下的用户
+    g.bypass_tenant_filter = True
+    try:
+        if tenant_slug:
+            tenant = Tenant.query.filter_by(slug=tenant_slug).first()
+            if not tenant:
+                raise BusinessError(ErrorCode.INVALID_CREDENTIAL)
+            user = User.query.filter_by(tenant_id=tenant.id, username=username).first()
+        else:
+            # 兼容：未指定 tenant 时，按 username 查（多 tenant 重名时只取第一个）
+            user = User.query.filter_by(username=username).first()
+    finally:
+        g.bypass_tenant_filter = False
+
     if not user or not check_password_hash(user.password_hash, password):
         raise BusinessError(ErrorCode.INVALID_CREDENTIAL)
     if not user.is_active:
         raise BusinessError(ErrorCode.ACCOUNT_DISABLED)
 
-    # JWT additional_claims：把权限码列表塞进 access token，避免每请求查 DB
-    # 改密 / 改角色时 tokens_revoked_at 会令旧 token 失效，所以 perms 缓存安全
-    claims = {"perms": user.permissions}
+    # JWT additional_claims：perms / tenant_id / is_superuser
+    # 改密 / 改角色时 tokens_revoked_at 会令旧 token 失效，所以 claim 缓存安全
+    claims = {
+        "perms": user.permissions,
+        "tenant_id": user.tenant_id,
+        "is_superuser": user.is_superuser,
+    }
     access_token = create_access_token(identity=str(user.id), additional_claims=claims)
-    refresh_token = create_refresh_token(identity=str(user.id))
+    refresh_token = create_refresh_token(identity=str(user.id), additional_claims=claims)
 
     return {
         "access_token": access_token,
@@ -89,13 +136,23 @@ def list_users(page: int, per_page: int) -> tuple[list, int]:
     return [user_to_dict(u) for u in pagination.items], pagination.total
 
 
-def create_user(username: str, email: str, password: str, role: str) -> User:
-    if User.query.filter_by(username=username).first():
+def create_user(username: str, email: str, password: str, role: str,
+                tenant_id: int | None = None) -> User:
+    """admin 创建用户（默认在当前 request 的 tenant 内）"""
+    from flask import g
+
+    if tenant_id is None:
+        tenant_id = getattr(g, "tenant_id", None)
+    if tenant_id is None:
+        raise BusinessError(ErrorCode.VALIDATION_ERROR, "未指定租户")
+
+    if User.query.filter_by(tenant_id=tenant_id, username=username).first():
         raise BusinessError(ErrorCode.USER_EXISTS)
-    if User.query.filter_by(email=email).first():
+    if User.query.filter_by(tenant_id=tenant_id, email=email).first():
         raise BusinessError(ErrorCode.EMAIL_EXISTS)
 
     user = User(
+        tenant_id=tenant_id,
         username=username,
         email=email,
         password_hash=generate_password_hash(password),
@@ -166,17 +223,33 @@ def delete_user(user_id: int, current_user_id: int):
     db.session.commit()
 
 
-def seed_admin(username: str, email: str, password: str):
-    """确保存在管理员账号（不存在则创建）"""
+def seed_admin(username: str, email: str, password: str,
+               tenant_slug: str = "default", is_superuser: bool = True):
+    """确保存在管理员账号（不存在则创建）
+
+    默认在 default 租户里建 admin 并设为 superuser，保证有人能管 tenants。
+
+    注：这个函数被 entrypoint 在非 request 上下文调用，hook 会自动跳过 tenant filter。
+    """
+    from app.models.tenant import Tenant
+
     admin = User.query.filter_by(role="admin").first()
     if admin:
         return admin
+
+    tenant = Tenant.query.filter_by(slug=tenant_slug).first()
+    if not tenant:
+        raise BusinessError(ErrorCode.VALIDATION_ERROR,
+                            f"租户 {tenant_slug} 不存在（请先跑迁移）")
+
     admin = User(
+        tenant_id=tenant.id,
         username=username,
         email=email,
         password_hash=generate_password_hash(password),
         role="admin",
         role_id=_role_id_by_name("admin"),
+        is_superuser=is_superuser,
     )
     db.session.add(admin)
     db.session.commit()

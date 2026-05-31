@@ -25,6 +25,8 @@ analyze_bp = Blueprint("analyze", __name__)
 @limiter.limit("30 per minute")
 def submit_analysis():
     """提交网页分析任务 — 限流 30次/分钟"""
+    from flask import g
+
     user_id = int(get_jwt_identity())
 
     data = request.get_json()
@@ -38,8 +40,8 @@ def submit_analysis():
     # 创建任务
     task = create_task(user_id, parsed["url"])
 
-    # 提交到 Celery
-    analyze_webpage.delay(task.id)
+    # 提交到 Celery（显式传 tenant_id，跨进程恢复上下文）
+    analyze_webpage.delay(task.id, g.tenant_id)
 
     return created(task_to_dict(task), message="任务已提交")
 

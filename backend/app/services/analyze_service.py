@@ -16,16 +16,15 @@ REQUEST_TIMEOUT = 30
 
 
 def create_task(user_id: int, url: str) -> AnalyzeTask:
-    """创建分析任务
+    """创建分析任务（从 g.tenant_id 取租户）"""
+    from flask import g
 
-    Args:
-        user_id: 用户 ID
-        url: 目标网页 URL
+    tenant_id = getattr(g, "tenant_id", None)
+    if tenant_id is None:
+        raise ValueError("未指定租户上下文（缺少 g.tenant_id）")
 
-    Returns:
-        AnalyzeTask: 新创建的任务
-    """
     task = AnalyzeTask(
+        tenant_id=tenant_id,
         user_id=user_id,
         url=url,
         status=TaskStatus.PENDING,
@@ -213,9 +212,9 @@ def retry_task(task_id: int, user_id: int) -> AnalyzeTask | None:
     task.completed_at = None
     db.session.commit()
 
-    # 重新提交到 Celery
+    # 重新提交到 Celery（带 tenant_id）
     from app.tasks.analyze_task import analyze_webpage
-    analyze_webpage.delay(task.id)
+    analyze_webpage.delay(task.id, task.tenant_id)
 
     logger.info(f"任务 {task.id} 已重新提交")
     return task

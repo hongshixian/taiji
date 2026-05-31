@@ -1,10 +1,10 @@
 """Flask 应用工厂"""
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, g, request
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-from flask_jwt_extended import JWTManager
+from flask_jwt_extended import JWTManager, verify_jwt_in_request, get_jwt
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
@@ -72,10 +72,36 @@ def create_app(config_obj=Config):
     from app.api.auth import auth_bp
     from app.api.analyze import analyze_bp
     from app.api.admin import admin_bp
+    from app.api.superadmin import superadmin_bp
 
     flask_app.register_blueprint(auth_bp, url_prefix=f"{API_V1}/auth")
     flask_app.register_blueprint(analyze_bp, url_prefix=f"{API_V1}/analyze")
     flask_app.register_blueprint(admin_bp, url_prefix=f"{API_V1}/admin")
+    flask_app.register_blueprint(superadmin_bp, url_prefix=f"{API_V1}/superadmin")
+
+    # ─── 多租户：从 JWT 装 g.tenant_id 和 g.is_superuser ───
+    @flask_app.before_request
+    def _load_tenant_context():
+        """所有请求统一从 JWT 读 tenant_id / is_superuser 存到 g
+
+        无 JWT / JWT 无效的请求（如 register / login / health）会直接跳过，
+        g.tenant_id 不会被设置，后续 query event hook 也不会自动 filter。
+        """
+        g.tenant_id = None
+        g.is_superuser = False
+        g.bypass_tenant_filter = False
+        try:
+            verify_jwt_in_request(optional=True)
+            claims = get_jwt()
+            if claims:
+                g.tenant_id = claims.get("tenant_id")
+                g.is_superuser = claims.get("is_superuser", False)
+                # 超级管理员默认绕过 tenant filter（可看所有 tenant 数据）
+                if g.is_superuser:
+                    g.bypass_tenant_filter = True
+        except Exception:
+            # JWT 错误由各 endpoint 的 @jwt_required 处理；这里只是尝试提取
+            pass
 
     # 注册 JWT 错误处理器（使用业务错误码）
     @jwt.expired_token_loader

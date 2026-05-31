@@ -11,11 +11,23 @@ from app import create_app, db
 from config import TestConfig
 
 
-def _seed_rbac():
-    """测试 DB 用 db.create_all() 建表，不跑 migration，所以这里 seed RBAC 系统数据。
+# 测试中使用的固定租户 ID（与 _seed_tenants 中保持一致）
+DEFAULT_TENANT_ID = 1
+GUEST_TENANT_ID = 2
 
-    与生产的 c3d4e5f6a7b8_add_rbac.py migration 保持一致。
-    """
+
+def _seed_tenants():
+    """seed 系统租户（default + guest），与 d4e5f6a7b8c9 migration 同步"""
+    from app.models.tenant import Tenant
+    db.session.add(Tenant(id=DEFAULT_TENANT_ID, slug="default", name="默认组织",
+                          plan="enterprise", is_active=True, is_system=True))
+    db.session.add(Tenant(id=GUEST_TENANT_ID, slug="guest", name="访客租户",
+                          plan="free", is_active=True, is_system=True))
+    db.session.commit()
+
+
+def _seed_rbac():
+    """seed RBAC 系统数据，与 c3d4e5f6a7b8 migration 同步"""
     from app.models.role import Role, Permission
     from app.permissions import (
         PERMISSIONS_REGISTRY, SYSTEM_ROLES, SYSTEM_ROLE_DESCRIPTIONS,
@@ -24,14 +36,10 @@ def _seed_rbac():
     # 权限
     for code, desc in PERMISSIONS_REGISTRY.items():
         db.session.add(Permission(code=code, description=desc))
-
-    # 角色 + 关联权限
-    perm_by_code = {code: Permission(code=code, description=desc)
-                    for code, desc in PERMISSIONS_REGISTRY.items()}
-    # 重新查询（前一步 add 的对象）
     db.session.flush()
     perm_map = {p.code: p for p in Permission.query.all()}
 
+    # 角色 + 关联权限
     for name, codes in SYSTEM_ROLES.items():
         role = Role(name=name,
                     description=SYSTEM_ROLE_DESCRIPTIONS.get(name, ""),
@@ -49,6 +57,7 @@ def app():
     app = create_app(config_obj=TestConfig)
     with app.app_context():
         db.create_all()
+        _seed_tenants()
         _seed_rbac()
     yield app
     with app.app_context():

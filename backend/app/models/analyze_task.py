@@ -3,6 +3,7 @@
 import enum
 from datetime import datetime, timezone
 from app import db
+from app.models._tenant_mixin import TenantMixin
 
 
 class TaskStatus(str, enum.Enum):
@@ -13,8 +14,8 @@ class TaskStatus(str, enum.Enum):
     FAILED = "failed"
 
 
-class AnalyzeTask(db.Model):
-    """网页分析任务记录"""
+class AnalyzeTask(db.Model, TenantMixin):
+    """网页分析任务记录（多租户）"""
 
     __tablename__ = "analyze_tasks"
 
@@ -37,4 +38,4 @@ class AnalyzeTask(db.Model):
     completed_at = db.Column(db.DateTime)
 
     def __repr__(self):
-        return f"<AnalyzeTask {self.id} [{self.status}] {self.url[:50]}>"
+        return f"<AnalyzeTask {self.id}@tenant={self.tenant_id} [{self.status}] {self.url[:50]}>"

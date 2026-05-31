@@ -144,13 +144,16 @@ class TestExecuteAnalysis:
         """每个测试前创建用户和任务"""
         with app.app_context():
             from app import db
-            user = User(username="taskuser", email="task@test.com",
+            from tests.conftest import DEFAULT_TENANT_ID
+            user = User(tenant_id=DEFAULT_TENANT_ID,
+                        username="taskuser", email="task@test.com",
                         password_hash="hash")
             db.session.add(user)
             db.session.commit()
             self.user_id = user.id
 
-            task = AnalyzeTask(user_id=user.id, url="https://example.com",
+            task = AnalyzeTask(tenant_id=DEFAULT_TENANT_ID,
+                               user_id=user.id, url="https://example.com",
                                status=TaskStatus.PENDING)
             db.session.add(task)
             db.session.commit()

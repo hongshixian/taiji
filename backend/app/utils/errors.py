@@ -34,6 +34,12 @@ class ErrorCode:
     SYSTEM_ROLE_PROTECTED = ErrCode(10010, "系统角色受保护，不可修改")
     ROLE_IN_USE = ErrCode(10011, "角色仍在使用中，不可删除")
 
+    # ── 多租户 ───────────────────────────────
+    TENANT_NOT_FOUND = ErrCode(11001, "租户不存在", http=404)
+    TENANT_EXISTS = ErrCode(11002, "租户 slug 已存在")
+    SYSTEM_TENANT_PROTECTED = ErrCode(11003, "系统租户受保护，不可修改")
+    TENANT_IN_USE = ErrCode(11004, "租户仍在使用中，不可删除")
+
     # ── 任务模块 ──────────────────────────────
     TASK_NOT_FOUND = ErrCode(20001, "任务不存在", http=404)
     INVALID_URL = ErrCode(20002, "URL 格式错误")
