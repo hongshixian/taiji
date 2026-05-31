@@ -183,15 +183,25 @@ function formatTime(iso) {
 
 onMounted(async () => {
   try {
-    const { data } = await listAnalyses(1, 1000)
-    const items = data.data.items
-    stats.value.total = data.data.total
-    stats.value.success = items.filter(i => i.status === 'success').length
-    stats.value.running = items.filter(i => i.status === 'running' || i.status === 'pending').length
-    stats.value.failed = items.filter(i => i.status === 'failed').length
-    recentTasks.value = items.slice(0, 6)
-  } catch {
-    // 忽略
+    // 后端 per_page 上限 100；分页累加获取（最多 5 页 = 500 条已足够首页统计）
+    const PER_PAGE = 100
+    const MAX_PAGES = 5
+    let allItems = []
+    let total = 0
+    for (let page = 1; page <= MAX_PAGES; page++) {
+      const { data } = await listAnalyses(page, PER_PAGE)
+      total = data.data.total
+      allItems = allItems.concat(data.data.items)
+      if (allItems.length >= total || data.data.items.length < PER_PAGE) break
+    }
+    stats.value.total = total
+    stats.value.success = allItems.filter(i => i.status === 'success').length
+    stats.value.running = allItems.filter(i => i.status === 'running' || i.status === 'pending').length
+    stats.value.failed = allItems.filter(i => i.status === 'failed').length
+    recentTasks.value = allItems.slice(0, 6)
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('Home stats fetch failed:', err?.response?.data?.message || err)
   }
 })
 </script>
