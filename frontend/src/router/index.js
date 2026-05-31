@@ -50,6 +50,12 @@ const routes = [
     component: () => import('../views/Settings.vue'),
     meta: { requiresAuth: true },
   },
+  {
+    path: '/system-settings',
+    name: 'SystemSettings',
+    component: () => import('../views/SystemSettings.vue'),
+    meta: { requiresAuth: true, requiresSuperuser: true },
+  },
 ]
 
 const router = createRouter({

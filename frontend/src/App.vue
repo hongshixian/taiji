@@ -14,7 +14,7 @@
         </div>
 
         <div class="header-right">
-          <!-- 当前租户：superuser 可下拉切换；普通用户只读 -->
+          <!-- 当前租户 -->
           <TenantSwitcher />
 
           <!-- 主题切换 -->
@@ -88,6 +88,10 @@
               <el-icon><OfficeBuilding /></el-icon>
               <template #title>租户管理</template>
             </el-menu-item>
+            <el-menu-item index="/system-settings" v-if="authStore.isSuperuser">
+              <el-icon><Operation /></el-icon>
+              <template #title>系统设置</template>
+            </el-menu-item>
             <el-menu-item index="/settings">
               <el-icon><Tools /></el-icon>
               <template #title>通用设置</template>
@@ -143,7 +147,6 @@ const roleLabel = computed(() => {
   const u = authStore.user
   if (!u) return ''
   if (u.is_superuser) return '超级管理员'
-  if (u.role === 'admin') return '管理员'
   return u.role_name || u.role || '普通用户'
 })
 const roleTagType = computed(() => {

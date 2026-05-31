@@ -96,9 +96,6 @@ def create_app(config_obj=Config):
             if claims:
                 g.tenant_id = claims.get("tenant_id")
                 g.is_superuser = claims.get("is_superuser", False)
-                # 超级管理员默认绕过 tenant filter（可看所有 tenant 数据）
-                if g.is_superuser:
-                    g.bypass_tenant_filter = True
         except Exception:
             # JWT 错误由各 endpoint 的 @jwt_required 处理；这里只是尝试提取
             pass

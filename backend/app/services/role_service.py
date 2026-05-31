@@ -73,12 +73,12 @@ def delete_role(role_id: int):
     if role.is_system:
         raise BusinessError(ErrorCode.SYSTEM_ROLE_PROTECTED, "系统角色不可删除")
 
-    # 检查是否还有用户绑定该角色
-    from app.models.user import User
-    in_use = User.query.filter_by(role_id=role_id).first()
+    # 检查是否还有租户成员绑定该角色
+    from app.models.tenant_membership import TenantMembership
+    in_use = TenantMembership.query.filter_by(role_id=role_id).first()
     if in_use:
         raise BusinessError(ErrorCode.ROLE_IN_USE,
-                            f"角色仍在使用中（用户 {in_use.username} 等）")
+                            f"角色仍在使用中（成员身份 #{in_use.id} 等）")
 
     db.session.delete(role)
     db.session.commit()
@@ -104,8 +104,19 @@ def _set_role_permissions(role: Role, codes: list[str]):
 def _revoke_users_of_role(role_id: int):
     """角色权限变更后，把使用该角色的所有用户的 tokens_revoked_at 设为下一秒"""
     from app.models.user import User
+    from app.models.tenant_membership import TenantMembership
     from app.services.auth_service import _revoke_marker
 
     marker = _revoke_marker()
-    User.query.filter_by(role_id=role_id).update({"tokens_revoked_at": marker})
+    user_ids = [
+        row.user_id for row in db.session.query(TenantMembership.user_id)
+        .filter_by(role_id=role_id)
+        .distinct()
+        .all()
+    ]
+    if user_ids:
+        User.query.filter(User.id.in_(user_ids)).update(
+            {"tokens_revoked_at": marker},
+            synchronize_session=False,
+        )
     db.session.commit()

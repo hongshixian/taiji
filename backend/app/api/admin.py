@@ -10,6 +10,7 @@ from app.services.auth_service import (
     delete_user,
     get_user_by_id,
     user_to_dict,
+    get_current_membership,
 )
 from app.utils.decorators import require_permission
 from app.utils.roles import Role
@@ -37,7 +38,7 @@ def get_user(user_id):
     user = get_user_by_id(user_id)
     if not user:
         raise BusinessError(ErrorCode.USER_NOT_FOUND)
-    return ok(user_to_dict(user))
+    return ok(user_to_dict(user, get_current_membership(user_id)))
 
 
 @admin_bp.route("/users", methods=["POST"])
@@ -61,7 +62,7 @@ def add_user():
         raise BusinessError(ErrorCode.INVALID_ROLE)
 
     user = create_user(username, email, password, role)
-    return created(user_to_dict(user))
+    return created(user_to_dict(user, get_current_membership(user.id)))
 
 
 @admin_bp.route("/users/<int:user_id>", methods=["PUT"])
@@ -77,7 +78,7 @@ def edit_user(user_id):
         raise BusinessError(ErrorCode.INVALID_ROLE)
 
     user = update_user(user_id, data)
-    return ok(user_to_dict(user))
+    return ok(user_to_dict(user, get_current_membership(user_id)))
 
 
 @admin_bp.route("/users/<int:user_id>", methods=["DELETE"])

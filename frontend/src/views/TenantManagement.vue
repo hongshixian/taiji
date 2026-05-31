@@ -17,7 +17,7 @@
       show-icon
       style="margin-bottom: 16px;"
     >
-      作为超级管理员，你可以管理平台所有租户；切换"当前操作租户"请用顶栏的下拉。
+      作为超级管理员，你可以管理平台所有租户；只有已加入的租户可切换为当前操作租户。
     </el-alert>
 
     <!-- 租户表格 -->
@@ -51,11 +51,14 @@
       <el-table-column label="创建时间" width="170">
         <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="200" fixed="right">
+      <el-table-column label="操作" width="250" fixed="right">
         <template #default="{ row }">
           <el-button text type="primary" size="small" @click="handleSwitchTo(row)"
-                     :disabled="row.id === authStore.currentTenant?.id">
+                     :disabled="row.id === authStore.currentTenant?.id || !canSwitchTo(row)">
             切换
+          </el-button>
+          <el-button text type="primary" size="small" @click="openMembersDialog(row)">
+            成员
           </el-button>
           <el-button text type="primary" size="small" @click="openEditDialog(row)">
             编辑
@@ -101,6 +104,59 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 成员管理弹窗 -->
+    <el-dialog
+      v-model="membersDialogVisible"
+      :title="`成员管理 - ${memberTenant?.name || ''}`"
+      width="760px"
+      :close-on-click-modal="false"
+    >
+      <div class="member-add">
+        <el-input v-model="memberForm.identifier" placeholder="已注册用户的用户名或邮箱" />
+        <el-select v-model="memberForm.role" placeholder="角色">
+          <el-option
+            v-for="role in roleOptions"
+            :key="role.name"
+            :label="role.description || role.name"
+            :value="role.name"
+          />
+        </el-select>
+        <el-button type="primary" :loading="addingMember" @click="handleAddMember">
+          添加
+        </el-button>
+      </div>
+
+      <el-table :data="members" stripe v-loading="membersLoading">
+        <el-table-column prop="username" label="用户名" min-width="130" />
+        <el-table-column prop="email" label="邮箱" min-width="180" />
+        <el-table-column label="角色" width="130">
+          <template #default="{ row }">
+            <el-tag size="small" effect="plain">{{ row.role_name || row.role }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="超级管理员" width="110">
+          <template #default="{ row }">
+            <el-tag v-if="row.is_superuser" type="danger" size="small">是</el-tag>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="90">
+          <template #default="{ row }">
+            <el-tag :type="row.membership_active ? 'success' : 'danger'" size="small">
+              {{ row.membership_active ? '正常' : '禁用' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="100" fixed="right">
+          <template #default="{ row }">
+            <el-button text type="danger" size="small" @click="handleRemoveMember(row)">
+              移除
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-dialog>
   </div>
 </template>
 
@@ -109,7 +165,14 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '../stores/auth'
 import {
-  listTenants, createTenant, updateTenant, deleteTenant,
+  addTenantMember,
+  createTenant,
+  deleteTenant,
+  listSuperadminRoles,
+  listTenantMembers,
+  listTenants,
+  removeTenantMember,
+  updateTenant,
 } from '../api/superadmin'
 
 const authStore = useAuthStore()
@@ -121,12 +184,22 @@ const editMode = ref(false)
 const editTenantId = ref(null)
 const submitting = ref(false)
 const formRef = ref(null)
+const membersDialogVisible = ref(false)
+const memberTenant = ref(null)
+const members = ref([])
+const membersLoading = ref(false)
+const addingMember = ref(false)
+const roleOptions = ref([])
 
 const form = reactive({
   slug: '',
   name: '',
   plan: 'free',
   is_active: true,
+})
+const memberForm = reactive({
+  identifier: '',
+  role: 'user',
 })
 
 const rules = {
@@ -149,6 +222,10 @@ function planTagType(plan) {
   return { free: 'info', pro: 'warning', enterprise: 'danger' }[plan] || 'info'
 }
 
+function canSwitchTo(row) {
+  return (authStore.user?.memberships || []).some((m) => m.tenant_id === row.id && m.is_active)
+}
+
 async function fetchTenants() {
   loading.value = true
   try {
@@ -158,6 +235,15 @@ async function fetchTenants() {
     ElMessage.error(err.response?.data?.message || '加载租户失败')
   } finally {
     loading.value = false
+  }
+}
+
+async function fetchRoles() {
+  try {
+    const { data } = await listSuperadminRoles()
+    roleOptions.value = data.data || []
+  } catch (err) {
+    ElMessage.error(err.response?.data?.message || '加载角色失败')
   }
 }
 
@@ -245,7 +331,74 @@ async function handleSwitchTo(row) {
   }
 }
 
-onMounted(fetchTenants)
+function resetMemberForm() {
+  memberForm.identifier = ''
+  memberForm.role = 'user'
+}
+
+async function openMembersDialog(row) {
+  memberTenant.value = row
+  resetMemberForm()
+  membersDialogVisible.value = true
+  await fetchMembers()
+}
+
+async function fetchMembers() {
+  if (!memberTenant.value) return
+  membersLoading.value = true
+  try {
+    const { data } = await listTenantMembers(memberTenant.value.id)
+    members.value = data.data || []
+  } catch (err) {
+    ElMessage.error(err.response?.data?.message || '加载成员失败')
+  } finally {
+    membersLoading.value = false
+  }
+}
+
+async function handleAddMember() {
+  if (!memberTenant.value) return
+  if (!memberForm.identifier.trim()) {
+    ElMessage.warning('请输入用户名或邮箱')
+    return
+  }
+  addingMember.value = true
+  try {
+    await addTenantMember(memberTenant.value.id, {
+      identifier: memberForm.identifier.trim(),
+      role: memberForm.role,
+    })
+    ElMessage.success('已添加成员')
+    resetMemberForm()
+    await Promise.all([fetchMembers(), fetchTenants()])
+  } catch (err) {
+    ElMessage.error(err.response?.data?.message || '添加成员失败')
+  } finally {
+    addingMember.value = false
+  }
+}
+
+async function handleRemoveMember(row) {
+  if (!memberTenant.value) return
+  try {
+    await ElMessageBox.confirm(
+      `确定从租户「${memberTenant.value.name}」移除成员「${row.username}」吗？`,
+      '移除成员',
+      { type: 'warning', confirmButtonText: '移除', cancelButtonText: '取消' },
+    )
+    await removeTenantMember(memberTenant.value.id, row.id)
+    ElMessage.success('已移除')
+    await Promise.all([fetchMembers(), fetchTenants()])
+  } catch (err) {
+    if (err === 'cancel') return
+    ElMessage.error(err.response?.data?.message || '移除失败')
+  }
+}
+
+onMounted(() => {
+  fetchTenants()
+  fetchRoles()
+})
 </script>
 
 <style scoped>
@@ -261,9 +414,20 @@ onMounted(fetchTenants)
   color: var(--el-text-color-primary);
 }
 .system-tag { margin-left: 8px; }
+.member-add {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 150px auto;
+  gap: 8px;
+  margin-bottom: 16px;
+}
 .form-hint {
   font-size: 12px;
   color: var(--el-text-color-secondary);
   margin-top: 4px;
+}
+@media (max-width: 900px) {
+  .member-add {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

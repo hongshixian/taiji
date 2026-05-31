@@ -1,210 +1,373 @@
-"""认证业务逻辑"""
+"""认证与租户成员业务逻辑"""
 
 from datetime import datetime, timedelta, timezone
 
-from werkzeug.security import generate_password_hash, check_password_hash
+from flask import g
 from flask_jwt_extended import create_access_token, create_refresh_token
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from app import db
+from app.models.tenant import DEFAULT_TENANT_SLUG, Tenant
+from app.models.tenant_membership import TenantMembership
 from app.models.user import User
+from app.utils.decorators import bypass_tenant_filter
 from app.utils.errors import BusinessError, ErrorCode
 
 
 def _revoke_marker() -> datetime:
-    """生成 tokens_revoked_at 时间戳：向上取整到下一秒。
-
-    JWT iat 精度是秒；设为 now 会让"同秒内紧接着重新登录"的新 token 也被吊销。
-    向上取整到下一秒确保：所有早于"下一秒"的 token 失效，新登录的 token（iat ≥ 下一秒）不受影响。
-    """
+    """生成 tokens_revoked_at 时间戳：向上取整到下一秒。"""
     now = datetime.now(timezone.utc)
-    return (now.replace(microsecond=0) + timedelta(seconds=1))
+    return now.replace(microsecond=0) + timedelta(seconds=1)
 
 
-# ─── 认证 ────────────────────────────────
+def membership_to_dict(membership: TenantMembership) -> dict:
+    tenant = membership.tenant
+    role = membership.role
+    return {
+        "id": membership.id,
+        "tenant_id": membership.tenant_id,
+        "tenant_slug": tenant.slug if tenant else None,
+        "tenant_name": tenant.name if tenant else None,
+        "tenant_plan": tenant.plan if tenant else None,
+        "role_id": membership.role_id,
+        "role": role.name if role else None,
+        "role_name": role.name if role else None,
+        "permissions": membership.permission_codes,
+        "is_active": membership.is_active,
+        "is_owner": membership.is_owner,
+        "created_at": membership.created_at.isoformat() if membership.created_at else None,
+    }
+
+
+def user_to_dict(user: User, membership: TenantMembership | None = None,
+                 include_memberships: bool = False) -> dict:
+    data = {
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "is_active": user.is_active,
+        "is_superuser": user.is_superuser,
+        "created_at": user.created_at.isoformat() if user.created_at else None,
+    }
+    if membership:
+        m = membership_to_dict(membership)
+        data.update({
+            "membership_id": m["id"],
+            "role": m["role"],
+            "role_id": m["role_id"],
+            "role_name": m["role_name"],
+            "permissions": m["permissions"],
+            "membership_active": m["is_active"],
+            "current_tenant": {
+                "id": m["tenant_id"],
+                "slug": m["tenant_slug"],
+                "name": m["tenant_name"],
+                "plan": m["tenant_plan"],
+            },
+        })
+    else:
+        data.update({
+            "membership_id": None,
+            "role": None,
+            "role_id": None,
+            "role_name": None,
+            "permissions": [],
+            "membership_active": None,
+            "current_tenant": None,
+        })
+    if include_memberships:
+        with bypass_tenant_filter():
+            data["memberships"] = [
+                membership_to_dict(m) for m in _list_user_memberships(user.id)
+            ]
+    return data
+
 
 def register_user(username: str, email: str, password: str,
-                  tenant_slug: str = "guest") -> User:
-    """注册用户
-
-    Args:
-        tenant_slug: 默认进 guest 租户（公开注册不应进 default）
-    """
-    from app.models.tenant import Tenant
-    from flask import g
-
-    # 公开注册需要绕过 tenant filter 查 tenant + 检查用户名冲突
-    g.bypass_tenant_filter = True
-    try:
+                  tenant_slug: str | None = None) -> User:
+    """注册全局用户，并自动加入系统设置指定的默认租户。"""
+    with bypass_tenant_filter():
+        if tenant_slug is None:
+            from app.services.system_setting_service import get_default_registration_tenant_slug
+            tenant_slug = get_default_registration_tenant_slug()
         tenant = Tenant.query.filter_by(slug=tenant_slug).first()
         if not tenant:
-            raise BusinessError(ErrorCode.VALIDATION_ERROR, f"租户 {tenant_slug} 不存在")
-
-        # 同 tenant 内 username/email 唯一
-        if User.query.filter_by(tenant_id=tenant.id, username=username).first():
+            raise BusinessError(ErrorCode.TENANT_NOT_FOUND)
+        if not tenant.is_active:
+            raise BusinessError(ErrorCode.AUTH_DISABLED, "租户已禁用")
+        if User.query.filter_by(username=username).first():
             raise BusinessError(ErrorCode.USER_EXISTS)
-        if User.query.filter_by(tenant_id=tenant.id, email=email).first():
+        if User.query.filter_by(email=email).first():
             raise BusinessError(ErrorCode.EMAIL_EXISTS)
 
-        role_id = _role_id_by_name("user")
         user = User(
-            tenant_id=tenant.id,
             username=username,
             email=email,
             password_hash=generate_password_hash(password),
-            role="user",
-            role_id=role_id,
         )
         db.session.add(user)
+        db.session.flush()
+        _add_membership(user.id, tenant.id, "user")
         db.session.commit()
         return user
-    finally:
-        g.bypass_tenant_filter = False
 
 
-def login_user(username: str, password: str, tenant_slug: str | None = None) -> dict:
-    """登录
+def login_user(username: str, password: str) -> dict:
+    """登录全局用户，并进入第一个可用租户身份。"""
+    with bypass_tenant_filter():
+        user = User.query.filter_by(username=username).first()
+        if not user or not check_password_hash(user.password_hash, password):
+            raise BusinessError(ErrorCode.INVALID_CREDENTIAL)
+        if not user.is_active:
+            raise BusinessError(ErrorCode.ACCOUNT_DISABLED)
 
-    Args:
-        username: 用户名
-        password: 密码
-        tenant_slug: 租户 slug；不提供则在所有 tenant 中按 username 查（兼容旧接口）
-    """
-    from app.models.tenant import Tenant
-    from flask import g
+        membership = _select_login_membership(user.id)
+        claims = _claims_for_membership(user, membership)
+        access_token = create_access_token(identity=str(user.id), additional_claims=claims)
+        refresh_token = create_refresh_token(identity=str(user.id), additional_claims=claims)
 
-    # 登录是公开接口，需要绕过 tenant filter 才能查到任何 tenant 下的用户
-    g.bypass_tenant_filter = True
-    try:
-        if tenant_slug:
-            tenant = Tenant.query.filter_by(slug=tenant_slug).first()
-            if not tenant:
-                raise BusinessError(ErrorCode.INVALID_CREDENTIAL)
-            user = User.query.filter_by(tenant_id=tenant.id, username=username).first()
-        else:
-            # 兼容：未指定 tenant 时，按 username 查（多 tenant 重名时只取第一个）
-            user = User.query.filter_by(username=username).first()
-    finally:
-        g.bypass_tenant_filter = False
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "user": user_to_dict(user, membership, include_memberships=True),
+        }
 
-    if not user or not check_password_hash(user.password_hash, password):
-        raise BusinessError(ErrorCode.INVALID_CREDENTIAL)
-    if not user.is_active:
-        raise BusinessError(ErrorCode.ACCOUNT_DISABLED)
 
-    # JWT additional_claims：perms / tenant_id / is_superuser
-    # 改密 / 改角色时 tokens_revoked_at 会令旧 token 失效，所以 claim 缓存安全
-    claims = {
-        "perms": user.permissions,
-        "tenant_id": user.tenant_id,
-        "is_superuser": user.is_superuser,
-    }
-    access_token = create_access_token(identity=str(user.id), additional_claims=claims)
-    refresh_token = create_refresh_token(identity=str(user.id), additional_claims=claims)
+def refresh_access_token(user_id: int, tenant_id: int | None) -> str:
+    with bypass_tenant_filter():
+        user = db.session.get(User, user_id)
+        if not user or not user.is_active:
+            raise BusinessError(ErrorCode.ACCOUNT_DISABLED)
+        membership = _membership_for_tenant(user, tenant_id)
+        claims = _claims_for_membership(user, membership)
+        return create_access_token(identity=str(user.id), additional_claims=claims)
 
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "user": user_to_dict(user),
-    }
+
+def switch_tenant(user_id: int, tenant_id: int) -> dict:
+    """切换当前操作租户。普通用户必须有 active membership。"""
+    with bypass_tenant_filter():
+        user = db.session.get(User, user_id)
+        if not user or not user.is_active:
+            raise BusinessError(ErrorCode.ACCOUNT_DISABLED)
+        membership = _membership_for_tenant(user, tenant_id)
+        claims = _claims_for_membership(user, membership)
+        access_token = create_access_token(identity=str(user.id), additional_claims=claims)
+        return {
+            "access_token": access_token,
+            "tenant": membership_to_dict(membership),
+        }
 
 
 def get_user_by_id(user_id: int) -> User | None:
     return db.session.get(User, user_id)
 
 
-def user_to_dict(user: User) -> dict:
-    return {
-        "id": user.id,
-        "username": user.username,
-        "email": user.email,
-        "role": user.role,
-        "role_id": user.role_id,
-        "role_name": user.role_obj.name if user.role_obj else user.role,
-        "permissions": user.permissions,
-        "is_active": user.is_active,
-        "is_superuser": user.is_superuser,
-        "tenant_id": user.tenant_id,
-        "tenant_slug": user.tenant.slug if user.tenant else None,
-        "tenant_name": user.tenant.name if user.tenant else None,
-        "created_at": user.created_at.isoformat() if user.created_at else None,
-    }
+def get_current_membership(user_id: int, tenant_id: int | None = None) -> TenantMembership:
+    tenant_id = tenant_id if tenant_id is not None else getattr(g, "tenant_id", None)
+    with bypass_tenant_filter():
+        user = db.session.get(User, user_id)
+        if not user:
+            raise BusinessError(ErrorCode.USER_NOT_FOUND)
+        return _membership_for_tenant(user, tenant_id)
 
 
-# ─── 管理员操作用户 ──────────────────────
+def list_current_user_memberships(user_id: int) -> list[dict]:
+    with bypass_tenant_filter():
+        return [membership_to_dict(m) for m in _list_user_memberships(user_id)]
+
+
+def add_user_membership(user_id: int, tenant_id: int, role: str = "user",
+                        is_owner: bool = False) -> TenantMembership:
+    """给已有全局用户添加租户成员身份。"""
+    with bypass_tenant_filter():
+        user = db.session.get(User, user_id)
+        tenant = db.session.get(Tenant, tenant_id)
+        if not user:
+            raise BusinessError(ErrorCode.USER_NOT_FOUND)
+        if not tenant:
+            raise BusinessError(ErrorCode.TENANT_NOT_FOUND)
+        existing = TenantMembership.query.filter_by(
+            user_id=user_id, tenant_id=tenant_id,
+        ).first()
+        if existing:
+            return existing
+        membership = _add_membership(user_id, tenant_id, role, is_owner=is_owner)
+        db.session.commit()
+        return membership
+
+
+def list_superusers() -> list[dict]:
+    with bypass_tenant_filter():
+        users = User.query.filter_by(is_superuser=True).order_by(User.id).all()
+        return [user_to_dict(u, include_memberships=True) for u in users]
+
+
+def add_superuser(identifier: str) -> User:
+    with bypass_tenant_filter():
+        user = _find_user(identifier)
+        if not user:
+            raise BusinessError(ErrorCode.USER_NOT_FOUND)
+        if not user.is_superuser:
+            user.is_superuser = True
+            user.tokens_revoked_at = _revoke_marker()
+            db.session.commit()
+        return user
+
+
+def remove_superuser(user_id: int, current_user_id: int) -> User:
+    if user_id == current_user_id:
+        raise BusinessError(ErrorCode.CANNOT_DELETE_SELF, "不能移除自己的超级管理员权限")
+    with bypass_tenant_filter():
+        user = db.session.get(User, user_id)
+        if not user:
+            raise BusinessError(ErrorCode.USER_NOT_FOUND)
+        user.is_superuser = False
+        user.tokens_revoked_at = _revoke_marker()
+        db.session.commit()
+        return user
+
+
+def list_tenant_members(tenant_id: int) -> list[dict]:
+    with bypass_tenant_filter():
+        if not db.session.get(Tenant, tenant_id):
+            raise BusinessError(ErrorCode.TENANT_NOT_FOUND)
+        memberships = (
+            TenantMembership.query
+            .filter_by(tenant_id=tenant_id)
+            .order_by(TenantMembership.created_at.desc())
+            .all()
+        )
+        return [user_to_dict(m.user, m) for m in memberships]
+
+
+def add_tenant_member(tenant_id: int, identifier: str, role: str = "user") -> User:
+    """超级管理员向任意租户添加已有全局用户为成员。"""
+    with bypass_tenant_filter():
+        if not db.session.get(Tenant, tenant_id):
+            raise BusinessError(ErrorCode.TENANT_NOT_FOUND)
+        user = _find_user(identifier)
+        if not user:
+            raise BusinessError(ErrorCode.USER_NOT_FOUND)
+        if TenantMembership.query.filter_by(
+            tenant_id=tenant_id, user_id=user.id,
+        ).first():
+            raise BusinessError(ErrorCode.USER_EXISTS, "该用户已是该租户成员")
+        _add_membership(user.id, tenant_id, role)
+        user.tokens_revoked_at = _revoke_marker()
+        db.session.commit()
+        return user
+
+
+def remove_tenant_member(tenant_id: int, user_id: int) -> User:
+    with bypass_tenant_filter():
+        user = db.session.get(User, user_id)
+        if not user:
+            raise BusinessError(ErrorCode.USER_NOT_FOUND)
+        membership = TenantMembership.query.filter_by(
+            tenant_id=tenant_id,
+            user_id=user_id,
+        ).first()
+        if not membership:
+            raise BusinessError(ErrorCode.USER_NOT_FOUND)
+        db.session.delete(membership)
+        user.tokens_revoked_at = _revoke_marker()
+        db.session.commit()
+        return user
+
 
 def list_users(page: int, per_page: int) -> tuple[list, int]:
-    """分页查询所有用户"""
-    pagination = User.query.order_by(User.created_at.desc()).paginate(
-        page=page, per_page=per_page, error_out=False
+    """分页查询当前租户成员。"""
+    pagination = (
+        TenantMembership.query
+        .order_by(TenantMembership.created_at.desc())
+        .paginate(page=page, per_page=per_page, error_out=False)
     )
-    return [user_to_dict(u) for u in pagination.items], pagination.total
+    return [user_to_dict(m.user, m) for m in pagination.items], pagination.total
 
 
-def create_user(username: str, email: str, password: str, role: str,
+def create_user(username: str, email: str, password: str | None, role: str,
                 tenant_id: int | None = None) -> User:
-    """admin 创建用户（默认在当前 request 的 tenant 内）"""
-    from flask import g
-
+    """在指定租户创建成员；用户为全局唯一。"""
     if tenant_id is None:
         tenant_id = getattr(g, "tenant_id", None)
     if tenant_id is None:
         raise BusinessError(ErrorCode.VALIDATION_ERROR, "未指定租户")
 
-    if User.query.filter_by(tenant_id=tenant_id, username=username).first():
-        raise BusinessError(ErrorCode.USER_EXISTS)
-    if User.query.filter_by(tenant_id=tenant_id, email=email).first():
-        raise BusinessError(ErrorCode.EMAIL_EXISTS)
+    with bypass_tenant_filter():
+        tenant = db.session.get(Tenant, tenant_id)
+        if not tenant:
+            raise BusinessError(ErrorCode.TENANT_NOT_FOUND)
+        if not tenant.is_active:
+            raise BusinessError(ErrorCode.AUTH_DISABLED, "租户已禁用")
 
-    user = User(
-        tenant_id=tenant_id,
-        username=username,
-        email=email,
-        password_hash=generate_password_hash(password),
-        role=role,
-        role_id=_role_id_by_name(role),
-    )
-    db.session.add(user)
-    db.session.commit()
-    return user
+        by_username = User.query.filter_by(username=username).first()
+        by_email = User.query.filter_by(email=email).first()
+        if by_username and by_email and by_username.id != by_email.id:
+            raise BusinessError(ErrorCode.VALIDATION_ERROR, "用户名与邮箱属于不同用户")
+
+        user = by_username or by_email
+        if user:
+            if TenantMembership.query.filter_by(user_id=user.id, tenant_id=tenant_id).first():
+                raise BusinessError(ErrorCode.USER_EXISTS, "该用户已是当前租户成员")
+        else:
+            if not password:
+                raise BusinessError(ErrorCode.VALIDATION_ERROR, "新用户密码不能为空")
+            user = User(
+                username=username,
+                email=email,
+                password_hash=generate_password_hash(password),
+            )
+            db.session.add(user)
+            db.session.flush()
+
+        _add_membership(user.id, tenant_id, role)
+        db.session.commit()
+        return user
 
 
 def update_user(user_id: int, data: dict) -> User:
-    user = db.session.get(User, user_id)
-    if not user:
-        raise BusinessError(ErrorCode.USER_NOT_FOUND)
+    """更新全局用户字段，以及当前租户下的 membership 角色/状态。"""
+    with bypass_tenant_filter():
+        user = db.session.get(User, user_id)
+        if not user:
+            raise BusinessError(ErrorCode.USER_NOT_FOUND)
+        membership = _membership_for_tenant(user, getattr(g, "tenant_id", None))
 
-    # 监测需要撤销该用户所有 token 的变更
-    revoke_tokens = False
+        revoke_tokens = False
 
-    if "username" in data and data["username"] != user.username:
-        if User.query.filter_by(username=data["username"]).first():
-            raise BusinessError(ErrorCode.USER_EXISTS)
-        user.username = data["username"]
-    if "email" in data and data["email"] != user.email:
-        if User.query.filter_by(email=data["email"]).first():
-            raise BusinessError(ErrorCode.EMAIL_EXISTS)
-        user.email = data["email"]
-    if "role" in data and data["role"] != user.role:
-        user.role = data["role"]
-        user.role_id = _role_id_by_name(data["role"])
-        revoke_tokens = True  # 角色变更应使旧 token 失效
-    if "is_active" in data and data["is_active"] != user.is_active:
-        user.is_active = data["is_active"]
-        if not data["is_active"]:
-            revoke_tokens = True  # 禁用账户：踢出所有会话
-    if "password" in data and data["password"]:
-        user.password_hash = generate_password_hash(data["password"])
-        revoke_tokens = True  # 改密：踢出所有会话
+        if "username" in data and data["username"] != user.username:
+            if User.query.filter_by(username=data["username"]).first():
+                raise BusinessError(ErrorCode.USER_EXISTS)
+            user.username = data["username"]
+        if "email" in data and data["email"] != user.email:
+            if User.query.filter_by(email=data["email"]).first():
+                raise BusinessError(ErrorCode.EMAIL_EXISTS)
+            user.email = data["email"]
+        if "role" in data:
+            role_id = _role_id_by_name(data["role"])
+            if role_id is None:
+                raise BusinessError(ErrorCode.INVALID_ROLE)
+            if role_id != membership.role_id:
+                membership.role_id = role_id
+                revoke_tokens = True
+        if "membership_active" in data and data["membership_active"] != membership.is_active:
+            membership.is_active = data["membership_active"]
+            revoke_tokens = True
+        if "is_active" in data and data["is_active"] != user.is_active:
+            user.is_active = data["is_active"]
+            revoke_tokens = True
+        if "password" in data and data["password"]:
+            user.password_hash = generate_password_hash(data["password"])
+            revoke_tokens = True
 
-    if revoke_tokens:
-        user.tokens_revoked_at = _revoke_marker()
+        if revoke_tokens:
+            user.tokens_revoked_at = _revoke_marker()
 
-    db.session.commit()
-    return user
+        db.session.commit()
+        return user
 
 
 def change_password(user_id: int, old_password: str, new_password: str) -> User:
-    """用户自助修改密码 — 需校验旧密码，成功后踢掉自己所有会话"""
     user = db.session.get(User, user_id)
     if not user:
         raise BusinessError(ErrorCode.USER_NOT_FOUND)
@@ -218,52 +381,130 @@ def change_password(user_id: int, old_password: str, new_password: str) -> User:
 
 
 def delete_user(user_id: int, current_user_id: int):
+    """从当前租户移除成员；如果用户没有任何成员身份，则删除全局用户。"""
     if user_id == current_user_id:
         raise BusinessError(ErrorCode.CANNOT_DELETE_SELF)
-    user = db.session.get(User, user_id)
-    if not user:
-        raise BusinessError(ErrorCode.USER_NOT_FOUND)
-    db.session.delete(user)
-    db.session.commit()
+    tenant_id = getattr(g, "tenant_id", None)
+    if tenant_id is None:
+        raise BusinessError(ErrorCode.VALIDATION_ERROR, "未指定租户")
+
+    with bypass_tenant_filter():
+        user = db.session.get(User, user_id)
+        if not user:
+            raise BusinessError(ErrorCode.USER_NOT_FOUND)
+        membership = TenantMembership.query.filter_by(
+            user_id=user_id, tenant_id=tenant_id,
+        ).first()
+        if not membership:
+            raise BusinessError(ErrorCode.USER_NOT_FOUND)
+        db.session.delete(membership)
+        user.tokens_revoked_at = _revoke_marker()
+        db.session.flush()
+        if not TenantMembership.query.filter_by(user_id=user_id).first():
+            db.session.delete(user)
+        db.session.commit()
 
 
 def seed_admin(username: str, email: str, password: str,
-               tenant_slug: str = "default", is_superuser: bool = True):
-    """确保存在管理员账号（不存在则创建）
+               tenant_slug: str = DEFAULT_TENANT_SLUG, is_superuser: bool = True):
+    """确保存在平台管理员账号，并让其加入 default 租户。"""
+    with bypass_tenant_filter():
+        admin_role_id = _role_id_by_name("admin")
+        existing = (
+            User.query
+            .join(TenantMembership, TenantMembership.user_id == User.id)
+            .filter(TenantMembership.role_id == admin_role_id)
+            .first()
+        )
+        if existing:
+            return existing
 
-    默认在 default 租户里建 admin 并设为 superuser，保证有人能管 tenants。
+        tenant = Tenant.query.filter_by(slug=tenant_slug).first()
+        if not tenant:
+            raise BusinessError(ErrorCode.TENANT_NOT_FOUND)
 
-    注：这个函数被 entrypoint 在非 request 上下文调用，hook 会自动跳过 tenant filter。
-    """
-    from app.models.tenant import Tenant
-
-    admin = User.query.filter_by(role="admin").first()
-    if admin:
+        admin = User(
+            username=username,
+            email=email,
+            password_hash=generate_password_hash(password),
+            is_superuser=is_superuser,
+        )
+        db.session.add(admin)
+        db.session.flush()
+        _add_membership(admin.id, tenant.id, "admin", is_owner=True)
+        db.session.commit()
         return admin
 
-    tenant = Tenant.query.filter_by(slug=tenant_slug).first()
-    if not tenant:
-        raise BusinessError(ErrorCode.VALIDATION_ERROR,
-                            f"租户 {tenant_slug} 不存在（请先跑迁移）")
 
-    admin = User(
-        tenant_id=tenant.id,
-        username=username,
-        email=email,
-        password_hash=generate_password_hash(password),
-        role="admin",
-        role_id=_role_id_by_name("admin"),
-        is_superuser=is_superuser,
+def _select_login_membership(user_id: int) -> TenantMembership:
+    query = TenantMembership.query.join(Tenant).filter(
+        TenantMembership.user_id == user_id,
+        TenantMembership.is_active.is_(True),
+        Tenant.is_active.is_(True),
     )
-    db.session.add(admin)
-    db.session.commit()
-    return admin
+    membership = query.order_by(TenantMembership.id).first()
+    if not membership:
+        raise BusinessError(ErrorCode.INVALID_CREDENTIAL)
+    return membership
 
 
-# ─── 内部工具 ────────────────────────────────
+def _membership_for_tenant(user: User, tenant_id: int | None) -> TenantMembership:
+    if tenant_id is None:
+        raise BusinessError(ErrorCode.TENANT_NOT_FOUND)
+    membership = TenantMembership.query.filter_by(
+        user_id=user.id, tenant_id=tenant_id,
+    ).first()
+    if not membership or not membership.is_active:
+        raise BusinessError(ErrorCode.PERMISSION_DENIED, "用户不属于该租户或成员身份已禁用")
+    if not membership.tenant or not membership.tenant.is_active:
+        raise BusinessError(ErrorCode.AUTH_DISABLED, "租户已禁用")
+    return membership
+
+
+def _list_user_memberships(user_id: int) -> list[TenantMembership]:
+    return (
+        TenantMembership.query
+        .filter_by(user_id=user_id)
+        .order_by(TenantMembership.id)
+        .all()
+    )
+
+
+def _claims_for_membership(user: User, membership: TenantMembership) -> dict:
+    return {
+        "perms": membership.permission_codes,
+        "tenant_id": membership.tenant_id,
+        "membership_id": membership.id,
+        "is_superuser": user.is_superuser,
+    }
+
+
+def _add_membership(user_id: int, tenant_id: int, role_name: str,
+                    is_owner: bool = False) -> TenantMembership:
+    role_id = _role_id_by_name(role_name)
+    if role_id is None:
+        raise BusinessError(ErrorCode.INVALID_ROLE)
+    membership = TenantMembership(
+        user_id=user_id,
+        tenant_id=tenant_id,
+        role_id=role_id,
+        is_owner=is_owner,
+    )
+    db.session.add(membership)
+    return membership
+
 
 def _role_id_by_name(name: str) -> int | None:
-    """根据角色名找 role_id；找不到返回 None（兼容尚未跑 RBAC migration 的环境）"""
     from app.models.role import Role
     role = Role.query.filter_by(name=name).first()
     return role.id if role else None
+
+
+def _find_user(identifier: str) -> User | None:
+    identifier = (identifier or "").strip()
+    if not identifier:
+        return None
+    query = User.query
+    if "@" in identifier:
+        return query.filter_by(email=identifier).first()
+    return query.filter_by(username=identifier).first()

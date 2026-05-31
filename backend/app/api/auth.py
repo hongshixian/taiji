@@ -3,8 +3,7 @@
 from datetime import datetime, timezone
 
 from flask import Blueprint, request
-from app import db
-from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token, get_jwt
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
@@ -14,6 +13,10 @@ from app.services.auth_service import (
     get_user_by_id,
     user_to_dict,
     change_password,
+    get_current_membership,
+    list_current_user_memberships,
+    refresh_access_token,
+    switch_tenant,
 )
 from app.schemas.auth_schema import RegisterSchema, LoginSchema, ChangePasswordSchema
 from app.utils.validation import validate_schema
@@ -62,7 +65,6 @@ def login():
     result = login_user(
         username=parsed["username"],
         password=parsed["password"],
-        tenant_slug=parsed.get("tenant_slug"),
     )
     return ok(result, message="登录成功")
 
@@ -70,63 +72,44 @@ def login():
 @auth_bp.route("/refresh", methods=["POST"])
 @jwt_required(refresh=True)
 def refresh():
-    """刷新 access token — 重新从 DB 读 perms / tenant_id / is_superuser，确保变更生效"""
-    from app.models.user import User
-    from app import db
-    from flask import g
-
+    """刷新 access token — 重新从当前 membership 读 perms，确保变更生效"""
     user_id = int(get_jwt_identity())
-    # refresh 时已有 token 自带 tenant_id claim，g.tenant_id 已设置
-    # 但若用户被 superuser 跨 tenant 改了 tenant_id，refresh 需重新读 DB
-    g.bypass_tenant_filter = True
-    try:
-        user = db.session.get(User, user_id)
-    finally:
-        g.bypass_tenant_filter = False
-
-    if not user or not user.is_active:
-        raise BusinessError(ErrorCode.ACCOUNT_DISABLED)
-
-    claims = {
-        "perms": user.permissions,
-        "tenant_id": user.tenant_id,
-        "is_superuser": user.is_superuser,
-    }
-    access_token = create_access_token(identity=str(user_id), additional_claims=claims)
+    tenant_id = get_jwt().get("tenant_id")
+    access_token = refresh_access_token(user_id, tenant_id)
     return ok({"access_token": access_token}, message="Token 已刷新")
 
 
 @auth_bp.route("/me", methods=["GET"])
 @jwt_required()
 def me():
-    """获取当前用户信息
-
-    在 user_to_dict 的基础上叠加"当前操作租户"上下文 (current_tenant)。
-    对超管而言，user.tenant_* 反映"我归属哪里"，current_tenant 反映"我正在看哪里"——
-    切换租户后只有 current_tenant 会变。普通用户两者一致。
-    """
-    from flask import g
-    from app.models.tenant import Tenant
-
+    """获取当前用户和当前租户成员身份信息。"""
     user_id = int(get_jwt_identity())
     user = get_user_by_id(user_id)
     if not user:
         raise BusinessError(ErrorCode.USER_NOT_FOUND)
 
-    data = user_to_dict(user)
+    membership = get_current_membership(user_id)
+    return ok(user_to_dict(user, membership, include_memberships=True))
 
-    # 当前会话操作的租户（来自 JWT claim 的 tenant_id，可能与 user.tenant_id 不同）
-    current_id = getattr(g, "tenant_id", None)
-    current = None
-    if current_id is not None:
-        from app.utils.decorators import bypass_tenant_filter
-        with bypass_tenant_filter():
-            t = db.session.get(Tenant, current_id)
-        if t:
-            current = {"id": t.id, "slug": t.slug, "name": t.name, "plan": t.plan}
-    data["current_tenant"] = current
 
-    return ok(data)
+@auth_bp.route("/tenants", methods=["GET"])
+@jwt_required()
+def my_tenants():
+    """列出当前用户可切换的租户身份。"""
+    user_id = int(get_jwt_identity())
+    return ok(list_current_user_memberships(user_id))
+
+
+@auth_bp.route("/switch-tenant", methods=["POST"])
+@jwt_required()
+def switch_current_tenant():
+    """普通用户/管理员切换到自己拥有 membership 的租户。"""
+    data = request.get_json() or {}
+    tenant_id = data.get("tenant_id")
+    if tenant_id is None:
+        raise BusinessError(ErrorCode.VALIDATION_ERROR, "tenant_id 不能为空")
+    result = switch_tenant(int(get_jwt_identity()), tenant_id)
+    return ok(result, message="租户已切换")
 
 
 @auth_bp.route("/logout", methods=["POST"])

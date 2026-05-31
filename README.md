@@ -145,14 +145,22 @@ taiji/
 | `guest` | task:read |
 
 - 系统角色 (is_system=true) 不可删除；admin 可在「角色管理」页新增自定义角色
-- 改密 / 改角色 / 禁用账户会立即撤销该用户所有 JWT（用户级吊销 + Redis 黑名单）
+- 角色挂在租户成员身份 (`tenant_memberships.role_id`) 上，同一用户在不同租户可拥有不同角色
+- 改密 / 改角色 / 禁用账户或成员身份会立即撤销该用户所有 JWT（用户级吊销 + Redis 黑名单）
+- 平台超级管理员通过 `is_superuser` 管理租户和系统设置；租户管理员通过当前租户角色权限管理成员与角色
 
 ### 多租户
 
 - 数据库层面共享 schema，每张业务表带 `tenant_id`，全局 query 拦截器自动按当前 tenant 过滤
+- `users` 是全局唯一登录主体，`username` / `email` 全局唯一
+- 用户通过 `tenant_memberships` 归属多个租户；JWT 当前 `tenant_id` 表示当前操作租户
+- 登录只校验全局账号密码并进入默认可用租户，其他租户通过右上角租户切换器切换
 - 系统种子租户：`default`（现有数据）+ `guest`（公开注册落地）
 - **超级管理员** (is_superuser=true)：可跨租户管理，通过 `/api/v1/superadmin/tenants` 增删改租户
-- 同一 username/email 在不同 tenant 内可共存
+- **系统设置**：超级管理员可通过 `/api/v1/superadmin/settings` 配置平台级选项，例如新注册用户默认所属租户
+- **超级管理员列表**：超级管理员可添加 / 移除其他用户的平台超级管理员权限
+- **租户成员管理**：超级管理员可在租户管理页向任意租户添加 / 移除成员
+- 普通用户可通过 `/api/v1/auth/switch-tenant` 切换到自己拥有成员身份的租户
 
 ---
 

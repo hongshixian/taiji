@@ -24,8 +24,8 @@
       </el-table-column>
       <el-table-column label="状态" width="90">
         <template #default="{ row }">
-          <el-tag :type="row.is_active ? 'success' : 'danger'" size="small">
-            {{ row.is_active ? '正常' : '禁用' }}
+          <el-tag :type="memberActive(row) ? 'success' : 'danger'" size="small">
+            {{ memberActive(row) ? '正常' : '禁用' }}
           </el-tag>
         </template>
       </el-table-column>
@@ -72,7 +72,7 @@
             </el-option>
           </el-select>
         </el-form-item>
-        <el-form-item v-if="editMode" label="状态">
+        <el-form-item v-if="editMode" label="成员状态">
           <el-switch v-model="form.is_active" active-text="正常" inactive-text="禁用" />
         </el-form-item>
       </el-form>
@@ -141,6 +141,10 @@ function roleTagType(row) {
   return ''  // 自定义角色 — 主色
 }
 
+function memberActive(row) {
+  return row.is_active && (row.membership_active ?? true)
+}
+
 async function fetchUsers() {
   loading.value = true
   try {
@@ -192,7 +196,7 @@ function openEditDialog(row) {
   form.email = row.email
   form.password = ''
   form.role = row.role
-  form.is_active = row.is_active
+  form.is_active = row.membership_active ?? row.is_active
   dialogVisible.value = true
 }
 
@@ -203,7 +207,7 @@ async function handleSubmit() {
   submitting.value = true
   try {
     if (editMode.value) {
-      const payload = { email: form.email, role: form.role, is_active: form.is_active }
+      const payload = { email: form.email, role: form.role, membership_active: form.is_active }
       if (form.password) payload.password = form.password
       await updateUser(editUserId.value, payload)
       ElMessage.success('已更新')

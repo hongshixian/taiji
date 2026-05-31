@@ -1,6 +1,6 @@
 """认证请求 Schema"""
 
-from marshmallow import Schema, fields, validate, validates_schema, ValidationError
+from marshmallow import Schema, fields, validate
 
 
 class RegisterSchema(Schema):
@@ -34,12 +34,6 @@ class LoginSchema(Schema):
         required=True,
         validate=validate.Length(min=1, error="密码不能为空"),
         metadata={"description": "密码"},
-    )
-    tenant_slug = fields.String(
-        required=False,
-        load_default=None,
-        validate=validate.Length(max=50),
-        metadata={"description": "可选：租户标识，多 tenant 同名时用于精确登录"},
     )
 
 

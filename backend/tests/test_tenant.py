@@ -84,8 +84,51 @@ class TestTenantIsolation:
         assert "admina" in usernames
         assert "adminb" not in usernames
 
+    def test_user_can_switch_between_membership_tenants(self, client, app):
+        """同一个全局用户可在多个租户身份之间切换"""
+        with app.app_context():
+            from app import db
+            from app.models.analyze_task import AnalyzeTask, TaskStatus
+            from app.services.auth_service import create_user, add_user_membership
+
+            user = create_user("multi", "multi@test.com", "multipass", "user", tenant_id=10)
+            add_user_membership(user.id, 20, "user")
+            db.session.add(AnalyzeTask(tenant_id=10, user_id=user.id,
+                                        url="https://multi-a.com",
+                                        status=TaskStatus.SUCCESS,
+                                        title="multi A"))
+            db.session.add(AnalyzeTask(tenant_id=20, user_id=user.id,
+                                        url="https://multi-b.com",
+                                        status=TaskStatus.SUCCESS,
+                                        title="multi B"))
+            db.session.commit()
+
+        resp = client.post("/api/v1/auth/login",
+                           json={"username": "multi", "password": "multipass"})
+        assert resp.status_code == 200
+        token = resp.get_json()["data"]["access_token"]
+
+        resp = client.get("/api/v1/analyze/",
+                          headers={"Authorization": f"Bearer {token}"})
+        assert [i["url"] for i in resp.get_json()["data"]["items"]] == ["https://multi-a.com"]
+
+        resp = client.post("/api/v1/auth/switch-tenant",
+                           headers={"Authorization": f"Bearer {token}"},
+                           json={"tenant_id": 20})
+        assert resp.status_code == 200
+        token = resp.get_json()["data"]["access_token"]
+
+        resp = client.get("/api/v1/analyze/",
+                          headers={"Authorization": f"Bearer {token}"})
+        assert [i["url"] for i in resp.get_json()["data"]["items"]] == ["https://multi-b.com"]
+
+        resp = client.get("/api/v1/auth/me",
+                          headers={"Authorization": f"Bearer {token}"})
+        memberships = resp.get_json()["data"]["memberships"]
+        assert {m["tenant_id"] for m in memberships} == {10, 20}
+
     def test_register_goes_to_guest_tenant(self, client, app):
-        """新注册用户自动进 guest 租户"""
+        """新注册用户自动获得 guest 租户成员身份"""
         resp = client.post("/api/v1/auth/register", json={
             "username": "newbie",
             "email": "newbie@test.com",
@@ -93,29 +136,186 @@ class TestTenantIsolation:
         })
         assert resp.status_code == 201
 
-        # 直接查 DB 验证 tenant_id
+        # 直接查 DB 验证 membership.tenant_id
         with app.app_context():
             from app.models.user import User
+            from app.models.tenant_membership import TenantMembership
             from app.utils.decorators import bypass_tenant_filter
             from tests.conftest import GUEST_TENANT_ID
             from flask import g
-            # fixture 上下文里，g 可能未初始化，手动控制
             g.bypass_tenant_filter = True
             try:
                 user = User.query.filter_by(username="newbie").first()
+                membership = TenantMembership.query.filter_by(user_id=user.id).first()
             finally:
                 g.bypass_tenant_filter = False
             assert user is not None
-            assert user.tenant_id == GUEST_TENANT_ID
+            assert membership.tenant_id == GUEST_TENANT_ID
 
-    def test_username_unique_within_tenant_only(self, client):
-        """同名用户在不同 tenant 下可共存"""
-        # tenant A 已经有 admina；tenant B 也注册一个同名（B 是个 guest 租户场景）
-        # 现 register 默认进 guest，所以注册 admina 应该成功（不与 tenant_a 的 admina 冲突）
+    def test_username_unique_globally(self, client):
+        """用户名全局唯一，不允许跨 tenant 重名"""
         resp = client.post("/api/v1/auth/register", json={
             "username": "admina",  # 与 tenant_a 的 admina 同名
             "email": "newadmina@guest.com",
             "password": "guestpass",
         })
-        # 应该成功（guest tenant 内 admina 不存在）
-        assert resp.status_code == 201, resp.get_json()
+        assert resp.status_code == 400
+        assert resp.get_json()["code"] == 10001
+
+    def test_system_setting_default_registration_tenant_superuser_only(self, client, app):
+        """系统设置仅超级管理员可改，且影响新注册用户默认租户"""
+        # 普通租户管理员不可访问平台系统设置
+        resp = client.get("/api/v1/superadmin/settings",
+                          headers={"Authorization": f"Bearer {self.token_a}"})
+        assert resp.status_code == 403
+
+        with app.app_context():
+            from app import db
+            from app.services.auth_service import create_user
+            from tests.conftest import DEFAULT_TENANT_ID
+
+            superuser = create_user(
+                "platform-admin",
+                "platform-admin@test.com",
+                "superpass",
+                "admin",
+                tenant_id=DEFAULT_TENANT_ID,
+            )
+            superuser.is_superuser = True
+            db.session.commit()
+
+        resp = client.post("/api/v1/auth/login",
+                           json={"username": "platform-admin", "password": "superpass"})
+        super_token = resp.get_json()["data"]["access_token"]
+
+        resp = client.put("/api/v1/superadmin/settings",
+                          headers={"Authorization": f"Bearer {super_token}"},
+                          json={"public.default_registration_tenant_slug": "tenant-a"})
+        assert resp.status_code == 200
+        settings = {s["key"]: s["value"] for s in resp.get_json()["data"]}
+        assert settings["public.default_registration_tenant_slug"] == "tenant-a"
+
+        resp = client.post("/api/v1/auth/register", json={
+            "username": "configured-newbie",
+            "email": "configured-newbie@test.com",
+            "password": "newbiepass",
+        })
+        assert resp.status_code == 201
+
+        with app.app_context():
+            from app.models.user import User
+            from app.models.tenant_membership import TenantMembership
+            from app.utils.decorators import bypass_tenant_filter
+
+            with bypass_tenant_filter():
+                user = User.query.filter_by(username="configured-newbie").first()
+                membership = TenantMembership.query.filter_by(user_id=user.id).first()
+            assert membership.tenant_id == 10
+
+    def test_superuser_can_manage_superuser_list(self, client, app):
+        """超级管理员可以添加/移除其他用户的超级管理员身份"""
+        with app.app_context():
+            from app import db
+            from app.services.auth_service import create_user
+            from tests.conftest import DEFAULT_TENANT_ID
+
+            superuser = create_user(
+                "platform-admin-list",
+                "platform-admin-list@test.com",
+                "superpass",
+                "admin",
+                tenant_id=DEFAULT_TENANT_ID,
+            )
+            superuser.is_superuser = True
+            candidate = create_user(
+                "super-candidate",
+                "super-candidate@test.com",
+                "candidatepass",
+                "user",
+                tenant_id=DEFAULT_TENANT_ID,
+            )
+            db.session.commit()
+            candidate_id = candidate.id
+
+        resp = client.post("/api/v1/auth/login",
+                           json={"username": "platform-admin-list", "password": "superpass"})
+        token = resp.get_json()["data"]["access_token"]
+
+        resp = client.post("/api/v1/superadmin/superusers",
+                           headers={"Authorization": f"Bearer {token}"},
+                           json={"identifier": "super-candidate"})
+        assert resp.status_code == 200
+        assert resp.get_json()["data"]["is_superuser"] is True
+
+        resp = client.get("/api/v1/superadmin/superusers",
+                          headers={"Authorization": f"Bearer {token}"})
+        assert "super-candidate" in [u["username"] for u in resp.get_json()["data"]]
+
+        resp = client.delete(f"/api/v1/superadmin/superusers/{candidate_id}",
+                             headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+
+        with app.app_context():
+            from app import db
+            from app.models.user import User
+            refreshed = db.session.get(User, candidate_id)
+            assert refreshed.is_superuser is False
+
+    def test_superuser_can_manage_tenant_members(self, client, app):
+        """超级管理员可以向任意租户添加和移除成员"""
+        with app.app_context():
+            from app import db
+            from app.services.auth_service import create_user
+            from tests.conftest import DEFAULT_TENANT_ID
+
+            superuser = create_user(
+                "platform-admin-members",
+                "platform-admin-members@test.com",
+                "superpass",
+                "admin",
+                tenant_id=DEFAULT_TENANT_ID,
+            )
+            superuser.is_superuser = True
+            member = create_user(
+                "tenant-added",
+                "tenant-added@test.com",
+                "memberpass",
+                "user",
+                tenant_id=DEFAULT_TENANT_ID,
+            )
+            db.session.commit()
+            member_id = member.id
+
+        resp = client.post("/api/v1/auth/login",
+                           json={"username": "platform-admin-members", "password": "superpass"})
+        token = resp.get_json()["data"]["access_token"]
+
+        resp = client.post("/api/v1/superadmin/tenants/10/members",
+                           headers={"Authorization": f"Bearer {token}"},
+                           json={
+                               "identifier": "tenant-added",
+                               "role": "user",
+                           })
+        assert resp.status_code == 200
+        assert resp.get_json()["data"]["id"] == member_id
+
+        resp = client.get("/api/v1/superadmin/tenants/10/members",
+                          headers={"Authorization": f"Bearer {token}"})
+        assert "tenant-added" in [u["username"] for u in resp.get_json()["data"]]
+
+        resp = client.delete(f"/api/v1/superadmin/tenants/10/members/{member_id}",
+                             headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+
+        resp = client.get("/api/v1/superadmin/tenants/10/members",
+                          headers={"Authorization": f"Bearer {token}"})
+        assert "tenant-added" not in [u["username"] for u in resp.get_json()["data"]]
+
+        resp = client.post("/api/v1/superadmin/tenants/10/members",
+                           headers={"Authorization": f"Bearer {token}"},
+                           json={
+                               "identifier": "not-registered-user",
+                               "role": "user",
+                           })
+        assert resp.status_code == 404
+        assert resp.get_json()["code"] == 10005

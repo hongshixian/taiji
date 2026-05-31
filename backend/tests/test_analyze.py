@@ -145,10 +145,18 @@ class TestExecuteAnalysis:
         with app.app_context():
             from app import db
             from tests.conftest import DEFAULT_TENANT_ID
-            user = User(tenant_id=DEFAULT_TENANT_ID,
-                        username="taskuser", email="task@test.com",
+            from app.models.tenant_membership import TenantMembership
+            from app.models.role import Role
+            role = Role.query.filter_by(name="user").first()
+            user = User(username="taskuser", email="task@test.com",
                         password_hash="hash")
             db.session.add(user)
+            db.session.flush()
+            db.session.add(TenantMembership(
+                tenant_id=DEFAULT_TENANT_ID,
+                user_id=user.id,
+                role_id=role.id,
+            ))
             db.session.commit()
             self.user_id = user.id
 

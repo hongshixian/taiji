@@ -18,6 +18,8 @@ import sys
 from app import create_app
 from app.models.user import User
 from app.models.tenant import Tenant
+from app.models.role import Role
+from app.models.tenant_membership import TenantMembership
 from app.services.auth_service import seed_admin
 
 app = create_app()
@@ -31,7 +33,13 @@ with app.app_context():
             db.session.add(t)
             db.session.commit()
 
-    if User.query.filter_by(role="admin").first():
+    admin_role = Role.query.filter_by(name="admin").first()
+    if admin_role and (
+        User.query
+        .join(TenantMembership, TenantMembership.user_id == User.id)
+        .filter(TenantMembership.role_id == admin_role.id)
+        .first()
+    ):
         print("[seed-admin] 检测到已有管理员账号，跳过初始化")
         sys.exit(0)
 

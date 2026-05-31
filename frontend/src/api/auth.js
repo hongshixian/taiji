@@ -5,7 +5,7 @@ export function register(data) {
 }
 
 export function login(data) {
-  // data: { username, password, tenant_slug? }
+  // data: { username, password }
   return request.post('/auth/login', data)
 }
 
@@ -18,6 +18,14 @@ export function refreshToken(refreshToken) {
 
 export function getMe() {
   return request.get('/auth/me')
+}
+
+export function listMyTenants() {
+  return request.get('/auth/tenants')
+}
+
+export function switchTenant(tenantId) {
+  return request.post('/auth/switch-tenant', { tenant_id: tenantId })
 }
 
 export function logout() {

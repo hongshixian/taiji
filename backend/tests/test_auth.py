@@ -98,6 +98,16 @@ class TestLogin:
         resp = client.post("/api/v1/auth/login", json={})
         assert resp.status_code == 400
 
+    def test_login_rejects_tenant_slug(self, client):
+        """登录不再接受租户参数，租户切换应走 /auth/switch-tenant"""
+        resp = client.post("/api/v1/auth/login", json={
+            "username": "loginuser",
+            "password": "password123",
+            "tenant_slug": "guest",
+        })
+        assert resp.status_code == 400
+        assert resp.get_json()["code"] == 90001
+
 
 class TestAuthRequired:
     """鉴权测试"""
