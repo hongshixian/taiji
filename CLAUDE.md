@@ -59,7 +59,7 @@ Default admin: seeded by `docker/entrypoint.sh` on **first** start (skipped when
 ### Frontend (`frontend/`)
 
 - **Vue 3 + Vite + Pinia + Element Plus**, hash-mode router. Views: `Home`, `Login`, `Register`, `TaskManagement`, `UserManagement`, `Settings`.
-- **`src/api/request.js`** is the only HTTP entry point. It auto-attaches `Bearer <accessToken>` from `localStorage`, and on 401 it transparently calls `/api/auth/refresh` with the refresh token, queues concurrent failed requests, then replays them. If refresh fails, it calls `authStore.logout()` and hard-redirects to `/login`. Any new API module under `src/api/` should import this instance, not raw axios.
+- **`src/api/request.js`** is the only HTTP entry point. It auto-attaches `Bearer <accessToken>` from `localStorage`, and on 401 it transparently calls `/api/v1/auth/refresh` with the refresh token, queues concurrent failed requests, then replays them. If refresh fails, it calls `authStore.logout()` and hard-redirects to `/login`. Any new API module under `src/api/` should import this instance, not raw axios. **baseURL is `/api/v1`** — API modules use relative paths like `/auth/login`.
 - **Router guards** (`src/router/index.js`): `meta.requiresAuth` / `meta.guest`; on first navigation with a token but no in-memory user, it lazy-fetches `authStore.fetchUser()`.
 - **Theme system** (`src/assets/theme.css`): plain-CSS variables (no SCSS). Brand palette is ink-black + cinnabar + jade + gold, exposed as `--taiji-primary` / `--taiji-accent` / `--taiji-jade` / `--taiji-gold` and the gradients `--taiji-gradient-{brand,accent,hero}`. The file also overrides Element Plus tokens (`--el-color-primary`, radii, etc.) and defines shadows/radii. **Style new pages with these variables, not hard-coded colors** — they auto-flip under `html.dark`.
 - **Dark mode**: toggled by adding/removing `html.dark`; persisted in `localStorage['taiji-theme']`. Initialized in `main.js` (respects `prefers-color-scheme` when no saved value). The user-facing switch lives in the App.vue header and Settings page.
@@ -69,7 +69,7 @@ Default admin: seeded by `docker/entrypoint.sh` on **first** start (skipped when
 
 ### Deployment (`docker/`)
 
-Four services: `redis`, `backend` (gunicorn 4 workers via `docker/entrypoint.sh` — runs `flask db upgrade` + `seed_admin` before launch), `worker` (same image, `celery worker` command), `frontend` (multi-stage build → nginx). SQLite DB persists in `./app_data:/app/data` on the host. `backend` and `worker` both wait for redis `healthcheck` to pass.
+Four services: `redis`, `backend` (gunicorn 4 workers via `docker/entrypoint.sh` — runs `flask db upgrade` then conditionally seeds an admin: uses `ADMIN_USERNAME/EMAIL/PASSWORD` env vars if set, else generates a 16-char random password and prints it once; skipped entirely when an admin row already exists), `worker` (same image, `celery worker` command), `frontend` (multi-stage build → nginx). SQLite DB persists in `./app_data:/app/data` on the host. `backend` and `worker` both wait for redis `healthcheck` to pass.
 
 ## Conventions when extending
 
