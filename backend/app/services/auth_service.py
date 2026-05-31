@@ -28,10 +28,13 @@ def register_user(username: str, email: str, password: str) -> User:
     if User.query.filter_by(email=email).first():
         raise BusinessError(ErrorCode.EMAIL_EXISTS)
 
+    role_id = _role_id_by_name("user")
     user = User(
         username=username,
         email=email,
         password_hash=generate_password_hash(password),
+        role="user",
+        role_id=role_id,
     )
     db.session.add(user)
     db.session.commit()
@@ -45,7 +48,10 @@ def login_user(username: str, password: str) -> dict:
     if not user.is_active:
         raise BusinessError(ErrorCode.ACCOUNT_DISABLED)
 
-    access_token = create_access_token(identity=str(user.id))
+    # JWT additional_claims：把权限码列表塞进 access token，避免每请求查 DB
+    # 改密 / 改角色时 tokens_revoked_at 会令旧 token 失效，所以 perms 缓存安全
+    claims = {"perms": user.permissions}
+    access_token = create_access_token(identity=str(user.id), additional_claims=claims)
     refresh_token = create_refresh_token(identity=str(user.id))
 
     return {
@@ -65,6 +71,9 @@ def user_to_dict(user: User) -> dict:
         "username": user.username,
         "email": user.email,
         "role": user.role,
+        "role_id": user.role_id,
+        "role_name": user.role_obj.name if user.role_obj else user.role,
+        "permissions": user.permissions,
         "is_active": user.is_active,
         "created_at": user.created_at.isoformat() if user.created_at else None,
     }
@@ -91,6 +100,7 @@ def create_user(username: str, email: str, password: str, role: str) -> User:
         email=email,
         password_hash=generate_password_hash(password),
         role=role,
+        role_id=_role_id_by_name(role),
     )
     db.session.add(user)
     db.session.commit()
@@ -115,6 +125,7 @@ def update_user(user_id: int, data: dict) -> User:
         user.email = data["email"]
     if "role" in data and data["role"] != user.role:
         user.role = data["role"]
+        user.role_id = _role_id_by_name(data["role"])
         revoke_tokens = True  # 角色变更应使旧 token 失效
     if "is_active" in data and data["is_active"] != user.is_active:
         user.is_active = data["is_active"]
@@ -165,7 +176,17 @@ def seed_admin(username: str, email: str, password: str):
         email=email,
         password_hash=generate_password_hash(password),
         role="admin",
+        role_id=_role_id_by_name("admin"),
     )
     db.session.add(admin)
     db.session.commit()
     return admin
+
+
+# ─── 内部工具 ────────────────────────────────
+
+def _role_id_by_name(name: str) -> int | None:
+    """根据角色名找 role_id；找不到返回 None（兼容尚未跑 RBAC migration 的环境）"""
+    from app.models.role import Role
+    role = Role.query.filter_by(name=name).first()
+    return role.id if role else None

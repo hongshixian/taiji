@@ -246,3 +246,57 @@ class TestChangePassword:
                                 "new_password": "12"})
         assert resp.status_code == 400
         assert resp.get_json()["code"] == 90001
+
+
+class TestRBAC:
+    """RBAC 权限测试"""
+
+    @pytest.fixture(autouse=True)
+    def setup_users(self, client, app):
+        """注册一个普通用户（user 角色）+ 直接 DB 建一个 admin"""
+        # 普通用户注册
+        client.post("/api/v1/auth/register", json={
+            "username": "normal",
+            "email": "normal@test.com",
+            "password": "password123",
+        })
+        resp = client.post("/api/v1/auth/login",
+                           json={"username": "normal", "password": "password123"})
+        self.user_token = resp.get_json()["data"]["access_token"]
+
+        # admin（直接走 service，避免走 register-then-promote 路径）
+        with app.app_context():
+            from app.services.auth_service import create_user
+            create_user("rbacadmin", "rbacadmin@test.com", "adminpass", "admin")
+        resp = client.post("/api/v1/auth/login",
+                           json={"username": "rbacadmin", "password": "adminpass"})
+        self.admin_token = resp.get_json()["data"]["access_token"]
+
+    def test_normal_user_blocked_from_admin_endpoint(self, client):
+        """普通 user 访问 /admin/users → 403 / PERMISSION_DENIED"""
+        resp = client.get("/api/v1/admin/users",
+                          headers={"Authorization": f"Bearer {self.user_token}"})
+        assert resp.status_code == 403
+        assert resp.get_json()["code"] == 30004
+
+    def test_admin_can_access_admin_endpoint(self, client):
+        """admin 可以访问 /admin/users → 200"""
+        resp = client.get("/api/v1/admin/users",
+                          headers={"Authorization": f"Bearer {self.admin_token}"})
+        assert resp.status_code == 200
+
+    def test_jwt_contains_permissions(self, client):
+        """登录返回的 user 数据应包含 permissions 列表"""
+        resp = client.post("/api/v1/auth/login",
+                           json={"username": "rbacadmin", "password": "adminpass"})
+        user_data = resp.get_json()["data"]["user"]
+        assert "permissions" in user_data
+        assert "user:read" in user_data["permissions"]
+        assert "user:write" in user_data["permissions"]
+
+    def test_user_role_has_limited_permissions(self, client):
+        """user 角色只有 task:read / task:create"""
+        resp = client.get("/api/v1/auth/me",
+                          headers={"Authorization": f"Bearer {self.user_token}"})
+        user_data = resp.get_json()["data"]
+        assert set(user_data["permissions"]) == {"task:read", "task:create"}

@@ -64,10 +64,13 @@
           <el-input v-model="form.password" type="password" show-password :placeholder="editMode ? '留空则不修改' : '至少 6 位'" />
         </el-form-item>
         <el-form-item label="角色" prop="role">
-          <el-radio-group v-model="form.role">
-            <el-radio value="user">普通用户</el-radio>
-            <el-radio value="admin">管理员</el-radio>
-          </el-radio-group>
+          <el-select v-model="form.role" placeholder="选择角色" style="width: 100%">
+            <el-option v-for="r in roleOptions" :key="r.name"
+                       :label="r.description || r.name" :value="r.name">
+              <span style="float: left">{{ r.description || r.name }}</span>
+              <span style="float: right; color: var(--el-text-color-secondary); font-size: 12px; font-family: monospace;">{{ r.name }}</span>
+            </el-option>
+          </el-select>
         </el-form-item>
         <el-form-item v-if="editMode" label="状态">
           <el-switch v-model="form.is_active" active-text="正常" inactive-text="禁用" />
@@ -86,9 +89,10 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { listUsers, createUser, updateUser, deleteUser } from '../api/admin'
+import { listUsers, createUser, updateUser, deleteUser, listRoles } from '../api/admin'
 
 const users = ref([])
+const roleOptions = ref([])
 const loading = ref(false)
 const page = ref(1)
 const perPage = 20
@@ -135,6 +139,19 @@ async function fetchUsers() {
     }
   } finally {
     loading.value = false
+  }
+}
+
+async function fetchRoles() {
+  try {
+    const { data } = await listRoles()
+    roleOptions.value = data.data
+  } catch {
+    // 没权限或失败：回退默认两个
+    roleOptions.value = [
+      { name: 'user', description: '普通用户' },
+      { name: 'admin', description: '管理员' },
+    ]
   }
 }
 
@@ -204,7 +221,10 @@ async function handleDelete(row) {
   }
 }
 
-onMounted(fetchUsers)
+onMounted(() => {
+  fetchUsers()
+  fetchRoles()
+})
 </script>
 
 <style scoped>

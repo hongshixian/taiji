@@ -68,9 +68,17 @@ def login():
 @auth_bp.route("/refresh", methods=["POST"])
 @jwt_required(refresh=True)
 def refresh():
-    """刷新 access token"""
+    """刷新 access token — 重新从 DB 读 perms，确保权限变更生效"""
+    from app.models.user import User
+    from app import db
+
     user_id = int(get_jwt_identity())
-    access_token = create_access_token(identity=str(user_id))
+    user = db.session.get(User, user_id)
+    if not user or not user.is_active:
+        raise BusinessError(ErrorCode.ACCOUNT_DISABLED)
+
+    claims = {"perms": user.permissions}
+    access_token = create_access_token(identity=str(user_id), additional_claims=claims)
     return ok({"access_token": access_token}, message="Token 已刷新")
 
 

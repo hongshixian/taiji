@@ -2,5 +2,6 @@
 
 from app.models.user import User
 from app.models.analyze_task import AnalyzeTask, TaskStatus
+from app.models.role import Role, Permission, role_permissions
 
-__all__ = ["User", "AnalyzeTask", "TaskStatus"]
+__all__ = ["User", "AnalyzeTask", "TaskStatus", "Role", "Permission", "role_permissions"]

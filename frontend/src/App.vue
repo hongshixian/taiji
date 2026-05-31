@@ -67,13 +67,17 @@
               <el-icon><HomeFilled /></el-icon>
               <template #title>主页</template>
             </el-menu-item>
-            <el-menu-item index="/tasks">
+            <el-menu-item index="/tasks" v-if="has('task:read')">
               <el-icon><Tickets /></el-icon>
               <template #title>任务管理</template>
             </el-menu-item>
-            <el-menu-item index="/users">
+            <el-menu-item index="/users" v-if="has('user:read')">
               <el-icon><User /></el-icon>
               <template #title>用户管理</template>
+            </el-menu-item>
+            <el-menu-item index="/roles" v-if="has('role:read')">
+              <el-icon><Key /></el-icon>
+              <template #title>角色管理</template>
             </el-menu-item>
             <el-menu-item index="/settings">
               <el-icon><Tools /></el-icon>
@@ -108,10 +112,12 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
+import { usePermission } from './composables/usePermission'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const { has } = usePermission()
 
 const collapsed = ref(window.innerWidth < 900)
 const isDark = ref(document.documentElement.classList.contains('dark'))

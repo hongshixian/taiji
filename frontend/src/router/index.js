@@ -30,7 +30,13 @@ const routes = [
     path: '/users',
     name: 'UserManagement',
     component: () => import('../views/UserManagement.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, requiresPermission: 'user:read' },
+  },
+  {
+    path: '/roles',
+    name: 'RoleManagement',
+    component: () => import('../views/RoleManagement.vue'),
+    meta: { requiresAuth: true, requiresPermission: 'role:read' },
   },
   {
     path: '/settings',
@@ -62,6 +68,14 @@ router.beforeEach(async (to, _from, next) => {
       await authStore.fetchUser()
     } catch {
       return next('/login')
+    }
+  }
+
+  // 权限守卫
+  if (to.meta.requiresPermission) {
+    const perms = new Set(authStore.user?.permissions ?? [])
+    if (!perms.has(to.meta.requiresPermission)) {
+      return next('/')
     }
   }
 

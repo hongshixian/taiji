@@ -29,6 +29,10 @@ class ErrorCode:
     USER_NOT_FOUND = ErrCode(10005, "用户不存在", http=404)
     CANNOT_DELETE_SELF = ErrCode(10006, "不能删除自己")
     INVALID_ROLE = ErrCode(10007, "无效的角色")
+    ROLE_NOT_FOUND = ErrCode(10008, "角色不存在", http=404)
+    ROLE_EXISTS = ErrCode(10009, "角色名已存在")
+    SYSTEM_ROLE_PROTECTED = ErrCode(10010, "系统角色受保护，不可修改")
+    ROLE_IN_USE = ErrCode(10011, "角色仍在使用中，不可删除")
 
     # ── 任务模块 ──────────────────────────────
     TASK_NOT_FOUND = ErrCode(20001, "任务不存在", http=404)
