@@ -59,6 +59,10 @@ Default admin (seeded by `docker/entrypoint.sh` on container start): `admin / ad
 - **Vue 3 + Vite + Pinia + Element Plus**, hash-mode router. Views: `Home`, `Login`, `Register`, `TaskManagement`, `UserManagement`, `Settings`.
 - **`src/api/request.js`** is the only HTTP entry point. It auto-attaches `Bearer <accessToken>` from `localStorage`, and on 401 it transparently calls `/api/auth/refresh` with the refresh token, queues concurrent failed requests, then replays them. If refresh fails, it calls `authStore.logout()` and hard-redirects to `/login`. Any new API module under `src/api/` should import this instance, not raw axios.
 - **Router guards** (`src/router/index.js`): `meta.requiresAuth` / `meta.guest`; on first navigation with a token but no in-memory user, it lazy-fetches `authStore.fetchUser()`.
+- **Theme system** (`src/assets/theme.css`): plain-CSS variables (no SCSS). Brand palette is ink-black + cinnabar + jade + gold, exposed as `--taiji-primary` / `--taiji-accent` / `--taiji-jade` / `--taiji-gold` and the gradients `--taiji-gradient-{brand,accent,hero}`. The file also overrides Element Plus tokens (`--el-color-primary`, radii, etc.) and defines shadows/radii. **Style new pages with these variables, not hard-coded colors** — they auto-flip under `html.dark`.
+- **Dark mode**: toggled by adding/removing `html.dark`; persisted in `localStorage['taiji-theme']`. Initialized in `main.js` (respects `prefers-color-scheme` when no saved value). The user-facing switch lives in the App.vue header and Settings page.
+- **Icons**: `@element-plus/icons-vue` is registered globally in `main.js` (`for (const [name, comp] of Object.entries(...)) app.component(name, comp)`) — use `<el-icon><HomeFilled /></el-icon>` directly, no per-file import. **Do not use emoji for UI icons.**
+- **Route transitions**: `<transition name="fade-slide">` wraps `<router-view>` in App.vue; the keyframes live in `theme.css`.
 - **Dev proxy**: `vite.config.js` proxies `/api` → `http://localhost:5000`. In Docker, Nginx (`docker/nginx.conf`) proxies `/api/` → `backend:5000` and falls back unknown paths to `index.html` for SPA routing.
 
 ### Deployment (`docker/`)
@@ -71,3 +75,5 @@ Four services: `redis`, `backend` (gunicorn 4 workers via `docker/entrypoint.sh`
 - **New Celery task**: define in `app/tasks/`, import it in `celery_app.py` (the existing `import app.tasks.analyze_task  # noqa: F401` pattern) so the Worker auto-registers it, wrap DB code in `with celery.flask_app.app_context():`.
 - **New rate-limited endpoint**: import the shared `limiter` from `app` and use `@limiter.limit(...)`. Only carve out a separate `Limiter` instance if the route has fundamentally different limiting policy (as auth does).
 - **Frontend API call**: add a module under `src/api/`, import the default `request` from `./request`, do not bypass the interceptors.
+- **Frontend styling**: use `var(--taiji-*)` / `var(--el-*)` variables — never hard-code `#409eff`-style colors, dark mode will break. Section headers use `.page-title` + `.page-icon` pattern (see `TaskManagement.vue`). Page roots use `max-width: 1200px; margin: 0 auto;` to keep wide-screen content centered.
+- **Frontend icons**: `<el-icon><IconName /></el-icon>` directly — icons are globally registered, no import needed. Reach for `@element-plus/icons-vue` names rather than ad-hoc SVGs.
