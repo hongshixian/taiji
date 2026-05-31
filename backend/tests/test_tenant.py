@@ -48,19 +48,21 @@ class TestTenantIsolation:
         self.token_b = resp.get_json()["data"]["access_token"]
 
     def test_user_only_sees_own_tenant_tasks(self, client):
-        """租户 A 用户只能看到 A 的任务"""
+        """租户 A 用户只能看到 A 租户下的任务（租户内所有用户的任务均可见）"""
         resp = client.get("/api/v1/analyze/",
                           headers={"Authorization": f"Bearer {self.token_a}"})
         assert resp.status_code == 200
         items = resp.get_json()["data"]["items"]
-        assert len(items) == 1
-        assert items[0]["url"] == "https://a.com"
+        urls = [i["url"] for i in items]
+        assert "https://a.com" in urls
+        assert "https://b.com" not in urls  # 跨租户不可见
 
         resp = client.get("/api/v1/analyze/",
                           headers={"Authorization": f"Bearer {self.token_b}"})
         items = resp.get_json()["data"]["items"]
-        assert len(items) == 1
-        assert items[0]["url"] == "https://b.com"
+        urls = [i["url"] for i in items]
+        assert "https://b.com" in urls
+        assert "https://a.com" not in urls  # 跨租户不可见
 
     def test_cannot_access_other_tenant_task_by_id(self, client):
         """A 用 task_id 强行访问 B 的任务 → 404"""
@@ -110,7 +112,10 @@ class TestTenantIsolation:
 
         resp = client.get("/api/v1/analyze/",
                           headers={"Authorization": f"Bearer {token}"})
-        assert [i["url"] for i in resp.get_json()["data"]["items"]] == ["https://multi-a.com"]
+        urls = [i["url"] for i in resp.get_json()["data"]["items"]]
+        assert "https://multi-a.com" in urls
+        assert "https://a.com" in urls       # 同租户其他用户的任务也可见
+        assert "https://b.com" not in urls   # 跨租户不可见
 
         resp = client.post("/api/v1/auth/switch-tenant",
                            headers={"Authorization": f"Bearer {token}"},
@@ -120,7 +125,10 @@ class TestTenantIsolation:
 
         resp = client.get("/api/v1/analyze/",
                           headers={"Authorization": f"Bearer {token}"})
-        assert [i["url"] for i in resp.get_json()["data"]["items"]] == ["https://multi-b.com"]
+        urls = [i["url"] for i in resp.get_json()["data"]["items"]]
+        assert "https://multi-b.com" in urls
+        assert "https://b.com" in urls       # 同租户其他用户的任务也可见
+        assert "https://a.com" not in urls   # 跨租户不可见
 
         resp = client.get("/api/v1/auth/me",
                           headers={"Authorization": f"Bearer {token}"})

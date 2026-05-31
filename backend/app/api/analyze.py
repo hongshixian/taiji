@@ -6,8 +6,8 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.services.analyze_service import (
     create_task,
     delete_task,
-    get_task,
-    get_user_tasks,
+    get_task_by_id,
+    get_tenant_tasks,
     retry_task,
     task_to_dict,
 )
@@ -53,8 +53,7 @@ def submit_analysis():
 @jwt_required()
 def get_analysis(task_id):
     """查询单个任务状态和结果"""
-    user_id = int(get_jwt_identity())
-    task = get_task(task_id, user_id)
+    task = get_task_by_id(task_id)
     if not task:
         raise BusinessError(ErrorCode.TASK_NOT_FOUND)
     return ok(task_to_dict(task))
@@ -63,14 +62,12 @@ def get_analysis(task_id):
 @analyze_bp.route("/", methods=["GET"])
 @jwt_required()
 def list_analyses():
-    """分页查询历史任务"""
-    user_id = int(get_jwt_identity())
-
+    """分页查询当前租户的任务列表"""
     parsed, error = validate_schema(AnalyzeQuerySchema(), request.args)
     if error:
         return error
 
-    pagination = get_user_tasks(user_id, parsed["page"], parsed["per_page"])
+    pagination = get_tenant_tasks(parsed["page"], parsed["per_page"])
 
     return paginated(
         items=[task_to_dict(t) for t in pagination.items],
@@ -84,8 +81,7 @@ def list_analyses():
 @jwt_required()
 def retry_analysis(task_id):
     """重新提交失败/超时任务"""
-    user_id = int(get_jwt_identity())
-    task = retry_task(task_id, user_id)
+    task = retry_task(task_id)
     if not task:
         raise BusinessError(ErrorCode.TASK_NOT_FOUND)
     return ok(task_to_dict(task), message="任务已重新提交")
@@ -96,6 +92,5 @@ def retry_analysis(task_id):
 @require_permission(Permission.TASK_DELETE_ANY)
 def delete_analysis(task_id):
     """删除任务 — 需要管理员权限"""
-    user_id = int(get_jwt_identity())
-    delete_task(task_id, user_id)
+    delete_task(task_id)
     return ok(message="任务已删除")

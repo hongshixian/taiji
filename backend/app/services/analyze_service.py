@@ -105,18 +105,18 @@ def execute_analysis(task_id: int) -> None:
         _fail_task(task, f"解析异常: {str(e)}")
 
 
-def get_task(task_id: int, user_id: int) -> AnalyzeTask | None:
-    """查询单个任务（仅限拥有者）"""
-    return AnalyzeTask.query.filter_by(id=task_id, user_id=user_id).first()
+def get_task_by_id(task_id: int) -> AnalyzeTask | None:
+    """查询单个任务（租户过滤由 TenantMixin 自动完成）"""
+    return AnalyzeTask.query.filter_by(id=task_id).first()
 
 
-def get_user_tasks(user_id: int, page: int = 1, per_page: int = 20):
-    """分页查询用户的任务列表（显式按当前租户过滤）"""
+def get_tenant_tasks(page: int = 1, per_page: int = 20):
+    """分页查询当前租户的任务列表"""
     from flask import g
 
     return (
         AnalyzeTask.query
-        .filter_by(user_id=user_id, tenant_id=g.tenant_id)
+        .filter_by(tenant_id=g.tenant_id)
         .order_by(AnalyzeTask.created_at.desc())
         .paginate(page=page, per_page=per_page, error_out=False)
     )
@@ -132,6 +132,8 @@ def task_to_dict(task: AnalyzeTask) -> dict:
         "summary": task.summary,
         "keywords": task.keywords,
         "error_message": task.error_message,
+        "user_id": task.user_id,
+        "username": task.user.username if task.user else None,
         "created_at": task.created_at.isoformat() if task.created_at else None,
         "started_at": task.started_at.isoformat() if task.started_at else None,
         "completed_at": task.completed_at.isoformat() if task.completed_at else None,
@@ -191,9 +193,9 @@ def _fail_task(task: AnalyzeTask, message: str) -> None:
     db.session.commit()
     logger.warning(f"任务 {task.id} 失败: {message}")
 
-def delete_task(task_id: int, user_id: int) -> AnalyzeTask:
-    """删除任务（仅限拥有者）"""
-    task = AnalyzeTask.query.filter_by(id=task_id, user_id=user_id).first()
+def delete_task(task_id: int) -> AnalyzeTask:
+    """删除任务（租户过滤由 TenantMixin 自动完成）"""
+    task = AnalyzeTask.query.filter_by(id=task_id).first()
     if not task:
         raise BusinessError(ErrorCode.TASK_NOT_FOUND)
     db.session.delete(task)
@@ -201,17 +203,16 @@ def delete_task(task_id: int, user_id: int) -> AnalyzeTask:
     return task
 
 
-def retry_task(task_id: int, user_id: int) -> AnalyzeTask | None:
+def retry_task(task_id: int) -> AnalyzeTask | None:
     """重试失败或超时的任务
 
     Args:
         task_id: 任务 ID
-        user_id: 用户 ID
 
     Returns:
-        AnalyzeTask | None: 重置后的任务，不存在或无权限返回 None
+        AnalyzeTask | None: 重置后的任务，不存在返回 None
     """
-    task = AnalyzeTask.query.filter_by(id=task_id, user_id=user_id).first()
+    task = AnalyzeTask.query.filter_by(id=task_id).first()
     if not task:
         return None
 

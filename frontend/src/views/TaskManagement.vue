@@ -51,6 +51,9 @@
       <el-table-column label="标题" min-width="180">
         <template #default="{ row }">{{ row.title || '—' }}</template>
       </el-table-column>
+      <el-table-column label="创建者" width="120">
+        <template #default="{ row }">{{ row.username || '—' }}</template>
+      </el-table-column>
       <el-table-column label="状态" width="100">
         <template #default="{ row }">
           <el-tag :type="dbStatusTag(row.status)" size="small">{{ dbStatusLabel(row.status) }}</el-tag>
