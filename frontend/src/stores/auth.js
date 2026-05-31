@@ -1,6 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { login as loginApi, register as registerApi, getMe } from '../api/auth'
+import {
+  login as loginApi,
+  register as registerApi,
+  getMe,
+  logout as logoutApi,
+} from '../api/auth'
 import router from '../router'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -35,7 +40,18 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  function logout() {
+  /**
+   * 退出登录：先调后端 logout 把 jti 加黑名单，
+   * 即使后端失败也清本地状态跳登录页。
+   */
+  async function logout() {
+    try {
+      if (localStorage.getItem('accessToken')) {
+        await logoutApi()
+      }
+    } catch {
+      // 后端撤销失败也不阻断登出流程
+    }
     localStorage.removeItem('accessToken')
     localStorage.removeItem('refreshToken')
     user.value = null

@@ -146,3 +146,103 @@ class TestAuthRequired:
         assert resp.status_code == 200
         data = resp.get_json()
         assert "access_token" in data["data"]
+
+
+class TestLogout:
+    """登出测试"""
+
+    @pytest.fixture(autouse=True)
+    def setup_token(self, client):
+        client.post("/api/v1/auth/register", json={
+            "username": "logoutuser",
+            "email": "logout@example.com",
+            "password": "password123",
+        })
+        resp = client.post("/api/v1/auth/login", json={
+            "username": "logoutuser",
+            "password": "password123",
+        })
+        self.token = resp.get_json()["data"]["access_token"]
+
+    def test_logout_revokes_token(self, client):
+        """登出后 token 应失效"""
+        # 登出前可以访问 /me
+        resp = client.get("/api/v1/auth/me",
+                          headers={"Authorization": f"Bearer {self.token}"})
+        assert resp.status_code == 200
+
+        # 登出
+        resp = client.post("/api/v1/auth/logout",
+                           headers={"Authorization": f"Bearer {self.token}"})
+        assert resp.status_code == 200
+
+        # 登出后访问 /me 应 401 / TOKEN_REVOKED
+        resp = client.get("/api/v1/auth/me",
+                          headers={"Authorization": f"Bearer {self.token}"})
+        assert resp.status_code == 401
+        assert resp.get_json()["code"] == 30006  # TOKEN_REVOKED
+
+    def test_logout_no_token(self, client):
+        """未登录调登出 → 401"""
+        resp = client.post("/api/v1/auth/logout")
+        assert resp.status_code == 401
+
+
+class TestChangePassword:
+    """修改密码测试"""
+
+    @pytest.fixture(autouse=True)
+    def setup_token(self, client):
+        client.post("/api/v1/auth/register", json={
+            "username": "pwduser",
+            "email": "pwd@example.com",
+            "password": "oldpass123",
+        })
+        resp = client.post("/api/v1/auth/login", json={
+            "username": "pwduser",
+            "password": "oldpass123",
+        })
+        self.token = resp.get_json()["data"]["access_token"]
+
+    def test_change_password_revokes_all_tokens(self, client):
+        """改密后旧 token 失效，新密码登录得新 token"""
+        # 改密
+        resp = client.put("/api/v1/auth/password",
+                          headers={"Authorization": f"Bearer {self.token}"},
+                          json={"old_password": "oldpass123",
+                                "new_password": "newpass456"})
+        assert resp.status_code == 200
+
+        # 旧 token 立即失效
+        resp = client.get("/api/v1/auth/me",
+                          headers={"Authorization": f"Bearer {self.token}"})
+        assert resp.status_code == 401
+        assert resp.get_json()["code"] == 30006
+
+        # 旧密码登录失败
+        resp = client.post("/api/v1/auth/login",
+                           json={"username": "pwduser", "password": "oldpass123"})
+        assert resp.status_code == 401
+
+        # 新密码登录成功
+        resp = client.post("/api/v1/auth/login",
+                           json={"username": "pwduser", "password": "newpass456"})
+        assert resp.status_code == 200
+
+    def test_change_password_wrong_old(self, client):
+        """旧密码错误 → 401"""
+        resp = client.put("/api/v1/auth/password",
+                          headers={"Authorization": f"Bearer {self.token}"},
+                          json={"old_password": "wrong",
+                                "new_password": "newpass456"})
+        assert resp.status_code == 401
+        assert resp.get_json()["code"] == 10003  # INVALID_CREDENTIAL
+
+    def test_change_password_too_short(self, client):
+        """新密码太短 → 400 / VALIDATION_ERROR"""
+        resp = client.put("/api/v1/auth/password",
+                          headers={"Authorization": f"Bearer {self.token}"},
+                          json={"old_password": "oldpass123",
+                                "new_password": "12"})
+        assert resp.status_code == 400
+        assert resp.get_json()["code"] == 90001

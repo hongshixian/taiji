@@ -15,6 +15,10 @@ class User(db.Model):
     password_hash = db.Column(db.String(256), nullable=False)
     role = db.Column(db.String(20), default="user", nullable=False)        # admin / user
     is_active = db.Column(db.Boolean, default=True, nullable=False)
+
+    # 早于此时间签发的 JWT 全部失效（改密 / 禁用 / 改角色时设置）
+    tokens_revoked_at = db.Column(db.DateTime, nullable=True)
+
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc))

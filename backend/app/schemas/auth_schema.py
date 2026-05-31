@@ -35,3 +35,18 @@ class LoginSchema(Schema):
         validate=validate.Length(min=1, error="密码不能为空"),
         metadata={"description": "密码"},
     )
+
+
+class ChangePasswordSchema(Schema):
+    """用户自助修改密码请求"""
+
+    old_password = fields.String(
+        required=True,
+        validate=validate.Length(min=1, error="旧密码不能为空"),
+        metadata={"description": "当前密码"},
+    )
+    new_password = fields.String(
+        required=True,
+        validate=validate.Length(min=6, error="新密码至少 6 位"),
+        metadata={"description": "新密码，至少 6 位"},
+    )

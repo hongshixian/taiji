@@ -18,3 +18,14 @@ export function refreshToken(refreshToken) {
 export function getMe() {
   return request.get('/auth/me')
 }
+
+export function logout() {
+  return request.post('/auth/logout')
+}
+
+export function changePassword(oldPassword, newPassword) {
+  return request.put('/auth/password', {
+    old_password: oldPassword,
+    new_password: newPassword,
+  })
+}

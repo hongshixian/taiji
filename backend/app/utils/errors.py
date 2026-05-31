@@ -40,6 +40,7 @@ class ErrorCode:
     TOKEN_MISSING = ErrCode(30003, "缺少认证 Token", http=401)
     PERMISSION_DENIED = ErrCode(30004, "需要管理员权限", http=403)
     AUTH_DISABLED = ErrCode(30005, "账户已禁用", http=403)
+    TOKEN_REVOKED = ErrCode(30006, "Token 已撤销，请重新登录", http=401)
 
     # ── 系统级 ────────────────────────────────
     VALIDATION_ERROR = ErrCode(90001, "请求参数错误")

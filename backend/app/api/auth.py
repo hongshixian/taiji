@@ -1,7 +1,9 @@
 """认证接口"""
 
+from datetime import datetime, timezone
+
 from flask import Blueprint, request
-from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token
+from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token, get_jwt
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
@@ -10,11 +12,13 @@ from app.services.auth_service import (
     login_user,
     get_user_by_id,
     user_to_dict,
+    change_password,
 )
-from app.schemas.auth_schema import RegisterSchema, LoginSchema
+from app.schemas.auth_schema import RegisterSchema, LoginSchema, ChangePasswordSchema
 from app.utils.validation import validate_schema
 from app.utils.response import ok, created
 from app.utils.errors import BusinessError, ErrorCode
+from app.utils.jwt_blocklist import revoke_jti
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -79,3 +83,33 @@ def me():
     if not user:
         raise BusinessError(ErrorCode.USER_NOT_FOUND)
     return ok(user_to_dict(user))
+
+
+@auth_bp.route("/logout", methods=["POST"])
+@jwt_required()
+def logout():
+    """退出登录 — 把当前 access token 的 jti 加入黑名单"""
+    payload = get_jwt()
+    jti = payload["jti"]
+    exp = payload["exp"]
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+    ttl = max(0, exp - now_ts)
+    revoke_jti(jti, ttl)
+    return ok(message="已退出登录")
+
+
+@auth_bp.route("/password", methods=["PUT"])
+@jwt_required()
+def update_password():
+    """用户自助修改密码 — 成功后所有会话失效，需要重新登录"""
+    data = request.get_json()
+    if not data:
+        raise BusinessError(ErrorCode.EMPTY_BODY)
+
+    parsed, error = validate_schema(ChangePasswordSchema(), data)
+    if error:
+        return error
+
+    user_id = int(get_jwt_identity())
+    change_password(user_id, parsed["old_password"], parsed["new_password"])
+    return ok(message="密码已修改，请重新登录")

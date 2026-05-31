@@ -1,11 +1,23 @@
 """认证业务逻辑"""
 
+from datetime import datetime, timedelta, timezone
+
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, create_refresh_token
 
 from app import db
 from app.models.user import User
 from app.utils.errors import BusinessError, ErrorCode
+
+
+def _revoke_marker() -> datetime:
+    """生成 tokens_revoked_at 时间戳：向上取整到下一秒。
+
+    JWT iat 精度是秒；设为 now 会让"同秒内紧接着重新登录"的新 token 也被吊销。
+    向上取整到下一秒确保：所有早于"下一秒"的 token 失效，新登录的 token（iat ≥ 下一秒）不受影响。
+    """
+    now = datetime.now(timezone.utc)
+    return (now.replace(microsecond=0) + timedelta(seconds=1))
 
 
 # ─── 认证 ────────────────────────────────
@@ -90,6 +102,9 @@ def update_user(user_id: int, data: dict) -> User:
     if not user:
         raise BusinessError(ErrorCode.USER_NOT_FOUND)
 
+    # 监测需要撤销该用户所有 token 的变更
+    revoke_tokens = False
+
     if "username" in data and data["username"] != user.username:
         if User.query.filter_by(username=data["username"]).first():
             raise BusinessError(ErrorCode.USER_EXISTS)
@@ -98,13 +113,34 @@ def update_user(user_id: int, data: dict) -> User:
         if User.query.filter_by(email=data["email"]).first():
             raise BusinessError(ErrorCode.EMAIL_EXISTS)
         user.email = data["email"]
-    if "role" in data:
+    if "role" in data and data["role"] != user.role:
         user.role = data["role"]
-    if "is_active" in data:
+        revoke_tokens = True  # 角色变更应使旧 token 失效
+    if "is_active" in data and data["is_active"] != user.is_active:
         user.is_active = data["is_active"]
+        if not data["is_active"]:
+            revoke_tokens = True  # 禁用账户：踢出所有会话
     if "password" in data and data["password"]:
         user.password_hash = generate_password_hash(data["password"])
+        revoke_tokens = True  # 改密：踢出所有会话
 
+    if revoke_tokens:
+        user.tokens_revoked_at = _revoke_marker()
+
+    db.session.commit()
+    return user
+
+
+def change_password(user_id: int, old_password: str, new_password: str) -> User:
+    """用户自助修改密码 — 需校验旧密码，成功后踢掉自己所有会话"""
+    user = db.session.get(User, user_id)
+    if not user:
+        raise BusinessError(ErrorCode.USER_NOT_FOUND)
+    if not check_password_hash(user.password_hash, old_password):
+        raise BusinessError(ErrorCode.INVALID_CREDENTIAL, "旧密码错误")
+
+    user.password_hash = generate_password_hash(new_password)
+    user.tokens_revoked_at = _revoke_marker()
     db.session.commit()
     return user
 

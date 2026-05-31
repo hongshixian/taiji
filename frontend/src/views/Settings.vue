@@ -7,6 +7,7 @@
       </div>
     </div>
 
+    <!-- 外观 -->
     <el-card shadow="never" class="settings-card">
       <template #header>
         <div class="card-title">
@@ -27,6 +28,40 @@
       </div>
     </el-card>
 
+    <!-- 修改密码 -->
+    <el-card shadow="never" class="settings-card">
+      <template #header>
+        <div class="card-title">
+          <el-icon><Lock /></el-icon>&nbsp;修改密码
+        </div>
+      </template>
+      <el-form
+        ref="pwdFormRef"
+        :model="pwdForm"
+        :rules="pwdRules"
+        label-width="100px"
+        size="default"
+        @submit.prevent="handleChangePassword"
+      >
+        <el-form-item label="当前密码" prop="oldPassword">
+          <el-input v-model="pwdForm.oldPassword" type="password" show-password />
+        </el-form-item>
+        <el-form-item label="新密码" prop="newPassword">
+          <el-input v-model="pwdForm.newPassword" type="password" show-password />
+        </el-form-item>
+        <el-form-item label="确认新密码" prop="confirmPassword">
+          <el-input v-model="pwdForm.confirmPassword" type="password" show-password />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" :loading="pwdSubmitting" @click="handleChangePassword">
+            修改密码
+          </el-button>
+          <span class="form-hint">修改后将退出所有设备，需要重新登录</span>
+        </el-form-item>
+      </el-form>
+    </el-card>
+
+    <!-- 关于 -->
     <el-card shadow="never" class="settings-card">
       <template #header>
         <div class="card-title">
@@ -44,14 +79,74 @@
 </template>
 
 <script setup>
-import { ref, shallowRef } from 'vue'
+import { ref, reactive } from 'vue'
+import { ElMessage } from 'element-plus'
 import { Moon, Sunny } from '@element-plus/icons-vue'
+import { useAuthStore } from '../stores/auth'
+import { changePassword } from '../api/auth'
 
+const authStore = useAuthStore()
+
+// 主题
 const isDark = ref(document.documentElement.classList.contains('dark'))
 
 function toggleTheme(value) {
   document.documentElement.classList.toggle('dark', value)
   localStorage.setItem('taiji-theme', value ? 'dark' : 'light')
+}
+
+// 修改密码
+const pwdFormRef = ref(null)
+const pwdSubmitting = ref(false)
+const pwdForm = reactive({
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: '',
+})
+
+const pwdRules = {
+  oldPassword: [
+    { required: true, message: '请输入当前密码', trigger: 'blur' },
+  ],
+  newPassword: [
+    { required: true, message: '请输入新密码', trigger: 'blur' },
+    { min: 6, message: '新密码至少 6 位', trigger: 'blur' },
+  ],
+  confirmPassword: [
+    { required: true, message: '请再次输入新密码', trigger: 'blur' },
+    {
+      validator: (_rule, value, callback) => {
+        if (value !== pwdForm.newPassword) callback(new Error('两次输入的密码不一致'))
+        else callback()
+      },
+      trigger: 'blur',
+    },
+  ],
+}
+
+async function handleChangePassword() {
+  const valid = await pwdFormRef.value.validate().catch(() => false)
+  if (!valid) return
+
+  pwdSubmitting.value = true
+  try {
+    await changePassword(pwdForm.oldPassword, pwdForm.newPassword)
+    ElMessage.success('密码已修改，即将退出登录')
+    // 给提示几秒时间再清本地状态
+    setTimeout(() => {
+      // 不调 logout API（旧 token 已被服务端撤销），直接清本地状态
+      localStorage.removeItem('accessToken')
+      localStorage.removeItem('refreshToken')
+      authStore.user = null
+      authStore.isLoggedIn = false
+      window.location.hash = '#/login'
+    }, 1500)
+  } catch (err) {
+    const msg = err.response?.data?.message || '修改失败'
+    ElMessage.error(msg)
+  } finally {
+    pwdSubmitting.value = false
+  }
 }
 </script>
 
@@ -87,6 +182,11 @@ function toggleTheme(value) {
   font-size: 12px;
   color: var(--el-text-color-secondary);
   margin-top: 4px;
+}
+.form-hint {
+  margin-left: 12px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 .about-grid {
   display: grid;

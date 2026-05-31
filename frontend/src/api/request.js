@@ -37,6 +37,17 @@ request.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config
+    const errCode = error.response?.data?.code
+
+    // TOKEN_REVOKED (30006)：refresh 也会被拒，直接跳登录，避免循环
+    if (errCode === 30006) {
+      localStorage.removeItem('accessToken')
+      localStorage.removeItem('refreshToken')
+      if (!window.location.hash.startsWith('#/login')) {
+        window.location.hash = '#/login'
+      }
+      return Promise.reject(error)
+    }
 
     // 非 401 或已经是刷新请求，直接抛出
     if (error.response?.status !== 401 || originalRequest._retry) {
