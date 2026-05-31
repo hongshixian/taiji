@@ -3,6 +3,7 @@
 from datetime import datetime, timezone
 
 from flask import Blueprint, request
+from app import db
 from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token, get_jwt
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -61,6 +62,7 @@ def login():
     result = login_user(
         username=parsed["username"],
         password=parsed["password"],
+        tenant_slug=parsed.get("tenant_slug"),
     )
     return ok(result, message="登录成功")
 
@@ -97,12 +99,34 @@ def refresh():
 @auth_bp.route("/me", methods=["GET"])
 @jwt_required()
 def me():
-    """获取当前用户信息"""
+    """获取当前用户信息
+
+    在 user_to_dict 的基础上叠加"当前操作租户"上下文 (current_tenant)。
+    对超管而言，user.tenant_* 反映"我归属哪里"，current_tenant 反映"我正在看哪里"——
+    切换租户后只有 current_tenant 会变。普通用户两者一致。
+    """
+    from flask import g
+    from app.models.tenant import Tenant
+
     user_id = int(get_jwt_identity())
     user = get_user_by_id(user_id)
     if not user:
         raise BusinessError(ErrorCode.USER_NOT_FOUND)
-    return ok(user_to_dict(user))
+
+    data = user_to_dict(user)
+
+    # 当前会话操作的租户（来自 JWT claim 的 tenant_id，可能与 user.tenant_id 不同）
+    current_id = getattr(g, "tenant_id", None)
+    current = None
+    if current_id is not None:
+        from app.utils.decorators import bypass_tenant_filter
+        with bypass_tenant_filter():
+            t = db.session.get(Tenant, current_id)
+        if t:
+            current = {"id": t.id, "slug": t.slug, "name": t.name, "plan": t.plan}
+    data["current_tenant"] = current
+
+    return ok(data)
 
 
 @auth_bp.route("/logout", methods=["POST"])

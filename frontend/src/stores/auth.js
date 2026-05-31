@@ -19,9 +19,20 @@ export const useAuthStore = defineStore('auth', () => {
   /* 当前用户是否平台超级管理员（可跨 tenant 操作） */
   const isSuperuser = computed(() => user.value?.is_superuser === true)
 
-  /* 当前会话指向的租户（superuser 切换后会变） */
+  /* 当前会话指向的租户（superuser 切换后会变；后端 /me 通过 current_tenant
+     字段提供，反映 JWT claim 中的 tenant_id；登录时 user_to_dict 的 tenant_*
+     字段是用户真实归属租户，用作 fallback） */
   const currentTenant = computed(() => {
     if (!user.value) return null
+    if (user.value.current_tenant) {
+      return {
+        id: user.value.current_tenant.id,
+        slug: user.value.current_tenant.slug,
+        name: user.value.current_tenant.name,
+        plan: user.value.current_tenant.plan,
+      }
+    }
+    // fallback：登录响应里只有 tenant_* 字段
     return {
       id: user.value.tenant_id,
       slug: user.value.tenant_slug,
