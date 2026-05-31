@@ -11,7 +11,9 @@
 | 层级 | 技术 |
 |------|------|
 | 后端 | Flask 3 + SQLAlchemy + Flask-Migrate |
-| 鉴权 | JWT (access 30min / refresh 7天) |
+| 鉴权 | JWT (access 30min / refresh 7天) + Redis 黑名单 |
+| 权限 | RBAC（角色-权限分离，运行时可配） |
+| 多租户 | 共享 schema + 全局 query 拦截器（数据自动隔离） |
 | 异步 | Celery + Redis |
 | 前端 | Vue 3 + Vite + Element Plus + Pinia |
 | 部署 | Docker Compose 一键启动 |
@@ -107,15 +109,20 @@ taiji/
 
 | 方法 | 路径 | 说明 | 鉴权 |
 |------|------|------|:---:|
-| POST | `/api/v1/auth/register` | 注册 | — |
+| POST | `/api/v1/auth/register` | 注册（默认进 guest 租户）| — |
 | POST | `/api/v1/auth/login` | 登录 | — |
 | POST | `/api/v1/auth/refresh` | 刷新 token | refresh |
-| GET  | `/api/v1/auth/me` | 当前用户 | ✓ |
-| POST | `/api/v1/analyze/` | 提交分析 | ✓ |
-| GET  | `/api/v1/analyze/<id>` | 查询任务 | ✓ |
-| GET  | `/api/v1/analyze/` | 历史列表 | ✓ |
-| POST | `/api/v1/analyze/<id>/retry` | 重试失败任务 | ✓ |
-| GET/POST/PUT/DELETE | `/api/v1/admin/users[/<id>]` | 用户 CRUD | admin |
+| POST | `/api/v1/auth/logout` | 退出（撤销当前 token）| ✓ |
+| PUT  | `/api/v1/auth/password` | 修改密码（踢出所有会话）| ✓ |
+| GET  | `/api/v1/auth/me` | 当前用户（含 perms）| ✓ |
+| POST | `/api/v1/analyze/` | 提交分析 | task:create |
+| GET  | `/api/v1/analyze/<id>` | 查询任务 | task:read |
+| GET  | `/api/v1/analyze/` | 历史列表 | task:read |
+| POST | `/api/v1/analyze/<id>/retry` | 重试失败任务 | task:create |
+| GET/POST/PUT/DELETE | `/api/v1/admin/users[/<id>]` | 用户 CRUD | user:read/write/delete |
+| GET/POST/PUT/DELETE | `/api/v1/admin/roles[/<id>]` | 角色 CRUD | role:read/write/delete |
+| GET  | `/api/v1/admin/roles/permissions` | 所有权限码列表 | role:read |
+| GET/POST/PUT/DELETE | `/api/v1/superadmin/tenants[/<id>]` | 租户 CRUD（仅 superuser）| is_superuser |
 | GET  | `/api/health` | 健康检查 | — |
 
 ### 响应格式
@@ -127,7 +134,25 @@ taiji/
 ```
 
 - `code = 0` 成功；非 0 为业务错误码（详见 `backend/app/utils/errors.py::ErrorCode`）
-- 错误码分段：`1xxxx` 用户/认证、`2xxxx` 任务、`3xxxx` 鉴权、`9xxxx` 系统级
+- 错误码分段：`1xxxx` 用户/认证、`11xxx` 多租户、`2xxxx` 任务、`3xxxx` 鉴权、`9xxxx` 系统级
+
+### 权限体系 (RBAC)
+
+| 角色 | 权限 |
+|------|------|
+| `admin` | 全部权限（user:*/role:*/task:*/system:*）|
+| `user` | task:read, task:create |
+| `guest` | task:read |
+
+- 系统角色 (is_system=true) 不可删除；admin 可在「角色管理」页新增自定义角色
+- 改密 / 改角色 / 禁用账户会立即撤销该用户所有 JWT（用户级吊销 + Redis 黑名单）
+
+### 多租户
+
+- 数据库层面共享 schema，每张业务表带 `tenant_id`，全局 query 拦截器自动按当前 tenant 过滤
+- 系统种子租户：`default`（现有数据）+ `guest`（公开注册落地）
+- **超级管理员** (is_superuser=true)：可跨租户管理，通过 `/api/v1/superadmin/tenants` 增删改租户
+- 同一 username/email 在不同 tenant 内可共存
 
 ---
 
