@@ -1,37 +1,93 @@
-"""统一错误响应"""
+"""业务错误码体系 + 全局异常处理
 
+设计原则：
+- 业务错误码与 HTTP 状态码解耦 —— code 字段反映业务语义，HTTP 状态码反映传输语义
+- 分段：1xxxx 用户/认证、2xxxx 任务、3xxxx 鉴权、9xxxx 系统级
+- handler 内只 `raise BusinessError(ErrorCode.XXX)`，由全局 errorhandler 统一序列化
+"""
+
+from dataclasses import dataclass
 from flask import jsonify
 
 
-def error_response(code: int, message: str, status_code: int = 400):
-    """统一错误响应格式
+@dataclass(frozen=True)
+class ErrCode:
+    """错误码条目"""
+    code: int
+    message: str
+    http: int = 400  # 默认 HTTP 状态码
 
-    Args:
-        code: 业务错误码
-        message: 错误描述
-        status_code: HTTP 状态码
+
+class ErrorCode:
+    """业务错误码表"""
+
+    # ── 用户 / 认证 ────────────────────────────
+    USER_EXISTS = ErrCode(10001, "用户名已存在")
+    EMAIL_EXISTS = ErrCode(10002, "邮箱已注册")
+    INVALID_CREDENTIAL = ErrCode(10003, "用户名或密码错误", http=401)
+    ACCOUNT_DISABLED = ErrCode(10004, "账户已被禁用", http=401)
+    USER_NOT_FOUND = ErrCode(10005, "用户不存在", http=404)
+    CANNOT_DELETE_SELF = ErrCode(10006, "不能删除自己")
+    INVALID_ROLE = ErrCode(10007, "无效的角色")
+
+    # ── 任务模块 ──────────────────────────────
+    TASK_NOT_FOUND = ErrCode(20001, "任务不存在", http=404)
+    INVALID_URL = ErrCode(20002, "URL 格式错误")
+
+    # ── 鉴权 ──────────────────────────────────
+    TOKEN_EXPIRED = ErrCode(30001, "Token 已过期", http=401)
+    TOKEN_INVALID = ErrCode(30002, "Token 无效", http=401)
+    TOKEN_MISSING = ErrCode(30003, "缺少认证 Token", http=401)
+    PERMISSION_DENIED = ErrCode(30004, "需要管理员权限", http=403)
+    AUTH_DISABLED = ErrCode(30005, "账户已禁用", http=403)
+
+    # ── 系统级 ────────────────────────────────
+    VALIDATION_ERROR = ErrCode(90001, "请求参数错误")
+    EMPTY_BODY = ErrCode(90002, "请求体不能为空")
+    RATE_LIMITED = ErrCode(90003, "请求过于频繁", http=429)
+    NOT_FOUND = ErrCode(90404, "资源不存在", http=404)
+    METHOD_NOT_ALLOWED = ErrCode(90405, "请求方法不允许", http=405)
+    INTERNAL_ERROR = ErrCode(90500, "服务器内部错误", http=500)
+
+
+class BusinessError(Exception):
+    """业务异常 — 由全局 errorhandler 转换为统一响应
+
+    用法:
+        raise BusinessError(ErrorCode.USER_EXISTS)
+        raise BusinessError(ErrorCode.TASK_NOT_FOUND, "任务 #123 已被删除")  # 自定义 message
     """
-    response = jsonify({"code": code, "message": message})
-    response.status_code = status_code
-    return response
+
+    def __init__(self, err: ErrCode, message: str | None = None):
+        self.err = err
+        self.message = message or err.message
+        super().__init__(self.message)
+
+
+def _err_response(err: ErrCode, message: str | None = None):
+    """构造统一错误响应"""
+    return jsonify({
+        "code": err.code,
+        "message": message or err.message,
+    }), err.http
 
 
 def register_error_handlers(app):
     """注册全局错误处理器"""
 
-    @app.errorhandler(400)
-    def bad_request(e):
-        return error_response(400, "请求参数错误", 400)
+    @app.errorhandler(BusinessError)
+    def handle_business(e: BusinessError):
+        return _err_response(e.err, e.message)
 
     @app.errorhandler(404)
-    def not_found(e):
-        return error_response(404, "资源不存在", 404)
+    def not_found(_e):
+        return _err_response(ErrorCode.NOT_FOUND)
 
     @app.errorhandler(405)
-    def method_not_allowed(e):
-        return error_response(405, "请求方法不允许", 405)
+    def method_not_allowed(_e):
+        return _err_response(ErrorCode.METHOD_NOT_ALLOWED)
 
     @app.errorhandler(500)
-    def internal_error(e):
-        app.logger.error(f"服务器内部错误: {e}")
-        return error_response(500, "服务器内部错误", 500)
+    def internal_error(_e):
+        app.logger.exception("服务器内部错误")
+        return _err_response(ErrorCode.INTERNAL_ERROR)

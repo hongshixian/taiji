@@ -5,13 +5,15 @@ from typing import Any
 from flask import jsonify
 from marshmallow import Schema, ValidationError
 
+from app.utils.errors import ErrorCode
+
 
 def validate_schema(schema: Schema, data: dict) -> tuple[dict | None, Any | None]:
-    """校验请求数据，成功返回 (parsed_data, None)，失败返回 (None, error_response)
+    """校验请求数据
 
     Returns:
         (parsed_data, None) 校验通过
-        (None, (response, status_code)) 校验失败
+        (None, (response, status_code)) 校验失败，code = VALIDATION_ERROR
     """
     try:
         return schema.load(data), None
@@ -23,4 +25,9 @@ def validate_schema(schema: Schema, data: dict) -> tuple[dict | None, Any | None
             detail = first_msg[0] if isinstance(first_msg, list) else str(first_msg)
         else:
             detail = str(messages)
-        return None, (jsonify({"code": 400, "message": f"请求参数错误: {detail}"}), 400)
+        err_code = ErrorCode.VALIDATION_ERROR
+        response = jsonify({
+            "code": err_code.code,
+            "message": f"{err_code.message}: {detail}",
+        })
+        return None, (response, err_code.http)

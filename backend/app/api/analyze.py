@@ -1,6 +1,6 @@
 """分析接口"""
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app.services.analyze_service import (
@@ -13,6 +13,8 @@ from app.services.analyze_service import (
 from app.tasks.analyze_task import analyze_webpage
 from app.schemas.analyze_schema import AnalyzeSubmitSchema, AnalyzeQuerySchema
 from app.utils.validation import validate_schema
+from app.utils.response import ok, created, paginated
+from app.utils.errors import BusinessError, ErrorCode
 from app import limiter
 
 analyze_bp = Blueprint("analyze", __name__)
@@ -27,7 +29,7 @@ def submit_analysis():
 
     data = request.get_json()
     if not data:
-        return jsonify({"code": 400, "message": "请求体不能为空"}), 400
+        raise BusinessError(ErrorCode.EMPTY_BODY)
 
     parsed, error = validate_schema(AnalyzeSubmitSchema(), data)
     if error:
@@ -39,11 +41,7 @@ def submit_analysis():
     # 提交到 Celery
     analyze_webpage.delay(task.id)
 
-    return jsonify({
-        "code": 0,
-        "message": "任务已提交",
-        "data": task_to_dict(task),
-    }), 201
+    return created(task_to_dict(task), message="任务已提交")
 
 
 @analyze_bp.route("/<int:task_id>", methods=["GET"])
@@ -53,12 +51,8 @@ def get_analysis(task_id):
     user_id = int(get_jwt_identity())
     task = get_task(task_id, user_id)
     if not task:
-        return jsonify({"code": 404, "message": "任务不存在"}), 404
-    return jsonify({
-        "code": 0,
-        "message": "ok",
-        "data": task_to_dict(task),
-    }), 200
+        raise BusinessError(ErrorCode.TASK_NOT_FOUND)
+    return ok(task_to_dict(task))
 
 
 @analyze_bp.route("/", methods=["GET"])
@@ -73,27 +67,20 @@ def list_analyses():
 
     pagination = get_user_tasks(user_id, parsed["page"], parsed["per_page"])
 
-    return jsonify({
-        "code": 0,
-        "message": "ok",
-        "data": {
-            "items": [task_to_dict(t) for t in pagination.items],
-            "total": pagination.total,
-            "page": pagination.page,
-            "per_page": pagination.per_page,
-            "pages": pagination.pages,
-        },
-    }), 200
+    return paginated(
+        items=[task_to_dict(t) for t in pagination.items],
+        total=pagination.total,
+        page=pagination.page,
+        per_page=pagination.per_page,
+    )
+
+
 @analyze_bp.route("/<int:task_id>/retry", methods=["POST"])
 @jwt_required()
 def retry_analysis(task_id):
-    """Retry failed or timeout analysis task"""
+    """重新提交失败/超时任务"""
     user_id = int(get_jwt_identity())
     task = retry_task(task_id, user_id)
     if not task:
-        return jsonify({"code": 404, "message": "task not found or not authorized"}), 404
-    return jsonify({
-        "code": 0,
-        "message": "task resubmitted",
-        "data": task_to_dict(task),
-    }), 200
+        raise BusinessError(ErrorCode.TASK_NOT_FOUND)
+    return ok(task_to_dict(task), message="任务已重新提交")

@@ -5,15 +5,16 @@ from flask_jwt_extended import create_access_token, create_refresh_token
 
 from app import db
 from app.models.user import User
+from app.utils.errors import BusinessError, ErrorCode
 
 
 # ─── 认证 ────────────────────────────────
 
 def register_user(username: str, email: str, password: str) -> User:
     if User.query.filter_by(username=username).first():
-        raise ValueError("用户名已存在")
+        raise BusinessError(ErrorCode.USER_EXISTS)
     if User.query.filter_by(email=email).first():
-        raise ValueError("邮箱已注册")
+        raise BusinessError(ErrorCode.EMAIL_EXISTS)
 
     user = User(
         username=username,
@@ -28,9 +29,9 @@ def register_user(username: str, email: str, password: str) -> User:
 def login_user(username: str, password: str) -> dict:
     user = User.query.filter_by(username=username).first()
     if not user or not check_password_hash(user.password_hash, password):
-        raise ValueError("用户名或密码错误")
+        raise BusinessError(ErrorCode.INVALID_CREDENTIAL)
     if not user.is_active:
-        raise ValueError("账户已被禁用")
+        raise BusinessError(ErrorCode.ACCOUNT_DISABLED)
 
     access_token = create_access_token(identity=str(user.id))
     refresh_token = create_refresh_token(identity=str(user.id))
@@ -69,9 +70,9 @@ def list_users(page: int, per_page: int) -> tuple[list, int]:
 
 def create_user(username: str, email: str, password: str, role: str) -> User:
     if User.query.filter_by(username=username).first():
-        raise ValueError("用户名已存在")
+        raise BusinessError(ErrorCode.USER_EXISTS)
     if User.query.filter_by(email=email).first():
-        raise ValueError("邮箱已注册")
+        raise BusinessError(ErrorCode.EMAIL_EXISTS)
 
     user = User(
         username=username,
@@ -87,15 +88,15 @@ def create_user(username: str, email: str, password: str, role: str) -> User:
 def update_user(user_id: int, data: dict) -> User:
     user = db.session.get(User, user_id)
     if not user:
-        raise ValueError("用户不存在")
+        raise BusinessError(ErrorCode.USER_NOT_FOUND)
 
     if "username" in data and data["username"] != user.username:
         if User.query.filter_by(username=data["username"]).first():
-            raise ValueError("用户名已存在")
+            raise BusinessError(ErrorCode.USER_EXISTS)
         user.username = data["username"]
     if "email" in data and data["email"] != user.email:
         if User.query.filter_by(email=data["email"]).first():
-            raise ValueError("邮箱已注册")
+            raise BusinessError(ErrorCode.EMAIL_EXISTS)
         user.email = data["email"]
     if "role" in data:
         user.role = data["role"]
@@ -110,10 +111,10 @@ def update_user(user_id: int, data: dict) -> User:
 
 def delete_user(user_id: int, current_user_id: int):
     if user_id == current_user_id:
-        raise ValueError("不能删除自己")
+        raise BusinessError(ErrorCode.CANNOT_DELETE_SELF)
     user = db.session.get(User, user_id)
     if not user:
-        raise ValueError("用户不存在")
+        raise BusinessError(ErrorCode.USER_NOT_FOUND)
     db.session.delete(user)
     db.session.commit()
 

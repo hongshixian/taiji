@@ -91,16 +91,31 @@ taiji/
 
 ## API 总览
 
+> 所有业务接口都在 `/api/v1/` 之下；`/api/health` 跨版本稳定。
+
 | 方法 | 路径 | 说明 | 鉴权 |
 |------|------|------|:---:|
-| POST | `/api/auth/register` | 注册 | — |
-| POST | `/api/auth/login` | 登录 | — |
-| POST | `/api/auth/refresh` | 刷新 token | refresh |
-| GET  | `/api/auth/me` | 当前用户 | ✓ |
-| POST | `/api/analyze/` | 提交分析 | ✓ |
-| GET  | `/api/analyze/<id>` | 查询任务 | ✓ |
-| GET  | `/api/analyze/` | 历史列表 | ✓ |
+| POST | `/api/v1/auth/register` | 注册 | — |
+| POST | `/api/v1/auth/login` | 登录 | — |
+| POST | `/api/v1/auth/refresh` | 刷新 token | refresh |
+| GET  | `/api/v1/auth/me` | 当前用户 | ✓ |
+| POST | `/api/v1/analyze/` | 提交分析 | ✓ |
+| GET  | `/api/v1/analyze/<id>` | 查询任务 | ✓ |
+| GET  | `/api/v1/analyze/` | 历史列表 | ✓ |
+| POST | `/api/v1/analyze/<id>/retry` | 重试失败任务 | ✓ |
+| GET/POST/PUT/DELETE | `/api/v1/admin/users[/<id>]` | 用户 CRUD | admin |
 | GET  | `/api/health` | 健康检查 | — |
+
+### 响应格式
+
+所有 API 统一返回：
+
+```json
+{ "code": 0, "message": "ok", "data": { ... } }
+```
+
+- `code = 0` 成功；非 0 为业务错误码（详见 `backend/app/utils/errors.py::ErrorCode`）
+- 错误码分段：`1xxxx` 用户/认证、`2xxxx` 任务、`3xxxx` 鉴权、`9xxxx` 系统级
 
 ---
 

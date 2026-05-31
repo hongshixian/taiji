@@ -14,5 +14,5 @@ def test_404_returns_error_response(client):
     response = client.get("/api/nonexistent")
     assert response.status_code == 404
     data = response.get_json()
-    assert data["code"] == 404
+    assert data["code"] == 90404  # ErrorCode.NOT_FOUND
     assert "message" in data

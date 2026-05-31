@@ -2,7 +2,7 @@ import axios from 'axios'
 import { useAuthStore } from '../stores/auth'
 
 const request = axios.create({
-  baseURL: '/api',
+  baseURL: '/api/v1',
   timeout: 10000,
 })
 
@@ -67,7 +67,7 @@ request.interceptors.response.use(
     }
 
     try {
-      const { data } = await axios.post('/api/auth/refresh', {}, {
+      const { data } = await axios.post('/api/v1/auth/refresh', {}, {
         headers: { Authorization: `Bearer ${refreshToken}` },
       })
       const newAccessToken = data.data.access_token

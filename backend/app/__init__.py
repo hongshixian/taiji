@@ -9,7 +9,7 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 from config import Config
-from app.utils.errors import register_error_handlers
+from app.utils.errors import register_error_handlers, ErrorCode, _err_response
 
 # 扩展实例（先创建，后续 init_app）
 db = SQLAlchemy()
@@ -19,6 +19,10 @@ limiter = Limiter(
     key_func=get_remote_address,
     default_limits=[],  # 不用全局默认限制，由各路由自行声明
 )
+
+# API 版本前缀 —— 所有业务蓝图都挂在 /api/v1/ 之下
+# /api/health 等基础设施端点保持原地（跨版本稳定）
+API_V1 = "/api/v1"
 
 
 def create_app(config_obj=Config):
@@ -53,37 +57,37 @@ def create_app(config_obj=Config):
     # ── 限流超出处理器 ──────────────────────────────────────
     @flask_app.errorhandler(429)
     def ratelimit_error(e):
-        return jsonify({
-            "code": 429,
-            "message": f"请求过于频繁，请 {e.description} 后再试",
-        }), 429
+        # e.description 由 flask-limiter 给出 (如 "5 per 1 minute")
+        return _err_response(
+            ErrorCode.RATE_LIMITED,
+            f"请求过于频繁，请稍后再试（限制：{e.description}）",
+        )
 
-    # 健康检查路由（不需要鉴权）
+    # 健康检查路由（不需要鉴权；跨 API 版本稳定，不放在 /api/v1/ 下）
     @flask_app.route("/api/health")
     def health():
         return jsonify({"status": "ok"})
 
-    # 注册蓝图
+    # 注册业务蓝图（统一挂在 /api/v1/ 之下）
     from app.api.auth import auth_bp
     from app.api.analyze import analyze_bp
     from app.api.admin import admin_bp
 
-    flask_app.register_blueprint(auth_bp, url_prefix="/api/auth")
-    flask_app.register_blueprint(analyze_bp, url_prefix="/api/analyze")
-    flask_app.register_blueprint(admin_bp, url_prefix="/api/admin")
+    flask_app.register_blueprint(auth_bp, url_prefix=f"{API_V1}/auth")
+    flask_app.register_blueprint(analyze_bp, url_prefix=f"{API_V1}/analyze")
+    flask_app.register_blueprint(admin_bp, url_prefix=f"{API_V1}/admin")
 
-
-    # 注册 JWT 错误处理器
+    # 注册 JWT 错误处理器（使用业务错误码）
     @jwt.expired_token_loader
     def expired_token_callback(_jwt_header, _jwt_payload):
-        return jsonify({"code": 401, "message": "Token 已过期"}), 401
+        return _err_response(ErrorCode.TOKEN_EXPIRED)
 
     @jwt.invalid_token_loader
     def invalid_token_callback(_reason):
-        return jsonify({"code": 401, "message": "Token 无效"}), 401
+        return _err_response(ErrorCode.TOKEN_INVALID)
 
     @jwt.unauthorized_loader
     def missing_token_callback(_reason):
-        return jsonify({"code": 401, "message": "缺少认证 Token"}), 401
+        return _err_response(ErrorCode.TOKEN_MISSING)
 
     return flask_app
