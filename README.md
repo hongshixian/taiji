@@ -25,10 +25,22 @@
 ```bash
 git clone https://github.com/hongshixian/taiji.git
 cd taiji
+cp .env.example .env       # 推荐：编辑 .env 设置 ADMIN_PASSWORD 与密钥
 docker compose up -d
 ```
 
 浏览器打开 `http://localhost`，注册账号即可使用。
+
+#### 首次部署：管理员账号
+
+- **若设置了 `ADMIN_PASSWORD`**（推荐）：使用 `ADMIN_USERNAME` / `ADMIN_PASSWORD` 登录
+- **未设置 `ADMIN_PASSWORD`**：启动时会随机生成密码并打印到日志，**请立即查看并保存**：
+
+  ```bash
+  docker compose logs backend | grep -A 5 "首次部署"
+  ```
+
+  登录后请到「用户管理」改成你能记住的强密码。该密码仅在首次启动（DB 无 admin 时）生成一次，之后不再打印。
 
 ### 本地开发
 

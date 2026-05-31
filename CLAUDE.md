@@ -39,7 +39,7 @@ docker compose down
 make build / make up / make down
 ```
 
-Default admin (seeded by `docker/entrypoint.sh` on container start): `admin / admin123`.
+Default admin: seeded by `docker/entrypoint.sh` on **first** start (skipped when an admin already exists). If `ADMIN_PASSWORD` env var is set, it's used; otherwise a 16-char random password is generated and printed to stdout once — read it with `docker compose logs backend | grep -A 5 "首次部署"`. Username/email come from `ADMIN_USERNAME` / `ADMIN_EMAIL` (default `admin` / `admin@taiji.local`). **There is no hardcoded default password anymore** — old setups still using `admin/admin123` continue to work because seed is skipped when an admin row exists.
 
 ## Architecture
 

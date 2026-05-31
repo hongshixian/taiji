@@ -20,6 +20,10 @@ services:
       - DATABASE_URL=sqlite:////app/data/taiji.db
       - REDIS_URL=redis://redis:6379/0
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-in-production}
+      # 初始管理员（仅首次部署生效；ADMIN_PASSWORD 未设则随机生成并打印到日志）
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@taiji.local}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
     depends_on:
       redis:
         condition: service_healthy
