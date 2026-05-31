@@ -262,7 +262,7 @@ onMounted(async () => {
   filter: drop-shadow(0 4px 24px rgba(0, 0, 0, 0.4));
   animation: spin 30s linear infinite;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes spin { to { transform: rotate(-360deg); } }
 
 /* ─── 统计卡片 ───────────────────────── */
 .stats-row { margin-bottom: 24px; }
