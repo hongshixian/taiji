@@ -3,11 +3,14 @@
 提供跨租户的平台运维能力：
 - 管理 tenants 表（增删改查）
 - 跨租户查看所有用户 / 任务
+- 切换"当前操作的租户"（签发 tenant_id claim 指向目标租户的新 access token）
 """
 
 from flask import Blueprint, request
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt_identity, create_access_token
 
+from app import db
+from app.models.user import User
 from app.services.tenant_service import (
     list_tenants, get_tenant, create_tenant, update_tenant, delete_tenant,
     tenant_to_dict,
@@ -65,3 +68,38 @@ def edit_tenant(tenant_id):
 def remove_tenant(tenant_id):
     delete_tenant(tenant_id)
     return ok(message="租户已删除")
+
+
+@superadmin_bp.route("/switch-tenant", methods=["POST"])
+@jwt_required()
+@superuser_required
+def switch_tenant():
+    """切换当前会话的"操作租户" — 签发携带目标 tenant_id claim 的新 access token
+
+    JWT identity (用户自己) 不变；只是 tenant_id claim 改成目标租户 id，
+    后续请求 before_request 钩子会把 g.tenant_id 装成目标值。
+    is_superuser=true 仍然成立，所以全局 tenant filter 依旧 bypass，
+    用户在 UI 上看到的就是目标租户的数据。
+    """
+    data = request.get_json() or {}
+    tenant_id = data.get("tenant_id")
+    if tenant_id is None:
+        raise BusinessError(ErrorCode.VALIDATION_ERROR, "tenant_id 不能为空")
+
+    tenant = get_tenant(tenant_id)   # 不存在时 raise TENANT_NOT_FOUND
+
+    user_id = int(get_jwt_identity())
+    user = db.session.get(User, user_id)
+    if not user:
+        raise BusinessError(ErrorCode.USER_NOT_FOUND)
+
+    claims = {
+        "perms": user.permissions,
+        "tenant_id": tenant.id,                # ★ 目标租户，非用户自己的 tenant
+        "is_superuser": user.is_superuser,
+    }
+    access_token = create_access_token(identity=str(user.id), additional_claims=claims)
+    return ok({
+        "access_token": access_token,
+        "tenant": tenant_to_dict(tenant),
+    }, message=f"已切换到租户 {tenant.name}")

@@ -122,6 +122,10 @@ def user_to_dict(user: User) -> dict:
         "role_name": user.role_obj.name if user.role_obj else user.role,
         "permissions": user.permissions,
         "is_active": user.is_active,
+        "is_superuser": user.is_superuser,
+        "tenant_id": user.tenant_id,
+        "tenant_slug": user.tenant.slug if user.tenant else None,
+        "tenant_name": user.tenant.name if user.tenant else None,
         "created_at": user.created_at.isoformat() if user.created_at else None,
     }
 

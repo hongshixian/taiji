@@ -40,6 +40,9 @@ class User(db.Model, TenantMixin):
     # 关联角色（RBAC）
     role_obj = db.relationship("Role", lazy="joined", foreign_keys=[role_id])
 
+    # 关联租户（Tenant 表无 TenantMixin，不会被全局过滤）
+    tenant = db.relationship("Tenant", lazy="joined", foreign_keys=[tenant_id])
+
     @property
     def is_admin(self):
         return self.role == "admin"

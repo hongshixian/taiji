@@ -44,6 +44,19 @@
               <template #prefix><el-icon><Lock /></el-icon></template>
             </el-input>
           </el-form-item>
+          <el-collapse-transition>
+            <el-form-item v-if="showAdvanced" prop="tenant_slug">
+              <el-input v-model="form.tenant_slug" placeholder="租户标识 (留空则自动匹配)">
+                <template #prefix><el-icon><OfficeBuilding /></el-icon></template>
+              </el-input>
+            </el-form-item>
+          </el-collapse-transition>
+          <div class="advanced-toggle">
+            <el-button link type="info" size="small" @click="showAdvanced = !showAdvanced">
+              <el-icon><Setting /></el-icon>
+              {{ showAdvanced ? '收起高级选项' : '高级选项（指定租户）' }}
+            </el-button>
+          </div>
           <el-form-item>
             <el-button
               type="primary"
@@ -74,10 +87,12 @@ const router = useRouter()
 const authStore = useAuthStore()
 const formRef = ref(null)
 const loading = ref(false)
+const showAdvanced = ref(false)
 
 const form = reactive({
   username: '',
   password: '',
+  tenant_slug: '',
 })
 
 const rules = {
@@ -91,7 +106,9 @@ async function handleLogin() {
 
   loading.value = true
   try {
-    await authStore.login(form.username, form.password)
+    const payload = { username: form.username, password: form.password }
+    if (form.tenant_slug.trim()) payload.tenant_slug = form.tenant_slug.trim()
+    await authStore.login(payload)
     ElMessage.success('登录成功')
     router.push('/')
   } catch (err) {
@@ -202,6 +219,10 @@ async function handleLogin() {
   width: 100%;
   letter-spacing: 4px;
   font-weight: 500;
+}
+.advanced-toggle {
+  margin: -10px 0 12px;
+  text-align: right;
 }
 .auth-footer {
   text-align: center;

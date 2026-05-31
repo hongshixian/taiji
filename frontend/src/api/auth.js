@@ -5,6 +5,7 @@ export function register(data) {
 }
 
 export function login(data) {
+  // data: { username, password, tenant_slug? }
   return request.post('/auth/login', data)
 }
 

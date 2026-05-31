@@ -3,7 +3,16 @@
     <!-- Hero 欢迎区 -->
     <div class="hero">
       <div class="hero-text">
-        <div class="hero-greeting">{{ greeting }}，{{ authStore.user?.username }} 👋</div>
+        <div class="hero-greeting">
+          {{ greeting }}，{{ authStore.user?.username }} 👋
+          <el-tag v-if="tenantName" size="small" effect="dark" class="hero-tenant-tag">
+            <el-icon><OfficeBuilding /></el-icon>
+            <span>{{ tenantName }}</span>
+          </el-tag>
+          <el-tag v-if="authStore.isSuperuser" size="small" type="danger" effect="dark" class="hero-tenant-tag">
+            超级管理员
+          </el-tag>
+        </div>
         <h1 class="hero-title">欢迎使用<span class="taiji-gradient-text">太极</span>平台</h1>
         <p class="hero-desc">异步任务驱动 · 一站式网页内容分析</p>
         <div class="hero-actions">
@@ -132,6 +141,8 @@ const authStore = useAuthStore()
 const stats = ref({ total: 0, success: 0, running: 0, failed: 0 })
 const recentTasks = ref([])
 
+const tenantName = computed(() => authStore.currentTenant?.name || '')
+
 const greeting = computed(() => {
   const h = new Date().getHours()
   if (h < 6) return '夜深了'
@@ -204,8 +215,17 @@ onMounted(async () => {
 }
 .hero-greeting {
   font-size: 14px;
-  opacity: 0.8;
+  opacity: 0.9;
   letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.hero-tenant-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 .hero-title {
   font-size: 32px;

@@ -39,6 +39,12 @@ const routes = [
     meta: { requiresAuth: true, requiresPermission: 'role:read' },
   },
   {
+    path: '/tenants',
+    name: 'TenantManagement',
+    component: () => import('../views/TenantManagement.vue'),
+    meta: { requiresAuth: true, requiresSuperuser: true },
+  },
+  {
     path: '/settings',
     name: 'Settings',
     component: () => import('../views/Settings.vue'),
@@ -77,6 +83,11 @@ router.beforeEach(async (to, _from, next) => {
     if (!perms.has(to.meta.requiresPermission)) {
       return next('/')
     }
+  }
+
+  // 超级管理员守卫
+  if (to.meta.requiresSuperuser && !authStore.user?.is_superuser) {
+    return next('/')
   }
 
   next()

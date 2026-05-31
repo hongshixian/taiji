@@ -15,10 +15,10 @@
       <el-table-column prop="id" label="ID" width="60" />
       <el-table-column prop="username" label="用户名" min-width="120" />
       <el-table-column prop="email" label="邮箱" min-width="180" />
-      <el-table-column label="角色" width="100">
+      <el-table-column label="角色" width="120">
         <template #default="{ row }">
-          <el-tag :type="row.role === 'admin' ? 'danger' : 'info'" size="small">
-            {{ row.role === 'admin' ? '管理员' : '普通用户' }}
+          <el-tag :type="roleTagType(row)" size="small">
+            {{ roleLabel(row) }}
           </el-tag>
         </template>
       </el-table-column>
@@ -125,6 +125,20 @@ const rules = {
 
 function formatTime(iso) {
   return iso ? new Date(iso).toLocaleString('zh-CN') : ''
+}
+
+function roleLabel(row) {
+  // 优先用 role_name (后端 RBAC)；兜底用 role 字符串映射
+  if (row.role_name) return row.role_name
+  return { admin: '管理员', user: '普通用户', guest: '访客' }[row.role] || row.role || '未知'
+}
+
+function roleTagType(row) {
+  // 系统角色用固定颜色；自定义角色用默认色
+  if (row.role === 'admin') return 'danger'
+  if (row.role === 'guest') return 'info'
+  if (row.role === 'user') return 'info'
+  return ''  // 自定义角色 — 主色
 }
 
 async function fetchUsers() {

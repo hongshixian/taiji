@@ -14,6 +14,9 @@
         </div>
 
         <div class="header-right">
+          <!-- 当前租户：superuser 可下拉切换；普通用户只读 -->
+          <TenantSwitcher />
+
           <!-- 主题切换 -->
           <el-tooltip :content="isDark ? '切换为浅色' : '切换为深色'" placement="bottom">
             <el-icon class="header-icon" @click="toggleTheme">
@@ -31,7 +34,7 @@
           <!-- 用户菜单 -->
           <el-dropdown trigger="click" @command="handleCommand">
             <div class="user-trigger">
-              <el-avatar :size="32" class="user-avatar">
+              <el-avatar :size="32" class="user-avatar" :class="{ 'is-superuser': authStore.isSuperuser }">
                 {{ avatarInitial }}
               </el-avatar>
               <span class="username">{{ authStore.user?.username }}</span>
@@ -40,7 +43,9 @@
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item disabled>
-                  <span class="dropdown-role">{{ authStore.user?.role === 'admin' ? '管理员' : '普通用户' }}</span>
+                  <el-tag :type="roleTagType" size="small" effect="light">
+                    {{ roleLabel }}
+                  </el-tag>
                 </el-dropdown-item>
                 <el-dropdown-item divided command="settings">
                   <el-icon><Setting /></el-icon> 个人设置
@@ -79,6 +84,10 @@
               <el-icon><Key /></el-icon>
               <template #title>角色管理</template>
             </el-menu-item>
+            <el-menu-item index="/tenants" v-if="authStore.isSuperuser">
+              <el-icon><OfficeBuilding /></el-icon>
+              <template #title>租户管理</template>
+            </el-menu-item>
             <el-menu-item index="/settings">
               <el-icon><Tools /></el-icon>
               <template #title>通用设置</template>
@@ -113,6 +122,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { usePermission } from './composables/usePermission'
+import TenantSwitcher from './components/TenantSwitcher.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -129,6 +139,21 @@ const avatarInitial = computed(() => {
   return name.charAt(0).toUpperCase()
 })
 
+const roleLabel = computed(() => {
+  const u = authStore.user
+  if (!u) return ''
+  if (u.is_superuser) return '超级管理员'
+  if (u.role === 'admin') return '管理员'
+  return u.role_name || u.role || '普通用户'
+})
+const roleTagType = computed(() => {
+  const u = authStore.user
+  if (!u) return 'info'
+  if (u.is_superuser) return 'danger'
+  if (u.role === 'admin') return 'warning'
+  return 'info'
+})
+
 function toggleTheme() {
   isDark.value = !isDark.value
   document.documentElement.classList.toggle('dark', isDark.value)
@@ -143,7 +168,6 @@ function handleCommand(cmd) {
   }
 }
 
-// 响应式：小屏自动折叠
 function handleResize() {
   if (window.innerWidth < 900) {
     collapsed.value = true
@@ -235,16 +259,16 @@ onUnmounted(() => window.removeEventListener('resize', handleResize))
   color: #fff;
   font-weight: 600;
 }
+.user-avatar.is-superuser {
+  background: linear-gradient(135deg, var(--taiji-accent), #ff7849);
+  box-shadow: 0 0 0 2px var(--el-color-danger-light-7);
+}
 .username {
   color: var(--el-text-color-primary);
   font-size: 14px;
   font-weight: 500;
 }
 .caret {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-}
-.dropdown-role {
   font-size: 12px;
   color: var(--el-text-color-secondary);
 }
