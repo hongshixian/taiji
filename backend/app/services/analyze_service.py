@@ -7,6 +7,7 @@ from bs4 import BeautifulSoup
 
 from app import db
 from app.models.analyze_task import AnalyzeTask, TaskStatus
+from app.utils.errors import BusinessError, ErrorCode
 from app.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -110,10 +111,12 @@ def get_task(task_id: int, user_id: int) -> AnalyzeTask | None:
 
 
 def get_user_tasks(user_id: int, page: int = 1, per_page: int = 20):
-    """分页查询用户的任务列表"""
+    """分页查询用户的任务列表（显式按当前租户过滤）"""
+    from flask import g
+
     return (
         AnalyzeTask.query
-        .filter_by(user_id=user_id)
+        .filter_by(user_id=user_id, tenant_id=g.tenant_id)
         .order_by(AnalyzeTask.created_at.desc())
         .paginate(page=page, per_page=per_page, error_out=False)
     )
@@ -187,6 +190,16 @@ def _fail_task(task: AnalyzeTask, message: str) -> None:
     task.completed_at = datetime.now(timezone.utc)
     db.session.commit()
     logger.warning(f"任务 {task.id} 失败: {message}")
+
+def delete_task(task_id: int, user_id: int) -> AnalyzeTask:
+    """删除任务（仅限拥有者）"""
+    task = AnalyzeTask.query.filter_by(id=task_id, user_id=user_id).first()
+    if not task:
+        raise BusinessError(ErrorCode.TASK_NOT_FOUND)
+    db.session.delete(task)
+    db.session.commit()
+    return task
+
 
 def retry_task(task_id: int, user_id: int) -> AnalyzeTask | None:
     """重试失败或超时的任务

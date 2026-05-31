@@ -5,6 +5,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from app.services.analyze_service import (
     create_task,
+    delete_task,
     get_task,
     get_user_tasks,
     retry_task,
@@ -15,6 +16,8 @@ from app.schemas.analyze_schema import AnalyzeSubmitSchema, AnalyzeQuerySchema
 from app.utils.validation import validate_schema
 from app.utils.response import ok, created, paginated
 from app.utils.errors import BusinessError, ErrorCode
+from app.utils.decorators import require_permission
+from app.permissions import Permission
 from app import limiter
 
 analyze_bp = Blueprint("analyze", __name__)
@@ -86,3 +89,13 @@ def retry_analysis(task_id):
     if not task:
         raise BusinessError(ErrorCode.TASK_NOT_FOUND)
     return ok(task_to_dict(task), message="任务已重新提交")
+
+
+@analyze_bp.route("/<int:task_id>", methods=["DELETE"])
+@jwt_required()
+@require_permission(Permission.TASK_DELETE_ANY)
+def delete_analysis(task_id):
+    """删除任务 — 需要管理员权限"""
+    user_id = int(get_jwt_identity())
+    delete_task(task_id, user_id)
+    return ok(message="任务已删除")

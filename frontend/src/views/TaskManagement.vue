@@ -59,10 +59,10 @@
       <el-table-column label="提交时间" width="170">
         <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="120">
+      <el-table-column label="操作" width="160">
         <template #default="{ row }">
           <el-button v-if="row.status === 'failed'" text type="primary" size="small" @click="retryDbTask(row)">重新分析</el-button>
-          <span v-else style="color:#c0c4cc">—</span>
+          <el-button v-if="has('task:delete:any')" text type="danger" size="small" @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -87,8 +87,9 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import { submitAnalysis, getAnalysis, retryAnalysis, listAnalyses } from '../api/analyze'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { submitAnalysis, getAnalysis, retryAnalysis, deleteAnalysis, listAnalyses } from '../api/analyze'
+import { usePermission } from '../composables/usePermission'
 
 const MAX_POLLS = 30
 const showDialog = ref(false)
@@ -100,6 +101,7 @@ const tableLoading = ref(false)
 const page = ref(1)
 const perPage = 20
 const total = ref(0)
+const { has } = usePermission()
 
 const statusLabel = (s) => {
   const map = { submitting:'提交中', submit_failed:'提交失败', pending:'排队中', running:'分析中', success:'已完成', failed:'失败', timeout:'超时', not_found:'任务丢失', query_error:'查询异常' }
@@ -146,6 +148,26 @@ async function retryDbTask(row) {
     ElMessage.success('已重新提交')
   } catch (err) {
     ElMessage.error('重试失败：' + (err.response?.data?.message || '网络异常'))
+  }
+}
+
+async function handleDelete(row) {
+  try {
+    await ElMessageBox.confirm('确定要删除该任务吗？删除后不可恢复。', '删除确认', {
+      confirmButtonText: '确定删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+  } catch {
+    return // 取消
+  }
+  try {
+    await deleteAnalysis(row.id)
+    historyTasks.value = historyTasks.value.filter(t => t.id !== row.id)
+    total.value--
+    ElMessage.success('任务已删除')
+  } catch (err) {
+    ElMessage.error('删除失败：' + (err.response?.data?.message || '网络异常'))
   }
 }
 

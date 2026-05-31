@@ -84,6 +84,10 @@
               <el-icon><Key /></el-icon>
               <template #title>角色管理</template>
             </el-menu-item>
+            <el-menu-item index="/settings">
+              <el-icon><Tools /></el-icon>
+              <template #title>通用设置</template>
+            </el-menu-item>
             <el-menu-item index="/tenants" v-if="authStore.isSuperuser">
               <el-icon><OfficeBuilding /></el-icon>
               <template #title>租户管理</template>
@@ -91,10 +95,6 @@
             <el-menu-item index="/system-settings" v-if="authStore.isSuperuser">
               <el-icon><Operation /></el-icon>
               <template #title>系统设置</template>
-            </el-menu-item>
-            <el-menu-item index="/settings">
-              <el-icon><Tools /></el-icon>
-              <template #title>通用设置</template>
             </el-menu-item>
           </el-menu>
           <div v-if="!collapsed" class="aside-footer">

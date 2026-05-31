@@ -13,7 +13,6 @@ def tenant_to_dict(tenant: Tenant, with_stats: bool = False) -> dict:
         "id": tenant.id,
         "slug": tenant.slug,
         "name": tenant.name,
-        "plan": tenant.plan,
         "is_active": tenant.is_active,
         "is_system": tenant.is_system,
         "created_at": tenant.created_at.isoformat() if tenant.created_at else None,
@@ -39,10 +38,10 @@ def get_tenant(tenant_id: int) -> Tenant:
     return t
 
 
-def create_tenant(slug: str, name: str, plan: str = "free") -> Tenant:
+def create_tenant(slug: str, name: str) -> Tenant:
     if Tenant.query.filter_by(slug=slug).first():
         raise BusinessError(ErrorCode.TENANT_EXISTS)
-    tenant = Tenant(slug=slug, name=name, plan=plan, is_system=False)
+    tenant = Tenant(slug=slug, name=name, is_system=False)
     db.session.add(tenant)
     db.session.commit()
     return tenant
@@ -59,8 +58,6 @@ def update_tenant(tenant_id: int, data: dict) -> Tenant:
         tenant.slug = data["slug"]
     if "name" in data:
         tenant.name = data["name"]
-    if "plan" in data:
-        tenant.plan = data["plan"]
     if "is_active" in data:
         tenant.is_active = data["is_active"]
 

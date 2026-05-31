@@ -28,13 +28,26 @@
       </div>
     </el-card>
 
-    <!-- 修改密码 -->
+    <!-- 安全 -->
     <el-card shadow="never" class="settings-card">
       <template #header>
         <div class="card-title">
-          <el-icon><Lock /></el-icon>&nbsp;修改密码
+          <el-icon><Lock /></el-icon>&nbsp;安全
         </div>
       </template>
+      <div class="setting-item">
+        <div>
+          <div class="item-label">登录密码</div>
+          <div class="item-desc">修改后需要重新登录</div>
+        </div>
+        <el-button type="primary" plain size="default" @click="pwdDialogVisible = true">
+          修改密码
+        </el-button>
+      </div>
+    </el-card>
+
+    <!-- 修改密码弹窗 -->
+    <el-dialog v-model="pwdDialogVisible" title="修改密码" width="460px" :close-on-click-modal="false">
       <el-form
         ref="pwdFormRef"
         :model="pwdForm"
@@ -44,22 +57,20 @@
         @submit.prevent="handleChangePassword"
       >
         <el-form-item label="当前密码" prop="oldPassword">
-          <el-input v-model="pwdForm.oldPassword" type="password" show-password />
+          <el-input v-model="pwdForm.oldPassword" type="password" show-password placeholder="请输入当前密码" />
         </el-form-item>
         <el-form-item label="新密码" prop="newPassword">
-          <el-input v-model="pwdForm.newPassword" type="password" show-password />
+          <el-input v-model="pwdForm.newPassword" type="password" show-password placeholder="至少 6 位" />
         </el-form-item>
         <el-form-item label="确认新密码" prop="confirmPassword">
-          <el-input v-model="pwdForm.confirmPassword" type="password" show-password />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" :loading="pwdSubmitting" @click="handleChangePassword">
-            修改密码
-          </el-button>
-          <span class="form-hint">修改后将退出所有设备，需要重新登录</span>
+          <el-input v-model="pwdForm.confirmPassword" type="password" show-password placeholder="再次输入新密码" />
         </el-form-item>
       </el-form>
-    </el-card>
+      <template #footer>
+        <el-button @click="closePwdDialog">取消</el-button>
+        <el-button type="primary" :loading="pwdSubmitting" @click="handleChangePassword">确认修改</el-button>
+      </template>
+    </el-dialog>
 
     <!-- 关于 -->
     <el-card shadow="never" class="settings-card">
@@ -96,6 +107,7 @@ function toggleTheme(value) {
 }
 
 // 修改密码
+const pwdDialogVisible = ref(false)
 const pwdFormRef = ref(null)
 const pwdSubmitting = ref(false)
 const pwdForm = reactive({
@@ -124,6 +136,11 @@ const pwdRules = {
   ],
 }
 
+function closePwdDialog() {
+  pwdDialogVisible.value = false
+  pwdFormRef.value?.resetFields()
+}
+
 async function handleChangePassword() {
   const valid = await pwdFormRef.value.validate().catch(() => false)
   if (!valid) return
@@ -131,12 +148,12 @@ async function handleChangePassword() {
   pwdSubmitting.value = true
   try {
     await changePassword(pwdForm.oldPassword, pwdForm.newPassword)
+    pwdDialogVisible.value = false
     ElMessage.success('密码已修改，即将退出登录')
-    // 给提示几秒时间再清本地状态
     setTimeout(() => {
-      // 不调 logout API（旧 token 已被服务端撤销），直接清本地状态
       localStorage.removeItem('accessToken')
       localStorage.removeItem('refreshToken')
+      localStorage.removeItem('originalTenantId')
       authStore.user = null
       authStore.isLoggedIn = false
       window.location.hash = '#/login'
@@ -182,11 +199,6 @@ async function handleChangePassword() {
   font-size: 12px;
   color: var(--el-text-color-secondary);
   margin-top: 4px;
-}
-.form-hint {
-  margin-left: 12px;
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
 }
 .about-grid {
   display: grid;

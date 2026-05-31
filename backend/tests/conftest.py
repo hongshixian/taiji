@@ -20,9 +20,9 @@ def _seed_tenants():
     """seed 系统租户（default + guest），与 d4e5f6a7b8c9 migration 同步"""
     from app.models.tenant import Tenant
     db.session.add(Tenant(id=DEFAULT_TENANT_ID, slug="default", name="默认组织",
-                          plan="enterprise", is_active=True, is_system=True))
+                          is_active=True, is_system=True))
     db.session.add(Tenant(id=GUEST_TENANT_ID, slug="guest", name="访客租户",
-                          plan="free", is_active=True, is_system=True))
+                          is_active=True, is_system=True))
     db.session.commit()
 
 

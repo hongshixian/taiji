@@ -16,7 +16,6 @@ class Tenant(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     slug = db.Column(db.String(50), unique=True, nullable=False, index=True)
     name = db.Column(db.String(100), nullable=False)
-    plan = db.Column(db.String(20), default="free", nullable=False)       # free / pro / enterprise
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     is_system = db.Column(db.Boolean, default=False, nullable=False)      # default/guest 等系统租户保护位
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))

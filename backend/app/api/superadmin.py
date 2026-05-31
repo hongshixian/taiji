@@ -52,11 +52,10 @@ def add_tenant():
     data = request.get_json() or {}
     slug = (data.get("slug") or "").strip()
     name = (data.get("name") or "").strip()
-    plan = data.get("plan", "free")
 
     if not slug or not name:
         raise BusinessError(ErrorCode.VALIDATION_ERROR, "slug 和 name 不能为空")
-    tenant = create_tenant(slug, name, plan)
+    tenant = create_tenant(slug, name)
     add_user_membership(int(get_jwt_identity()), tenant.id, "admin", is_owner=True)
     return created(tenant_to_dict(tenant))
 

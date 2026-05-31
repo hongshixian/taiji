@@ -28,7 +28,6 @@ def membership_to_dict(membership: TenantMembership) -> dict:
         "tenant_id": membership.tenant_id,
         "tenant_slug": tenant.slug if tenant else None,
         "tenant_name": tenant.name if tenant else None,
-        "tenant_plan": tenant.plan if tenant else None,
         "role_id": membership.role_id,
         "role": role.name if role else None,
         "role_name": role.name if role else None,
@@ -62,7 +61,6 @@ def user_to_dict(user: User, membership: TenantMembership | None = None,
                 "id": m["tenant_id"],
                 "slug": m["tenant_slug"],
                 "name": m["tenant_name"],
-                "plan": m["tenant_plan"],
             },
         })
     else:

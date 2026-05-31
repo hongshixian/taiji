@@ -27,7 +27,6 @@ export const useAuthStore = defineStore('auth', () => {
         id: user.value.current_tenant.id,
         slug: user.value.current_tenant.slug,
         name: user.value.current_tenant.name,
-        plan: user.value.current_tenant.plan,
       }
     }
     return null

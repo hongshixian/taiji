@@ -30,11 +30,6 @@
         </template>
       </el-table-column>
       <el-table-column prop="name" label="名称" min-width="140" />
-      <el-table-column label="套餐" width="110">
-        <template #default="{ row }">
-          <el-tag :type="planTagType(row.plan)" size="small" effect="plain">{{ row.plan }}</el-tag>
-        </template>
-      </el-table-column>
       <el-table-column label="状态" width="90">
         <template #default="{ row }">
           <el-tag :type="row.is_active ? 'success' : 'danger'" size="small">
@@ -85,13 +80,6 @@
         </el-form-item>
         <el-form-item label="名称" prop="name">
           <el-input v-model="form.name" placeholder="如 ACME 公司" />
-        </el-form-item>
-        <el-form-item label="套餐" prop="plan">
-          <el-select v-model="form.plan" style="width: 100%">
-            <el-option label="Free 免费版" value="free" />
-            <el-option label="Pro 专业版" value="pro" />
-            <el-option label="Enterprise 企业版" value="enterprise" />
-          </el-select>
         </el-form-item>
         <el-form-item v-if="editMode" label="状态">
           <el-switch v-model="form.is_active" active-text="启用" inactive-text="禁用" />
@@ -194,7 +182,6 @@ const roleOptions = ref([])
 const form = reactive({
   slug: '',
   name: '',
-  plan: 'free',
   is_active: true,
 })
 const memberForm = reactive({
@@ -216,10 +203,6 @@ const rules = {
 
 function formatTime(iso) {
   return iso ? new Date(iso).toLocaleString('zh-CN') : ''
-}
-
-function planTagType(plan) {
-  return { free: 'info', pro: 'warning', enterprise: 'danger' }[plan] || 'info'
 }
 
 function canSwitchTo(row) {
@@ -250,7 +233,6 @@ async function fetchRoles() {
 function resetForm() {
   form.slug = ''
   form.name = ''
-  form.plan = 'free'
   form.is_active = true
   formRef.value?.resetFields()
 }
@@ -267,7 +249,6 @@ function openEditDialog(row) {
   editTenantId.value = row.id
   form.slug = row.slug
   form.name = row.name
-  form.plan = row.plan
   form.is_active = row.is_active
   dialogVisible.value = true
 }
@@ -279,11 +260,11 @@ async function handleSubmit() {
   submitting.value = true
   try {
     if (editMode.value) {
-      const payload = { name: form.name, plan: form.plan, is_active: form.is_active }
+      const payload = { name: form.name, is_active: form.is_active }
       await updateTenant(editTenantId.value, payload)
       ElMessage.success('已保存')
     } else {
-      await createTenant({ slug: form.slug, name: form.name, plan: form.plan })
+      await createTenant({ slug: form.slug, name: form.name })
       ElMessage.success('已创建')
     }
     dialogVisible.value = false

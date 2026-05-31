@@ -14,3 +14,7 @@ export function listAnalyses(page = 1, perPage = 20) {
 export function retryAnalysis(taskId) {
   return request.post(`/analyze/${taskId}/retry`)
 }
+
+export function deleteAnalysis(taskId) {
+  return request.delete(`/analyze/${taskId}`)
+}
