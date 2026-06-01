@@ -2,7 +2,7 @@
 
 > Flask 3 + Vue 3 + Celery + Redis 全栈项目脚手架
 
-太极是一个**即开即用的项目启动骨架**，内置用户认证、异步任务队列和示例业务（网页内容分析）。Clone 下来就能跑，零改动见完整链路。
+太极是一个**即开即用的项目启动骨架**，内置用户认证、异步任务队列和示例业务（网页内容分析、CSV 数据质量检查）。Clone 下来就能跑，零改动见完整链路。
 
 ---
 
@@ -115,10 +115,17 @@ taiji/
 | POST | `/api/v1/auth/logout` | 退出（撤销当前 token）| ✓ |
 | PUT  | `/api/v1/auth/password` | 修改密码（踢出所有会话）| ✓ |
 | GET  | `/api/v1/auth/me` | 当前用户（含 perms）| ✓ |
-| POST | `/api/v1/analyze/` | 提交分析 | task:create |
-| GET  | `/api/v1/analyze/<id>` | 查询任务 | task:read |
-| GET  | `/api/v1/analyze/` | 历史列表 | task:read |
-| POST | `/api/v1/analyze/<id>/retry` | 重试失败任务 | task:create |
+| GET  | `/api/v1/tasks/` | 所有任务列表 | task:read |
+| POST | `/api/v1/tasks/webpage-analysis/` | 提交网页分析 | task:create |
+| GET  | `/api/v1/tasks/webpage-analysis/<id>` | 查询网页分析任务 | task:read |
+| GET  | `/api/v1/tasks/webpage-analysis/` | 网页分析历史列表 | task:read |
+| POST | `/api/v1/tasks/webpage-analysis/<id>/retry` | 重试网页分析任务 | task:create |
+| DELETE | `/api/v1/tasks/webpage-analysis/<id>` | 删除网页分析任务 | task:delete:any |
+| POST | `/api/v1/tasks/csv-quality/` | 提交 CSV 数据质量检查 | task:create |
+| GET  | `/api/v1/tasks/csv-quality/<id>` | 查询 CSV 检查任务 | task:read |
+| GET  | `/api/v1/tasks/csv-quality/` | CSV 检查历史列表 | task:read |
+| POST | `/api/v1/tasks/csv-quality/<id>/retry` | 重试 CSV 检查任务 | task:create |
+| DELETE | `/api/v1/tasks/csv-quality/<id>` | 删除 CSV 检查任务 | task:delete:any |
 | GET/POST/PUT/DELETE | `/api/v1/admin/users[/<id>]` | 用户 CRUD | user:read/write/delete |
 | GET/POST/PUT/DELETE | `/api/v1/admin/roles[/<id>]` | 角色 CRUD | role:read/write/delete |
 | GET  | `/api/v1/admin/roles/permissions` | 所有权限码列表 | role:read |
@@ -149,6 +156,13 @@ taiji/
 - 改密 / 改角色 / 禁用账户或成员身份会立即撤销该用户所有 JWT（用户级吊销 + Redis 黑名单）
 - 平台超级管理员通过 `is_superuser` 管理租户和系统设置；租户管理员通过当前租户角色权限管理成员与角色
 
+### 任务扩展架构
+
+- 通用任务生命周期存放在 `tasks` 总表：租户、创建者、任务类型、状态、错误、时间字段
+- 不同业务使用独立详情表：`webpage_analysis_tasks`、`csv_quality_tasks`
+- 后端业务逻辑按模块拆分：独立 schema、service、API 蓝图和 Celery task
+- 新增第三类任务时，优先新增一张详情表和一套独立业务模块，不把业务字段塞进通用任务表
+
 ### 多租户
 
 - 数据库层面共享 schema，每张业务表带 `tenant_id`，全局 query 拦截器自动按当前 tenant 过滤
@@ -171,7 +185,7 @@ cd backend
 python -m pytest tests/ -v
 ```
 
-21 个测试覆盖：健康检查、注册登录、JWT 鉴权、Token 刷新、分析任务 API。
+54 个测试覆盖：健康检查、注册登录、JWT 鉴权、Token 刷新、多租户隔离、网页分析任务、CSV 检查任务。
 
 ---
 

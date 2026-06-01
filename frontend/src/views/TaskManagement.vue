@@ -91,7 +91,13 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { submitAnalysis, getAnalysis, retryAnalysis, deleteAnalysis, listAnalyses } from '../api/analyze'
+import {
+  deleteWebpageAnalysis,
+  getWebpageAnalysis,
+  listWebpageAnalyses,
+  retryWebpageAnalysis,
+  submitWebpageAnalysis,
+} from '../api/webpageAnalysis'
 import { usePermission } from '../composables/usePermission'
 
 const MAX_POLLS = 30
@@ -129,7 +135,7 @@ function formatTime(iso) { return iso ? new Date(iso).toLocaleString('zh-CN') : 
 async function fetchHistoryTasks() {
   tableLoading.value = true
   try {
-    const { data } = await listAnalyses(page.value, perPage)
+    const { data } = await listWebpageAnalyses(page.value, perPage)
     historyTasks.value = data.data.items
     total.value = data.data.total
   } catch {
@@ -141,7 +147,7 @@ async function fetchHistoryTasks() {
 
 async function retryDbTask(row) {
   try {
-    const { data } = await retryAnalysis(row.id)
+    const { data } = await retryWebpageAnalysis(row.id)
     // 从历史列表移除，加入进行中
     historyTasks.value = historyTasks.value.filter(t => t.id !== row.id)
     total.value--
@@ -165,7 +171,7 @@ async function handleDelete(row) {
     return // 取消
   }
   try {
-    await deleteAnalysis(row.id)
+    await deleteWebpageAnalysis(row.id)
     historyTasks.value = historyTasks.value.filter(t => t.id !== row.id)
     total.value--
     ElMessage.success('任务已删除')
@@ -190,7 +196,7 @@ async function handleSubmit() {
   submitting.value = true
 
   try {
-    const { data } = await submitAnalysis(trimmed)
+    const { data } = await submitWebpageAnalysis(trimmed)
     task.id = data.data.id
     task.frontendStatus = 'pending'
     startPolling(task)
@@ -211,7 +217,7 @@ function startPolling(task) {
   task.pollTimer = setInterval(async () => {
     task.pollCount++
     try {
-      const { data } = await getAnalysis(task.id)
+      const { data } = await getWebpageAnalysis(task.id)
       const s = data.data.status
       if (s === 'success' || s === 'failed') {
         stopPolling(task)

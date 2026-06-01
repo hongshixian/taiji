@@ -1,6 +1,7 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import {
+  CSV_QUALITY_TASK_TYPE,
   TASK_TYPE_ROUTES,
   WEBPAGE_ANALYSIS_TASK_TYPE,
 } from '../constants/taskTypes'
@@ -37,6 +38,16 @@ const routes = [
       requiresAuth: true,
       requiresPermission: 'task:read',
       taskType: WEBPAGE_ANALYSIS_TASK_TYPE,
+    },
+  },
+  {
+    path: TASK_TYPE_ROUTES[CSV_QUALITY_TASK_TYPE],
+    name: 'CsvQualityTasks',
+    component: () => import('../views/CsvQualityManagement.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresPermission: 'task:read',
+      taskType: CSV_QUALITY_TASK_TYPE,
     },
   },
   {

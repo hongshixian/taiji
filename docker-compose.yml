@@ -44,6 +44,7 @@ services:
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-in-production}
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - RUN_MIGRATIONS=false
     depends_on:
       redis:
         condition: service_healthy

@@ -19,6 +19,9 @@
           <el-button type="primary" size="large" @click="$router.push(webpageAnalysisRoute)">
             <el-icon><Plus /></el-icon>&nbsp;新建分析任务
           </el-button>
+          <el-button size="large" plain @click="$router.push(csvQualityRoute)">
+            <el-icon><Grid /></el-icon>&nbsp;检查 CSV 数据
+          </el-button>
           <el-button size="large" plain @click="$router.push(webpageAnalysisRoute)">
             <el-icon><Document /></el-icon>&nbsp;查看任务列表
           </el-button>
@@ -121,7 +124,7 @@
                 {{ statusLabel(task.status) }}
               </el-tag>
               <div class="recent-content">
-                <div class="recent-title">{{ task.title || task.url }}</div>
+                <div class="recent-title">{{ recentTaskTitle(task) }}</div>
                 <div class="recent-meta">{{ formatTime(task.created_at) }}</div>
               </div>
             </li>
@@ -135,13 +138,19 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
-import { listAnalyses } from '../api/analyze'
-import { TASK_TYPE_ROUTES, WEBPAGE_ANALYSIS_TASK_TYPE } from '../constants/taskTypes'
+import { listTasks } from '../api/task'
+import {
+  CSV_QUALITY_TASK_TYPE,
+  TASK_TYPE_LABELS,
+  TASK_TYPE_ROUTES,
+  WEBPAGE_ANALYSIS_TASK_TYPE,
+} from '../constants/taskTypes'
 
 const authStore = useAuthStore()
 const stats = ref({ total: 0, success: 0, running: 0, failed: 0 })
 const recentTasks = ref([])
 const webpageAnalysisRoute = TASK_TYPE_ROUTES[WEBPAGE_ANALYSIS_TASK_TYPE]
+const csvQualityRoute = TASK_TYPE_ROUTES[CSV_QUALITY_TASK_TYPE]
 
 const tenantName = computed(() => authStore.currentTenant?.name || '')
 
@@ -164,7 +173,7 @@ const statusBars = computed(() => {
 })
 
 function statusLabel(s) {
-  const map = { pending: '排队中', running: '分析中', success: '已完成', failed: '失败' }
+  const map = { pending: '排队中', running: '处理中', success: '已完成', failed: '失败' }
   return map[s] || s
 }
 function statusTagType(s) {
@@ -182,6 +191,9 @@ function formatTime(iso) {
   if (diff < 604800) return Math.floor(diff / 86400) + ' 天前'
   return d.toLocaleDateString('zh-CN')
 }
+function recentTaskTitle(task) {
+  return TASK_TYPE_LABELS[task.task_type] || task.task_type_name || task.task_type
+}
 
 onMounted(async () => {
   try {
@@ -191,7 +203,7 @@ onMounted(async () => {
     let allItems = []
     let total = 0
     for (let page = 1; page <= MAX_PAGES; page++) {
-      const { data } = await listAnalyses(page, PER_PAGE)
+      const { data } = await listTasks(page, PER_PAGE)
       total = data.data.total
       allItems = allItems.concat(data.data.items)
       if (allItems.length >= total || data.data.items.length < PER_PAGE) break

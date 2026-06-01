@@ -3,7 +3,7 @@
 from app import db
 from app.models.tenant import Tenant
 from app.models.tenant_membership import TenantMembership
-from app.models.analyze_task import AnalyzeTask
+from app.models.task import Task
 from app.utils.errors import BusinessError, ErrorCode
 
 
@@ -21,7 +21,7 @@ def tenant_to_dict(tenant: Tenant, with_stats: bool = False) -> dict:
         from app.utils.decorators import bypass_tenant_filter
         with bypass_tenant_filter():
             d["user_count"] = TenantMembership.query.filter_by(tenant_id=tenant.id).count()
-            d["task_count"] = AnalyzeTask.query.filter_by(tenant_id=tenant.id).count()
+            d["task_count"] = Task.query.filter_by(tenant_id=tenant.id).count()
     return d
 
 
@@ -75,7 +75,7 @@ def delete_tenant(tenant_id: int):
     with bypass_tenant_filter():
         if TenantMembership.query.filter_by(tenant_id=tenant_id).first():
             raise BusinessError(ErrorCode.TENANT_IN_USE, "租户内仍有用户")
-        if AnalyzeTask.query.filter_by(tenant_id=tenant_id).first():
+        if Task.query.filter_by(tenant_id=tenant_id).first():
             raise BusinessError(ErrorCode.TENANT_IN_USE, "租户内仍有任务")
 
     db.session.delete(tenant)

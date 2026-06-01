@@ -12,8 +12,9 @@ class TestTenantIsolation:
         from app import db
         from app.models.tenant import Tenant
         from app.models.user import User
-        from app.models.analyze_task import AnalyzeTask, TaskStatus
+        from app.models.task import Task, TaskStatus, TaskType
         from app.services.auth_service import create_user
+        from app.models.webpage_analysis_task import WebpageAnalysisTask
 
         with app.app_context():
             # 新建 tenant_a / tenant_b（除了 default/guest 之外）
@@ -28,14 +29,20 @@ class TestTenantIsolation:
             user_b = create_user("adminb", "b@b.com", "passb123", "admin", tenant_id=20)
 
             # 各自一条任务（用真实 user.id，避免 ID 假设）
-            db.session.add(AnalyzeTask(tenant_id=10, user_id=user_a.id,
-                                        url="https://a.com",
-                                        status=TaskStatus.SUCCESS,
-                                        title="A 的任务"))
-            db.session.add(AnalyzeTask(tenant_id=20, user_id=user_b.id,
-                                        url="https://b.com",
-                                        status=TaskStatus.SUCCESS,
-                                        title="B 的任务"))
+            task_a = Task(tenant_id=10, user_id=user_a.id,
+                          task_type=TaskType.WEBPAGE_ANALYSIS,
+                          status=TaskStatus.SUCCESS.value)
+            task_b = Task(tenant_id=20, user_id=user_b.id,
+                          task_type=TaskType.WEBPAGE_ANALYSIS,
+                          status=TaskStatus.SUCCESS.value)
+            db.session.add_all([task_a, task_b])
+            db.session.flush()
+            db.session.add(WebpageAnalysisTask(tenant_id=10, task_id=task_a.id,
+                                               url="https://a.com",
+                                               title="A 的任务"))
+            db.session.add(WebpageAnalysisTask(tenant_id=20, task_id=task_b.id,
+                                               url="https://b.com",
+                                               title="B 的任务"))
             db.session.commit()
 
         # 登录 A
@@ -49,7 +56,7 @@ class TestTenantIsolation:
 
     def test_user_only_sees_own_tenant_tasks(self, client):
         """租户 A 用户只能看到 A 租户下的任务（租户内所有用户的任务均可见）"""
-        resp = client.get("/api/v1/analyze/",
+        resp = client.get("/api/v1/tasks/webpage-analysis/",
                           headers={"Authorization": f"Bearer {self.token_a}"})
         assert resp.status_code == 200
         items = resp.get_json()["data"]["items"]
@@ -57,7 +64,7 @@ class TestTenantIsolation:
         assert "https://a.com" in urls
         assert "https://b.com" not in urls  # 跨租户不可见
 
-        resp = client.get("/api/v1/analyze/",
+        resp = client.get("/api/v1/tasks/webpage-analysis/",
                           headers={"Authorization": f"Bearer {self.token_b}"})
         items = resp.get_json()["data"]["items"]
         urls = [i["url"] for i in items]
@@ -67,12 +74,12 @@ class TestTenantIsolation:
     def test_cannot_access_other_tenant_task_by_id(self, client):
         """A 用 task_id 强行访问 B 的任务 → 404"""
         # 先拿到 B 的任务 id
-        resp = client.get("/api/v1/analyze/",
+        resp = client.get("/api/v1/tasks/webpage-analysis/",
                           headers={"Authorization": f"Bearer {self.token_b}"})
         b_task_id = resp.get_json()["data"]["items"][0]["id"]
 
         # A 试图访问
-        resp = client.get(f"/api/v1/analyze/{b_task_id}",
+        resp = client.get(f"/api/v1/tasks/webpage-analysis/{b_task_id}",
                           headers={"Authorization": f"Bearer {self.token_a}"})
         assert resp.status_code == 404
         assert resp.get_json()["code"] == 20001  # TASK_NOT_FOUND
@@ -90,19 +97,26 @@ class TestTenantIsolation:
         """同一个全局用户可在多个租户身份之间切换"""
         with app.app_context():
             from app import db
-            from app.models.analyze_task import AnalyzeTask, TaskStatus
+            from app.models.task import Task, TaskStatus, TaskType
+            from app.models.webpage_analysis_task import WebpageAnalysisTask
             from app.services.auth_service import create_user, add_user_membership
 
             user = create_user("multi", "multi@test.com", "multipass", "user", tenant_id=10)
             add_user_membership(user.id, 20, "user")
-            db.session.add(AnalyzeTask(tenant_id=10, user_id=user.id,
-                                        url="https://multi-a.com",
-                                        status=TaskStatus.SUCCESS,
-                                        title="multi A"))
-            db.session.add(AnalyzeTask(tenant_id=20, user_id=user.id,
-                                        url="https://multi-b.com",
-                                        status=TaskStatus.SUCCESS,
-                                        title="multi B"))
+            task_a = Task(tenant_id=10, user_id=user.id,
+                          task_type=TaskType.WEBPAGE_ANALYSIS,
+                          status=TaskStatus.SUCCESS.value)
+            task_b = Task(tenant_id=20, user_id=user.id,
+                          task_type=TaskType.WEBPAGE_ANALYSIS,
+                          status=TaskStatus.SUCCESS.value)
+            db.session.add_all([task_a, task_b])
+            db.session.flush()
+            db.session.add(WebpageAnalysisTask(tenant_id=10, task_id=task_a.id,
+                                               url="https://multi-a.com",
+                                               title="multi A"))
+            db.session.add(WebpageAnalysisTask(tenant_id=20, task_id=task_b.id,
+                                               url="https://multi-b.com",
+                                               title="multi B"))
             db.session.commit()
 
         resp = client.post("/api/v1/auth/login",
@@ -110,7 +124,7 @@ class TestTenantIsolation:
         assert resp.status_code == 200
         token = resp.get_json()["data"]["access_token"]
 
-        resp = client.get("/api/v1/analyze/",
+        resp = client.get("/api/v1/tasks/webpage-analysis/",
                           headers={"Authorization": f"Bearer {token}"})
         urls = [i["url"] for i in resp.get_json()["data"]["items"]]
         assert "https://multi-a.com" in urls
@@ -123,7 +137,7 @@ class TestTenantIsolation:
         assert resp.status_code == 200
         token = resp.get_json()["data"]["access_token"]
 
-        resp = client.get("/api/v1/analyze/",
+        resp = client.get("/api/v1/tasks/webpage-analysis/",
                           headers={"Authorization": f"Bearer {token}"})
         urls = [i["url"] for i in resp.get_json()["data"]["items"]]
         assert "https://multi-b.com" in urls

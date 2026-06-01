@@ -1,18 +1,18 @@
-"""分析任务测试"""
+"""网页内容分析任务测试"""
 
 import pytest
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 
+from app.models.task import Task, TaskStatus, TaskType
 from app.models.user import User
-from app.models.analyze_task import AnalyzeTask, TaskStatus
+from app.models.webpage_analysis_task import WebpageAnalysisTask
 
 
-class TestAnalyzeAPI:
-    """分析任务 API 测试"""
+class TestWebpageAnalysisAPI:
+    """网页内容分析 API 测试"""
 
     @pytest.fixture(autouse=True)
     def setup_user(self, client):
-        """注册 + 登录，获取 token"""
         client.post("/api/v1/auth/register", json={
             "username": "analyzer",
             "email": "analyzer@example.com",
@@ -25,84 +25,74 @@ class TestAnalyzeAPI:
         self.token = resp.get_json()["data"]["access_token"]
         self.headers = {"Authorization": f"Bearer {self.token}"}
 
-    @patch("app.api.analyze.analyze_webpage.delay")
-    def test_submit_analysis(self, mock_delay, client):
-        """提交分析任务成功（mock Celery 调用）"""
-        resp = client.post("/api/v1/analyze/", json={
+    @patch("app.api.webpage_analysis.analyze_webpage.delay")
+    def test_submit_webpage_analysis(self, mock_delay, client):
+        resp = client.post("/api/v1/tasks/webpage-analysis/", json={
             "url": "https://example.com",
         }, headers=self.headers)
         assert resp.status_code == 201
         data = resp.get_json()
         assert data["code"] == 0
         assert data["data"]["status"] == "pending"
-        assert data["data"]["task_type"] == "webpage_content_analysis"
+        assert data["data"]["task_type"] == TaskType.WEBPAGE_ANALYSIS
         assert data["data"]["task_type_name"] == "网页内容分析"
+        assert data["data"]["url"] == "https://example.com"
         assert "id" in data["data"]
         mock_delay.assert_called_once()
 
-    @patch("app.api.analyze.analyze_webpage.delay")
+    @patch("app.api.webpage_analysis.analyze_webpage.delay")
     def test_submit_invalid_url(self, mock_delay, client):
-        """无效 URL → 400"""
-        resp = client.post("/api/v1/analyze/", json={
+        resp = client.post("/api/v1/tasks/webpage-analysis/", json={
             "url": "not-a-url",
         }, headers=self.headers)
         assert resp.status_code == 400
         mock_delay.assert_not_called()
 
-    @patch("app.api.analyze.analyze_webpage.delay")
+    @patch("app.api.webpage_analysis.analyze_webpage.delay")
     def test_submit_empty_body(self, mock_delay, client):
-        """空请求体 → 400"""
-        resp = client.post("/api/v1/analyze/", json={}, headers=self.headers)
+        resp = client.post("/api/v1/tasks/webpage-analysis/", json={}, headers=self.headers)
         assert resp.status_code == 400
         mock_delay.assert_not_called()
 
     def test_submit_no_auth(self, client):
-        """未登录提交 → 401"""
-        resp = client.post("/api/v1/analyze/", json={
+        resp = client.post("/api/v1/tasks/webpage-analysis/", json={
             "url": "https://example.com",
         })
         assert resp.status_code == 401
 
-    @patch("app.api.analyze.analyze_webpage.delay")
+    @patch("app.api.webpage_analysis.analyze_webpage.delay")
     def test_get_task(self, mock_delay, client):
-        """查询单个任务"""
-        submit_resp = client.post("/api/v1/analyze/", json={
+        submit_resp = client.post("/api/v1/tasks/webpage-analysis/", json={
             "url": "https://example.com",
         }, headers=self.headers)
         task_id = submit_resp.get_json()["data"]["id"]
 
-        resp = client.get(f"/api/v1/analyze/{task_id}", headers=self.headers)
+        resp = client.get(f"/api/v1/tasks/webpage-analysis/{task_id}", headers=self.headers)
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["data"]["status"] == "pending"
-        assert data["data"]["task_type"] == "webpage_content_analysis"
+        assert data["data"]["task_type"] == TaskType.WEBPAGE_ANALYSIS
 
     def test_get_task_not_found(self, client):
-        """查询不存在的任务"""
-        resp = client.get("/api/v1/analyze/99999", headers=self.headers)
+        resp = client.get("/api/v1/tasks/webpage-analysis/99999", headers=self.headers)
         assert resp.status_code == 404
 
-    @patch("app.api.analyze.analyze_webpage.delay")
+    @patch("app.api.webpage_analysis.analyze_webpage.delay")
     def test_list_tasks(self, mock_delay, client):
-        """分页查询列表"""
         for i in range(2):
-            client.post("/api/v1/analyze/", json={
+            client.post("/api/v1/tasks/webpage-analysis/", json={
                 "url": f"https://example{i}.com",
             }, headers=self.headers)
 
-        resp = client.get("/api/v1/analyze/?page=1&per_page=10", headers=self.headers)
+        resp = client.get("/api/v1/tasks/webpage-analysis/?page=1&per_page=10", headers=self.headers)
         assert resp.status_code == 200
         data = resp.get_json()
         assert len(data["data"]["items"]) == 2
         assert data["data"]["total"] == 2
         assert {item["task_type"] for item in data["data"]["items"]} == {
-            "webpage_content_analysis",
+            TaskType.WEBPAGE_ANALYSIS,
         }
 
-
-# ═══════════════════════════════════════════════════════════════
-# Celery 任务逻辑单元测试（mock requests）
-# ═══════════════════════════════════════════════════════════════
 
 HTML_NORMAL = """
 <html>
@@ -142,17 +132,17 @@ HTML_OG_TITLE = """
 """
 
 
-class TestExecuteAnalysis:
-    """Celery 任务 execute_analysis 逻辑测试"""
+class TestExecuteWebpageAnalysis:
+    """Celery 任务 execute_webpage_analysis 逻辑测试"""
 
     @pytest.fixture(autouse=True)
     def setup(self, app):
-        """每个测试前创建用户和任务"""
         with app.app_context():
             from app import db
-            from tests.conftest import DEFAULT_TENANT_ID
-            from app.models.tenant_membership import TenantMembership
             from app.models.role import Role
+            from app.models.tenant_membership import TenantMembership
+            from tests.conftest import DEFAULT_TENANT_ID
+
             role = Role.query.filter_by(name="user").first()
             user = User(username="taskuser", email="task@test.com",
                         password_hash="hash")
@@ -163,132 +153,131 @@ class TestExecuteAnalysis:
                 user_id=user.id,
                 role_id=role.id,
             ))
-            db.session.commit()
-            self.user_id = user.id
+            db.session.flush()
 
-            task = AnalyzeTask(tenant_id=DEFAULT_TENANT_ID,
-                               user_id=user.id, url="https://example.com",
-                               status=TaskStatus.PENDING)
+            task = Task(
+                tenant_id=DEFAULT_TENANT_ID,
+                user_id=user.id,
+                task_type=TaskType.WEBPAGE_ANALYSIS,
+                status=TaskStatus.PENDING.value,
+            )
             db.session.add(task)
+            db.session.flush()
+            db.session.add(WebpageAnalysisTask(
+                tenant_id=DEFAULT_TENANT_ID,
+                task_id=task.id,
+                url="https://example.com",
+            ))
             db.session.commit()
             self.task_id = task.id
 
     def test_execute_success(self, app):
-        """正常网页 → 成功提取标题/摘要/关键词"""
         mock_resp = Mock()
         mock_resp.text = HTML_NORMAL
         mock_resp.raise_for_status = Mock()
         mock_resp.apparent_encoding = "utf-8"
 
         with app.app_context():
-            from app.services.analyze_service import execute_analysis
             from app import db
+            from app.services.webpage_analysis_service import execute_webpage_analysis
 
-            with patch("app.services.analyze_service.requests.get",
+            with patch("app.services.webpage_analysis_service.requests.get",
                        return_value=mock_resp):
-                execute_analysis(self.task_id)
+                execute_webpage_analysis(self.task_id)
 
-            task = db.session.get(AnalyzeTask, self.task_id)
-            assert task.status == TaskStatus.SUCCESS
-            assert task.title == "测试页面标题"
-            assert "测试页面" in task.summary
-            assert "测试" in task.keywords
+            task = db.session.get(Task, self.task_id)
+            detail = task.webpage_analysis
+            assert task.status == TaskStatus.SUCCESS.value
+            assert detail.title == "测试页面标题"
+            assert "测试页面" in detail.summary
+            assert "测试" in detail.keywords
             assert task.completed_at is not None
             assert task.started_at is not None
 
     def test_execute_og_title_fallback(self, app):
-        """无 title 标签 → 回退 og:title"""
         mock_resp = Mock()
         mock_resp.text = HTML_OG_TITLE
         mock_resp.raise_for_status = Mock()
         mock_resp.apparent_encoding = "utf-8"
 
         with app.app_context():
-            from app.services.analyze_service import execute_analysis
             from app import db
+            from app.services.webpage_analysis_service import execute_webpage_analysis
 
-            with patch("app.services.analyze_service.requests.get",
+            with patch("app.services.webpage_analysis_service.requests.get",
                        return_value=mock_resp):
-                execute_analysis(self.task_id)
+                execute_webpage_analysis(self.task_id)
 
-            task = db.session.get(AnalyzeTask, self.task_id)
-            assert task.status == TaskStatus.SUCCESS
-            assert task.title == "OG 标题"
+            detail = db.session.get(Task, self.task_id).webpage_analysis
+            assert detail.title == "OG 标题"
 
     def test_execute_no_meta(self, app):
-        """无 meta 标签 → 回退正文提取"""
         mock_resp = Mock()
         mock_resp.text = HTML_NO_META
         mock_resp.raise_for_status = Mock()
         mock_resp.apparent_encoding = "utf-8"
 
         with app.app_context():
-            from app.services.analyze_service import execute_analysis
             from app import db
+            from app.services.webpage_analysis_service import execute_webpage_analysis
 
-            with patch("app.services.analyze_service.requests.get",
+            with patch("app.services.webpage_analysis_service.requests.get",
                        return_value=mock_resp):
-                execute_analysis(self.task_id)
+                execute_webpage_analysis(self.task_id)
 
-            task = db.session.get(AnalyzeTask, self.task_id)
-            assert task.status == TaskStatus.SUCCESS
-            assert task.title == "无 Meta 页面"
-            assert "只有正文内容" in task.summary
+            detail = db.session.get(Task, self.task_id).webpage_analysis
+            assert detail.title == "无 Meta 页面"
+            assert "只有正文内容" in detail.summary
 
     def test_execute_empty_title(self, app):
-        """空标题 → 返回 '(无标题)'"""
         mock_resp = Mock()
         mock_resp.text = HTML_EMPTY_TITLE
         mock_resp.raise_for_status = Mock()
         mock_resp.apparent_encoding = "utf-8"
 
         with app.app_context():
-            from app.services.analyze_service import execute_analysis
             from app import db
+            from app.services.webpage_analysis_service import execute_webpage_analysis
 
-            with patch("app.services.analyze_service.requests.get",
+            with patch("app.services.webpage_analysis_service.requests.get",
                        return_value=mock_resp):
-                execute_analysis(self.task_id)
+                execute_webpage_analysis(self.task_id)
 
-            task = db.session.get(AnalyzeTask, self.task_id)
-            assert task.status == TaskStatus.SUCCESS
-            assert task.title == "(无标题)"
+            detail = db.session.get(Task, self.task_id).webpage_analysis
+            assert detail.title == "(无标题)"
 
     def test_execute_timeout(self, app):
-        """请求超时 → status=failed"""
         import requests as requests_lib
 
         with app.app_context():
-            from app.services.analyze_service import execute_analysis
             from app import db
+            from app.services.webpage_analysis_service import execute_webpage_analysis
 
-            with patch("app.services.analyze_service.requests.get",
+            with patch("app.services.webpage_analysis_service.requests.get",
                        side_effect=requests_lib.Timeout):
-                execute_analysis(self.task_id)
+                execute_webpage_analysis(self.task_id)
 
-            task = db.session.get(AnalyzeTask, self.task_id)
-            assert task.status == TaskStatus.FAILED
+            task = db.session.get(Task, self.task_id)
+            assert task.status == TaskStatus.FAILED.value
             assert "超时" in task.error_message
             assert task.completed_at is not None
 
     def test_execute_connection_error(self, app):
-        """连接错误 → status=failed"""
         import requests as requests_lib
 
         with app.app_context():
-            from app.services.analyze_service import execute_analysis
             from app import db
+            from app.services.webpage_analysis_service import execute_webpage_analysis
 
-            with patch("app.services.analyze_service.requests.get",
+            with patch("app.services.webpage_analysis_service.requests.get",
                        side_effect=requests_lib.ConnectionError):
-                execute_analysis(self.task_id)
+                execute_webpage_analysis(self.task_id)
 
-            task = db.session.get(AnalyzeTask, self.task_id)
-            assert task.status == TaskStatus.FAILED
+            task = db.session.get(Task, self.task_id)
+            assert task.status == TaskStatus.FAILED.value
             assert "连接" in task.error_message
 
     def test_execute_http_404(self, app):
-        """HTTP 404 → status=failed"""
         import requests as requests_lib
 
         mock_resp = Mock()
@@ -297,35 +286,34 @@ class TestExecuteAnalysis:
         )
 
         with app.app_context():
-            from app.services.analyze_service import execute_analysis
             from app import db
+            from app.services.webpage_analysis_service import execute_webpage_analysis
 
-            with patch("app.services.analyze_service.requests.get",
+            with patch("app.services.webpage_analysis_service.requests.get",
                        return_value=mock_resp):
-                execute_analysis(self.task_id)
+                execute_webpage_analysis(self.task_id)
 
-            task = db.session.get(AnalyzeTask, self.task_id)
-            assert task.status == TaskStatus.FAILED
+            task = db.session.get(Task, self.task_id)
+            assert task.status == TaskStatus.FAILED.value
             assert "HTTP" in task.error_message
             assert "404" in task.error_message
 
     def test_execute_parse_error(self, app):
-        """HTML 解析异常 → status=failed"""
         with app.app_context():
-            from app.services.analyze_service import execute_analysis
             from app import db
+            from app.services.webpage_analysis_service import execute_webpage_analysis
 
-            with patch("app.services.analyze_service.requests.get") as mock_get:
+            with patch("app.services.webpage_analysis_service.requests.get") as mock_get:
                 mock_resp = Mock()
                 mock_resp.text = HTML_NORMAL
                 mock_resp.raise_for_status = Mock()
                 mock_resp.apparent_encoding = "utf-8"
                 mock_get.return_value = mock_resp
 
-                with patch("app.services.analyze_service._extract_title",
+                with patch("app.services.webpage_analysis_service._extract_title",
                            side_effect=Exception("解析崩溃")):
-                    execute_analysis(self.task_id)
+                    execute_webpage_analysis(self.task_id)
 
-            task = db.session.get(AnalyzeTask, self.task_id)
-            assert task.status == TaskStatus.FAILED
+            task = db.session.get(Task, self.task_id)
+            assert task.status == TaskStatus.FAILED.value
             assert "解析" in task.error_message

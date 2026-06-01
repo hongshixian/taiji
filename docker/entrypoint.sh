@@ -1,16 +1,17 @@
 #!/bin/bash
 set -e
 
-# 运行数据库迁移
-flask db upgrade
+if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
+    # 运行数据库迁移
+    flask db upgrade
 
-# ─── 创建初始管理员账号 ─────────────────────────────────
-# 策略：
-#   1. 若设置了 ADMIN_PASSWORD 环境变量 → 使用该密码
-#   2. 否则 → 随机生成 16 字符密码，打印到日志一次
-# 仅在无管理员账号存在时生效（已有 admin 时跳过 seed）
-# 初始 admin 默认归 default 租户，且 is_superuser=true（保证有人能管 tenants）
-python3 - <<'PYEOF'
+    # ─── 创建初始管理员账号 ─────────────────────────────────
+    # 策略：
+    #   1. 若设置了 ADMIN_PASSWORD 环境变量 → 使用该密码
+    #   2. 否则 → 随机生成 16 字符密码，打印到日志一次
+    # 仅在无管理员账号存在时生效（已有 admin 时跳过 seed）
+    # 初始 admin 默认归 default 租户，且 is_superuser=true（保证有人能管 tenants）
+    python3 - <<'PYEOF'
 import os
 import secrets
 import sys
@@ -28,7 +29,7 @@ with app.app_context():
     for slug, name in [("default", "默认组织"), ("guest", "访客租户")]:
         if not Tenant.query.filter_by(slug=slug).first():
             print(f"[seed-tenant] 创建系统租户 {slug}")
-            t = Tenant(slug=slug, name=name, plan="free", is_system=True)
+            t = Tenant(slug=slug, name=name, is_system=True)
             from app import db
             db.session.add(t)
             db.session.commit()
@@ -69,6 +70,9 @@ with app.app_context():
     else:
         print(f"[seed-admin] 已创建管理员 {username}（密码来自 ADMIN_PASSWORD，superuser=true）", flush=True)
 PYEOF
+else
+    echo "[entrypoint] RUN_MIGRATIONS=false，跳过数据库迁移和管理员初始化"
+fi
 
 # 启动传入的命令
 exec "$@"

@@ -5,7 +5,8 @@ from celery import Celery
 celery = Celery("taiji")
 
 # 注册任务（Worker 启动时需要）
-import app.tasks.analyze_task  # noqa: F401
+import app.tasks.webpage_analysis_task  # noqa: F401
+import app.tasks.csv_quality_task  # noqa: F401
 
 
 def init_celery(app):

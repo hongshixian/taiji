@@ -25,8 +25,8 @@ class User(db.Model):
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc))
 
-    # 关联分析任务
-    analyze_tasks = db.relationship("AnalyzeTask", backref="user", lazy="dynamic")
+    # 关联任务
+    tasks = db.relationship("Task", backref="user", lazy="dynamic")
 
     # 用户在各租户的成员身份
     memberships = db.relationship(

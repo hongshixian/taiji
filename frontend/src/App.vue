@@ -82,6 +82,10 @@
                 <el-icon><Document /></el-icon>
                 <template #title>网页内容分析</template>
               </el-menu-item>
+              <el-menu-item :index="TASK_TYPE_ROUTES[CSV_QUALITY_TASK_TYPE]">
+                <el-icon><Grid /></el-icon>
+                <template #title>CSV 数据检查</template>
+              </el-menu-item>
             </el-sub-menu>
             <el-menu-item index="/users" v-if="has('user:read')">
               <el-icon><User /></el-icon>
@@ -134,7 +138,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { usePermission } from './composables/usePermission'
 import TenantSwitcher from './components/TenantSwitcher.vue'
-import { TASK_TYPE_ROUTES, WEBPAGE_ANALYSIS_TASK_TYPE } from './constants/taskTypes'
+import {
+  CSV_QUALITY_TASK_TYPE,
+  TASK_TYPE_ROUTES,
+  WEBPAGE_ANALYSIS_TASK_TYPE,
+} from './constants/taskTypes'
 
 const route = useRoute()
 const router = useRouter()
