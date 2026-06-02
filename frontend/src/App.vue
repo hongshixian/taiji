@@ -95,6 +95,10 @@
               <el-icon><Key /></el-icon>
               <template #title>角色管理</template>
             </el-menu-item>
+            <el-menu-item index="/audit-logs" v-if="has('system:audit')">
+              <el-icon><Tickets /></el-icon>
+              <template #title>审计日志</template>
+            </el-menu-item>
             <el-menu-item index="/settings">
               <el-icon><Tools /></el-icon>
               <template #title>通用设置</template>

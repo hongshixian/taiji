@@ -42,6 +42,8 @@ def update_settings(data: dict) -> list[dict]:
             f"未知系统设置: {', '.join(sorted(unknown))}",
         )
 
+    before = {key: get_setting_value(key) for key in data if key in allowed}
+
     if DEFAULT_REGISTRATION_TENANT_KEY in data:
         slug = (data.get(DEFAULT_REGISTRATION_TENANT_KEY) or "").strip()
         if not slug:
@@ -54,6 +56,18 @@ def update_settings(data: dict) -> list[dict]:
             raise BusinessError(ErrorCode.AUTH_DISABLED, "默认注册租户已禁用")
         _upsert_setting(DEFAULT_REGISTRATION_TENANT_KEY, slug)
 
+    after = {key: get_setting_value(key) for key in data if key in allowed}
+    if before != after:
+        from app.services.audit_log_service import record_audit_log
+        record_audit_log(
+            action="system_setting.update",
+            resource_type="system_setting",
+            resource_id=",".join(sorted(after)),
+            resource_name="系统设置",
+            tenant_id=None,
+            before_data=before,
+            after_data=after,
+        )
     db.session.commit()
     return list_settings()
 

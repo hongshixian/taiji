@@ -43,6 +43,16 @@ def create_tenant(slug: str, name: str) -> Tenant:
         raise BusinessError(ErrorCode.TENANT_EXISTS)
     tenant = Tenant(slug=slug, name=name, is_system=False)
     db.session.add(tenant)
+    db.session.flush()
+    from app.services.audit_log_service import record_audit_log
+    record_audit_log(
+        action="tenant.create",
+        resource_type="tenant",
+        resource_id=tenant.id,
+        resource_name=tenant.name,
+        tenant_id=tenant.id,
+        after_data=_tenant_audit_snapshot(tenant),
+    )
     db.session.commit()
     return tenant
 
@@ -52,6 +62,7 @@ def update_tenant(tenant_id: int, data: dict) -> Tenant:
     if tenant.is_system and "slug" in data and data["slug"] != tenant.slug:
         raise BusinessError(ErrorCode.SYSTEM_TENANT_PROTECTED, "系统租户 slug 不可改")
 
+    before = _tenant_audit_snapshot(tenant)
     if "slug" in data and data["slug"] != tenant.slug:
         if Tenant.query.filter_by(slug=data["slug"]).first():
             raise BusinessError(ErrorCode.TENANT_EXISTS)
@@ -61,6 +72,18 @@ def update_tenant(tenant_id: int, data: dict) -> Tenant:
     if "is_active" in data:
         tenant.is_active = data["is_active"]
 
+    after = _tenant_audit_snapshot(tenant)
+    if before != after:
+        from app.services.audit_log_service import record_audit_log
+        record_audit_log(
+            action="tenant.update",
+            resource_type="tenant",
+            resource_id=tenant.id,
+            resource_name=tenant.name,
+            tenant_id=tenant.id,
+            before_data=before,
+            after_data=after,
+        )
     db.session.commit()
     return tenant
 
@@ -69,6 +92,7 @@ def delete_tenant(tenant_id: int):
     tenant = get_tenant(tenant_id)
     if tenant.is_system:
         raise BusinessError(ErrorCode.SYSTEM_TENANT_PROTECTED, "系统租户不可删除")
+    before = _tenant_audit_snapshot(tenant)
 
     # 检查租户内是否还有用户或任务
     from app.utils.decorators import bypass_tenant_filter
@@ -80,5 +104,24 @@ def delete_tenant(tenant_id: int):
         from app.models.role import Role
         Role.query.filter_by(tenant_id=tenant_id).delete()
 
+    from app.services.audit_log_service import record_audit_log
+    record_audit_log(
+        action="tenant.delete",
+        resource_type="tenant",
+        resource_id=tenant.id,
+        resource_name=tenant.name,
+        tenant_id=tenant.id,
+        before_data=before,
+    )
     db.session.delete(tenant)
     db.session.commit()
+
+
+def _tenant_audit_snapshot(tenant: Tenant) -> dict:
+    return {
+        "id": tenant.id,
+        "slug": tenant.slug,
+        "name": tenant.name,
+        "is_active": tenant.is_active,
+        "is_system": tenant.is_system,
+    }

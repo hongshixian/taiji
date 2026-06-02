@@ -130,6 +130,7 @@ taiji/
 | GET/POST/PUT/DELETE | `/api/v1/admin/roles[/<id>]` | 角色 CRUD | role:read/write/delete |
 | GET  | `/api/v1/admin/roles/permissions` | 所有权限码列表 | role:read |
 | GET/POST/PUT/DELETE | `/api/v1/superadmin/tenants[/<id>]` | 租户 CRUD（仅 superuser）| is_superuser |
+| GET  | `/api/v1/audit-logs` | 审计日志查询 | system:audit |
 | GET  | `/api/health` | 健康检查 | — |
 
 ### 响应格式
@@ -156,6 +157,7 @@ taiji/
 - 角色挂在租户成员身份 (`tenant_memberships.role_id`) 上，同一用户在不同租户可拥有不同角色
 - 改密 / 改角色 / 禁用账户或成员身份会立即撤销该用户所有 JWT（用户级吊销 + Redis 黑名单）
 - 平台超级管理员通过 `is_superuser` 管理租户和系统设置；租户管理员通过当前租户角色权限管理成员与角色
+- 审计日志通过 `system:audit` 查看：超级管理员可跨租户查询，租户管理员只能查看当前租户日志
 
 ### 任务扩展架构
 
@@ -186,7 +188,7 @@ cd backend
 python -m pytest tests/ -v
 ```
 
-56 个测试覆盖：健康检查、注册登录、JWT 鉴权、Token 刷新、多租户隔离、RBAC 角色隔离、网页分析任务、CSV 检查任务。
+59 个测试覆盖：健康检查、注册登录、JWT 鉴权、Token 刷新、多租户隔离、RBAC 角色隔离、审计日志、网页分析任务、CSV 检查任务。
 
 ---
 

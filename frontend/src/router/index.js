@@ -63,6 +63,12 @@ const routes = [
     meta: { requiresAuth: true, requiresPermission: 'role:read' },
   },
   {
+    path: '/audit-logs',
+    name: 'AuditLogManagement',
+    component: () => import('../views/AuditLogManagement.vue'),
+    meta: { requiresAuth: true, requiresPermission: 'system:audit' },
+  },
+  {
     path: '/tenants',
     name: 'TenantManagement',
     component: () => import('../views/TenantManagement.vue'),

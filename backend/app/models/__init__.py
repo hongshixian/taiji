@@ -9,6 +9,7 @@ from app.models.webpage_analysis_task import WebpageAnalysisTask
 from app.models.csv_quality_task import CsvQualityTask
 from app.models.role import Role, Permission, role_permissions
 from app.models.system_setting import SystemSetting
+from app.models.audit_log import AuditLog
 
 __all__ = [
     "Tenant", "TenantMixin",
@@ -16,5 +17,5 @@ __all__ = [
     "Task", "TaskStatus", "TaskType",
     "WebpageAnalysisTask", "CsvQualityTask",
     "Role", "Permission", "role_permissions",
-    "SystemSetting",
+    "SystemSetting", "AuditLog",
 ]

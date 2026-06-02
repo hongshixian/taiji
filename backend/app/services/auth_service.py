@@ -190,6 +190,16 @@ def add_user_membership(user_id: int, tenant_id: int, role: str = "user",
         if existing:
             return existing
         membership = _add_membership(user_id, tenant_id, role, is_owner=is_owner)
+        db.session.flush()
+        from app.services.audit_log_service import record_audit_log
+        record_audit_log(
+            action="tenant_member.add",
+            resource_type="tenant_member",
+            resource_id=membership.id,
+            resource_name=user.username,
+            tenant_id=tenant_id,
+            after_data=_membership_audit_snapshot(membership),
+        )
         db.session.commit()
         return membership
 
@@ -208,6 +218,15 @@ def add_superuser(identifier: str) -> User:
         if not user.is_superuser:
             user.is_superuser = True
             user.tokens_revoked_at = _revoke_marker()
+            from app.services.audit_log_service import record_audit_log
+            record_audit_log(
+                action="superuser.grant",
+                resource_type="user",
+                resource_id=user.id,
+                resource_name=user.username,
+                tenant_id=None,
+                after_data=_user_audit_snapshot(user),
+            )
             db.session.commit()
         return user
 
@@ -219,8 +238,19 @@ def remove_superuser(user_id: int, current_user_id: int) -> User:
         user = db.session.get(User, user_id)
         if not user:
             raise BusinessError(ErrorCode.USER_NOT_FOUND)
+        before = _user_audit_snapshot(user)
         user.is_superuser = False
         user.tokens_revoked_at = _revoke_marker()
+        from app.services.audit_log_service import record_audit_log
+        record_audit_log(
+            action="superuser.revoke",
+            resource_type="user",
+            resource_id=user.id,
+            resource_name=user.username,
+            tenant_id=None,
+            before_data=before,
+            after_data=_user_audit_snapshot(user),
+        )
         db.session.commit()
         return user
 
@@ -250,8 +280,18 @@ def add_tenant_member(tenant_id: int, identifier: str, role: str = "user") -> Us
             tenant_id=tenant_id, user_id=user.id,
         ).first():
             raise BusinessError(ErrorCode.USER_EXISTS, "该用户已是该租户成员")
-        _add_membership(user.id, tenant_id, role)
+        membership = _add_membership(user.id, tenant_id, role)
         user.tokens_revoked_at = _revoke_marker()
+        db.session.flush()
+        from app.services.audit_log_service import record_audit_log
+        record_audit_log(
+            action="tenant_member.add",
+            resource_type="tenant_member",
+            resource_id=membership.id,
+            resource_name=user.username,
+            tenant_id=tenant_id,
+            after_data=_membership_audit_snapshot(membership),
+        )
         db.session.commit()
         return user
 
@@ -267,8 +307,18 @@ def remove_tenant_member(tenant_id: int, user_id: int) -> User:
         ).first()
         if not membership:
             raise BusinessError(ErrorCode.USER_NOT_FOUND)
+        before = _membership_audit_snapshot(membership)
         db.session.delete(membership)
         user.tokens_revoked_at = _revoke_marker()
+        from app.services.audit_log_service import record_audit_log
+        record_audit_log(
+            action="tenant_member.remove",
+            resource_type="tenant_member",
+            resource_id=membership.id,
+            resource_name=user.username,
+            tenant_id=tenant_id,
+            before_data=before,
+        )
         db.session.commit()
         return user
 
@@ -318,7 +368,20 @@ def create_user(username: str, email: str, password: str | None, role: str,
             db.session.add(user)
             db.session.flush()
 
-        _add_membership(user.id, tenant_id, role)
+        membership = _add_membership(user.id, tenant_id, role)
+        db.session.flush()
+        from app.services.audit_log_service import record_audit_log
+        record_audit_log(
+            action="user.create",
+            resource_type="user",
+            resource_id=user.id,
+            resource_name=user.username,
+            tenant_id=tenant_id,
+            after_data={
+                "user": _user_audit_snapshot(user),
+                "membership": _membership_audit_snapshot(membership),
+            },
+        )
         db.session.commit()
         return user
 
@@ -330,8 +393,13 @@ def update_user(user_id: int, data: dict) -> User:
         if not user:
             raise BusinessError(ErrorCode.USER_NOT_FOUND)
         membership = _membership_for_tenant(user, getattr(g, "tenant_id", None))
+        before = {
+            "user": _user_audit_snapshot(user),
+            "membership": _membership_audit_snapshot(membership),
+        }
 
         revoke_tokens = False
+        password_changed = False
 
         if "username" in data and data["username"] != user.username:
             if User.query.filter_by(username=data["username"]).first():
@@ -357,10 +425,27 @@ def update_user(user_id: int, data: dict) -> User:
         if "password" in data and data["password"]:
             user.password_hash = generate_password_hash(data["password"])
             revoke_tokens = True
+            password_changed = True
 
         if revoke_tokens:
             user.tokens_revoked_at = _revoke_marker()
 
+        after = {
+            "user": _user_audit_snapshot(user),
+            "membership": _membership_audit_snapshot(membership),
+        }
+        if before != after or password_changed:
+            from app.services.audit_log_service import record_audit_log
+            record_audit_log(
+                action=_user_update_action(before["user"], after["user"]),
+                resource_type="user",
+                resource_id=user.id,
+                resource_name=user.username,
+                tenant_id=membership.tenant_id,
+                before_data=before,
+                after_data=after,
+                metadata={"password_changed": password_changed} if password_changed else None,
+            )
         db.session.commit()
         return user
 
@@ -374,6 +459,14 @@ def change_password(user_id: int, old_password: str, new_password: str) -> User:
 
     user.password_hash = generate_password_hash(new_password)
     user.tokens_revoked_at = _revoke_marker()
+    from app.services.audit_log_service import record_audit_log
+    record_audit_log(
+        action="password.change",
+        resource_type="user",
+        resource_id=user.id,
+        resource_name=user.username,
+        tenant_id=getattr(g, "tenant_id", None),
+    )
     db.session.commit()
     return user
 
@@ -395,10 +488,25 @@ def delete_user(user_id: int, current_user_id: int):
         ).first()
         if not membership:
             raise BusinessError(ErrorCode.USER_NOT_FOUND)
+        before = {
+            "user": _user_audit_snapshot(user),
+            "membership": _membership_audit_snapshot(membership),
+        }
         db.session.delete(membership)
         user.tokens_revoked_at = _revoke_marker()
         db.session.flush()
-        if not TenantMembership.query.filter_by(user_id=user_id).first():
+        will_delete_user = not TenantMembership.query.filter_by(user_id=user_id).first()
+        from app.services.audit_log_service import record_audit_log
+        record_audit_log(
+            action="user.delete",
+            resource_type="user",
+            resource_id=user.id,
+            resource_name=user.username,
+            tenant_id=tenant_id,
+            before_data=before,
+            metadata={"deleted_global_user": will_delete_user},
+        )
+        if will_delete_user:
             db.session.delete(user)
         db.session.commit()
 
@@ -506,3 +614,34 @@ def _find_user(identifier: str) -> User | None:
     if "@" in identifier:
         return query.filter_by(email=identifier).first()
     return query.filter_by(username=identifier).first()
+
+
+def _user_audit_snapshot(user: User) -> dict:
+    return {
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "is_active": user.is_active,
+        "is_superuser": user.is_superuser,
+    }
+
+
+def _membership_audit_snapshot(membership: TenantMembership) -> dict:
+    role = membership.role
+    return {
+        "id": membership.id,
+        "tenant_id": membership.tenant_id,
+        "user_id": membership.user_id,
+        "role_id": membership.role_id,
+        "role_name": role.name if role else None,
+        "is_active": membership.is_active,
+        "is_owner": membership.is_owner,
+    }
+
+
+def _user_update_action(before_user: dict, after_user: dict) -> str:
+    if before_user.get("is_active") is True and after_user.get("is_active") is False:
+        return "user.disable"
+    if before_user.get("is_active") is False and after_user.get("is_active") is True:
+        return "user.enable"
+    return "user.update"

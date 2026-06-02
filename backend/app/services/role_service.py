@@ -56,6 +56,16 @@ def create_role(name: str, description: str, permission_codes: list[str],
     role = Role(tenant_id=tenant_id, name=name, description=description, is_system=False)
     _set_role_permissions(role, permission_codes)
     db.session.add(role)
+    db.session.flush()
+    from app.services.audit_log_service import record_audit_log
+    record_audit_log(
+        action="role.create",
+        resource_type="role",
+        resource_id=role.id,
+        resource_name=role.name,
+        tenant_id=role.tenant_id,
+        after_data=_role_audit_snapshot(role),
+    )
     db.session.commit()
     return role
 
@@ -65,6 +75,7 @@ def update_role(role_id: int, data: dict) -> Role:
     if role.is_system:
         raise BusinessError(ErrorCode.SYSTEM_ROLE_PROTECTED, "系统角色不可修改")
 
+    before = _role_audit_snapshot(role)
     if "name" in data and data["name"] != role.name:
         if _is_system_role_name(data["name"]):
             raise BusinessError(ErrorCode.ROLE_EXISTS, "角色名与系统角色冲突")
@@ -76,6 +87,16 @@ def update_role(role_id: int, data: dict) -> Role:
     if "permissions" in data:
         _set_role_permissions(role, data["permissions"])
 
+    from app.services.audit_log_service import record_audit_log
+    record_audit_log(
+        action="role.update",
+        resource_type="role",
+        resource_id=role.id,
+        resource_name=role.name,
+        tenant_id=role.tenant_id,
+        before_data=before,
+        after_data=_role_audit_snapshot(role),
+    )
     db.session.commit()
 
     # 角色权限变更时，需要踢出所有该角色用户的旧 token
@@ -97,6 +118,16 @@ def delete_role(role_id: int):
         raise BusinessError(ErrorCode.ROLE_IN_USE,
                             f"角色仍在使用中（成员身份 #{in_use.id} 等）")
 
+    before = _role_audit_snapshot(role)
+    from app.services.audit_log_service import record_audit_log
+    record_audit_log(
+        action="role.delete",
+        resource_type="role",
+        resource_id=role.id,
+        resource_name=role.name,
+        tenant_id=role.tenant_id,
+        before_data=before,
+    )
     db.session.delete(role)
     db.session.commit()
 
@@ -167,3 +198,13 @@ def _role_visible_in_tenant(role: Role, tenant_id: int | None) -> bool:
 
 def _is_system_role_name(name: str) -> bool:
     return name in SYSTEM_ROLES
+
+
+def _role_audit_snapshot(role: Role) -> dict:
+    return {
+        "tenant_id": role.tenant_id,
+        "name": role.name,
+        "description": role.description,
+        "is_system": role.is_system,
+        "permissions": sorted(role.permission_codes),
+    }
