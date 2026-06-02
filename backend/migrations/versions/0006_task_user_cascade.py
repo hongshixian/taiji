@@ -9,7 +9,7 @@ import sqlalchemy as sa
 
 
 revision = "0006_task_cascade"
-down_revision = "0005_admin_desc"
+down_revision = "0005_admin_role_desc"
 branch_labels = None
 depends_on = None
 
