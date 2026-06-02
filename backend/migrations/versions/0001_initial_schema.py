@@ -32,7 +32,7 @@ PERMISSIONS_REGISTRY = {
 SYSTEM_ROLES = {
     1: {
         "name": "admin",
-        "description": "系统管理员（全部权限）",
+        "description": "管理员（全部权限）",
         "permissions": list(PERMISSIONS_REGISTRY.keys()),
     },
     2: {

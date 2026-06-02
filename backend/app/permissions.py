@@ -65,7 +65,7 @@ SYSTEM_ROLES: dict[str, set[str]] = {
 
 # 系统角色描述
 SYSTEM_ROLE_DESCRIPTIONS: dict[str, str] = {
-    "admin": "系统管理员（全部权限）",
+    "admin": "管理员（全部权限）",
     "user": "普通用户（创建并查看自己的任务）",
     "guest": "访客（只读）",
 }
