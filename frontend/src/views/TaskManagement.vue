@@ -30,9 +30,12 @@
         <template #header>
           <div class="card-header">
             <span class="card-url">{{ task.url }}</span>
-            <el-tag :type="statusTag(task.frontendStatus)" size="small">
-              {{ statusLabel(task.frontendStatus) }}
-            </el-tag>
+            <div class="card-actions">
+              <el-tag :type="statusTag(task.frontendStatus)" size="small">
+                {{ statusLabel(task.frontendStatus) }}
+              </el-tag>
+              <el-button v-if="canOpenTaskLogs(task)" text type="primary" size="small" @click="openTaskLogs(task)">日志</el-button>
+            </div>
           </div>
         </template>
         <el-skeleton :rows="3" animated />
@@ -57,6 +60,11 @@
       <el-table-column label="状态" width="100">
         <template #default="{ row }">
           <el-tag :type="dbStatusTag(row.status)" size="small">{{ dbStatusLabel(row.status) }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="日志" width="80">
+        <template #default="{ row }">
+          <el-button text type="primary" size="small" @click="openTaskLogs(row)">日志</el-button>
         </template>
       </el-table-column>
       <el-table-column label="提交时间" width="170">
@@ -85,6 +93,8 @@
     <div v-if="activeTasks.length === 0 && historyTasks.length === 0 && !tableLoading" class="empty-state">
       <el-empty description="暂无任务，点击上方按钮创建" />
     </div>
+
+    <TaskLogDialog ref="taskLogDialogRef" />
   </div>
 </template>
 
@@ -98,6 +108,7 @@ import {
   retryWebpageAnalysis,
   submitWebpageAnalysis,
 } from '../api/webpageAnalysis'
+import TaskLogDialog from '../components/TaskLogDialog.vue'
 import { usePermission } from '../composables/usePermission'
 
 const MAX_POLLS = 30
@@ -111,6 +122,7 @@ const page = ref(1)
 const perPage = 20
 const total = ref(0)
 const { has } = usePermission()
+const taskLogDialogRef = ref(null)
 
 const statusLabel = (s) => {
   const map = { submitting:'提交中', submit_failed:'提交失败', pending:'排队中', running:'分析中', success:'已完成', failed:'失败', timeout:'超时', not_found:'任务丢失', query_error:'查询异常' }
@@ -129,6 +141,14 @@ const dbStatusTag = (s) => {
   return map[s] || 'info'
 }
 function formatTime(iso) { return iso ? new Date(iso).toLocaleString('zh-CN') : '' }
+
+function openTaskLogs(row) {
+  taskLogDialogRef.value?.open(row)
+}
+
+function canOpenTaskLogs(task) {
+  return !['submitting', 'submit_failed'].includes(task.frontendStatus)
+}
 
 // ─── 历史任务 ─────────────────────────────
 
@@ -259,7 +279,8 @@ onUnmounted(() => activeTasks.value.forEach(stopPolling))
 .page-icon { font-size: 22px; color: var(--taiji-accent); }
 .section-title { margin: 0 0 12px; color: var(--el-text-color-regular); font-size: 14px; font-weight: 500; letter-spacing: 1px; }
 .result-card { margin-bottom: 12px; }
-.card-header { display: flex; justify-content: space-between; align-items: center; }
+.card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.card-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .card-url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%; font-size: 13px; color: var(--el-text-color-regular); }
 .elapsed-time { color: var(--el-text-color-secondary); font-size: 12px; margin-top: 8px; }
 .history-table { width: 100%; border-radius: var(--taiji-radius-sm); overflow: hidden; }

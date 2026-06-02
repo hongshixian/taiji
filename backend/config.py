@@ -37,9 +37,13 @@ class Config:
     RATELIMIT_STORAGE_URL = os.getenv("RATELIMIT_STORAGE_URL", "memory://")
     RATELIMIT_STRATEGY = os.getenv("RATELIMIT_STRATEGY", "fixed-window")
 
+    # 任务日志根目录。Docker Compose 使用 /app/logs，本地开发默认写到项目根目录 app_logs。
+    TASK_LOG_ROOT = os.getenv("TASK_LOG_ROOT", "../app_logs")
+
 
 class TestConfig(Config):
     """测试配置"""
     TESTING = True
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     CELERY_TASK_ALWAYS_EAGER = True
+    TASK_LOG_ROOT = os.getenv("TASK_LOG_ROOT", "/tmp/taiji_test_logs")

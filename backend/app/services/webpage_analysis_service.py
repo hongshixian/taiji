@@ -19,6 +19,7 @@ from app.services.task_service import (
     reset_task,
     task_base_to_dict,
 )
+from app.services.task_log_service import create_task_logger
 from app.utils.errors import BusinessError, ErrorCode
 from app.utils.logger import get_logger
 
@@ -49,15 +50,24 @@ def execute_webpage_analysis(task_id: int) -> None:
         logger.error(f"网页分析任务 {task_id} 不存在")
         return
     detail = WebpageAnalysisTask.query.filter_by(task_id=task.id).first()
+    task_logger = create_task_logger(task)
     if not detail:
         logger.error(f"网页分析任务 {task_id} 缺少详情记录")
+        task_logger.error(step="load", event="task_detail_missing", msg="任务详情不存在")
         mark_failed(task, "任务详情不存在")
         return
 
     mark_running(task)
+    task_logger.info(
+        step="execute",
+        event="worker_started",
+        msg="Worker 开始执行网页分析",
+        data={"url": detail.url},
+    )
     logger.info(f"开始网页分析: {detail.url}")
 
     try:
+        task_logger.info(step="fetch", event="fetch_started", msg="开始抓取网页")
         response = requests.get(
             detail.url,
             timeout=REQUEST_TIMEOUT,
@@ -71,24 +81,63 @@ def execute_webpage_analysis(task_id: int) -> None:
         )
         response.raise_for_status()
         response.encoding = response.apparent_encoding or "utf-8"
+        task_logger.info(
+            step="fetch",
+            event="fetch_finished",
+            msg="网页抓取成功",
+            data={"status_code": response.status_code, "content_length": len(response.text)},
+        )
 
+        task_logger.info(step="parse", event="parse_started", msg="开始解析网页内容")
         soup = BeautifulSoup(response.text, "html.parser")
         detail.title = _extract_title(soup)
         detail.summary = _extract_summary(soup)
         detail.keywords = _extract_keywords(soup)
+        task_logger.info(
+            step="parse",
+            event="parse_finished",
+            msg="网页内容解析完成",
+            data={
+                "title": detail.title,
+                "keyword_count": len(detail.keywords or []),
+                "summary_length": len(detail.summary or ""),
+            },
+        )
         mark_success(task)
+        task_logger.info(step="complete", event="task_completed", msg="网页分析任务完成")
 
         logger.info(f"网页分析完成: {detail.url} -> {detail.title}")
     except requests.Timeout:
+        task_logger.error(step="fetch", event="fetch_timeout", msg="网页请求超时")
         mark_failed(task, "网页请求超时")
     except requests.ConnectionError:
+        task_logger.error(step="fetch", event="connection_error", msg="无法连接到目标网址")
         mark_failed(task, "无法连接到目标网址")
     except requests.HTTPError as e:
-        mark_failed(task, f"HTTP 错误: {e.response.status_code}")
+        status_code = e.response.status_code if e.response else None
+        task_logger.error(
+            step="fetch",
+            event="http_error",
+            msg="网页请求返回 HTTP 错误",
+            data={"status_code": status_code},
+        )
+        mark_failed(task, f"HTTP 错误: {status_code}")
     except requests.RequestException as e:
+        task_logger.error(
+            step="fetch",
+            event="request_error",
+            msg="网络请求异常",
+            data={"error": str(e)},
+        )
         mark_failed(task, f"网络请求异常: {str(e)}")
     except Exception as e:
         logger.exception(f"网页分析任务 {task_id} 异常")
+        task_logger.error(
+            step="parse",
+            event="parse_error",
+            msg="网页解析异常",
+            data={"error": str(e)},
+        )
         mark_failed(task, f"解析异常: {str(e)}")
 
 
@@ -110,6 +159,7 @@ def retry_webpage_analysis_task(task_id: int) -> Task:
     detail.summary = None
     detail.keywords = None
     reset_task(task)
+    create_task_logger(task).info(step="retry", event="task_retry_submitted", msg="任务已重新提交")
 
     from app.tasks.webpage_analysis_task import analyze_webpage
     analyze_webpage.delay(task.id, task.tenant_id)

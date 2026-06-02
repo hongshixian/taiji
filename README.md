@@ -116,6 +116,7 @@ taiji/
 | PUT  | `/api/v1/auth/password` | 修改密码（踢出所有会话）| ✓ |
 | GET  | `/api/v1/auth/me` | 当前用户（含 perms）| ✓ |
 | GET  | `/api/v1/tasks/` | 所有任务列表 | task:read |
+| GET  | `/api/v1/tasks/<id>/logs` | 任务执行日志 | task:read |
 | POST | `/api/v1/tasks/webpage-analysis/` | 提交网页分析 | task:create |
 | GET  | `/api/v1/tasks/webpage-analysis/<id>` | 查询网页分析任务 | task:read |
 | GET  | `/api/v1/tasks/webpage-analysis/` | 网页分析历史列表 | task:read |
@@ -162,6 +163,8 @@ taiji/
 ### 任务扩展架构
 
 - 通用任务生命周期存放在 `tasks` 总表：租户、创建者、任务类型、状态、错误、时间字段
+- 任务执行日志走 JSONL 文件：`TASK_LOG_ROOT/tasks/tenant_{tenant_id}/{task_type}/task_{task_id}.jsonl`
+- `tasks.log_path` 只保存日志相对路径；日志明细不写数据库
 - 不同业务使用独立详情表：`webpage_analysis_tasks`、`csv_quality_tasks`
 - 后端业务逻辑按模块拆分：独立 schema、service、API 蓝图和 Celery task
 - 新增第三类任务时，优先新增一张详情表和一套独立业务模块，不把业务字段塞进通用任务表
@@ -188,7 +191,7 @@ cd backend
 python -m pytest tests/ -v
 ```
 
-59 个测试覆盖：健康检查、注册登录、JWT 鉴权、Token 刷新、多租户隔离、RBAC 角色隔离、审计日志、网页分析任务、CSV 检查任务。
+61 个测试覆盖：健康检查、注册登录、JWT 鉴权、Token 刷新、多租户隔离、RBAC 角色隔离、审计日志、任务日志、网页分析任务、CSV 检查任务。
 
 ---
 
@@ -200,6 +203,7 @@ python -m pytest tests/ -v
 | `DATABASE_URL` | 数据库地址 | `sqlite:///../data/taiji.db` |
 | `REDIS_URL` | Redis 地址 | `redis://localhost:6379/0` |
 | `JWT_SECRET_KEY` | JWT 签名密钥 | — |
+| `TASK_LOG_ROOT` | 任务日志根目录 | `../app_logs` |
 
 ---
 

@@ -19,6 +19,7 @@ from app.services.task_service import (
     reset_task,
     task_base_to_dict,
 )
+from app.services.task_log_service import create_task_logger
 from app.utils.errors import BusinessError, ErrorCode
 from app.utils.logger import get_logger
 
@@ -59,19 +60,47 @@ def execute_csv_quality_check(task_id: int) -> None:
         logger.error(f"CSV 检查任务 {task_id} 不存在")
         return
     detail = CsvQualityTask.query.filter_by(task_id=task.id).first()
+    task_logger = create_task_logger(task)
     if not detail:
         logger.error(f"CSV 检查任务 {task_id} 缺少详情记录")
+        task_logger.error(step="load", event="task_detail_missing", msg="任务详情不存在")
         mark_failed(task, "任务详情不存在")
         return
 
     mark_running(task)
+    task_logger.info(
+        step="execute",
+        event="worker_started",
+        msg="Worker 开始执行 CSV 数据质量检查",
+        data={"task_name": detail.task_name, "filename": detail.filename},
+    )
     logger.info(f"开始 CSV 数据质量检查: task_id={task_id}")
 
     try:
+        task_logger.info(step="parse", event="csv_parse_started", msg="开始解析 CSV")
         detail.result = analyze_csv_text(detail.input_text)
+        task_logger.info(
+            step="analyze",
+            event="csv_quality_analyzed",
+            msg="CSV 数据质量检查完成",
+            data={
+                "row_count": detail.result.get("row_count"),
+                "data_row_count": detail.result.get("data_row_count"),
+                "column_count": detail.result.get("column_count"),
+                "duplicate_rows": detail.result.get("duplicate_rows"),
+                "warning_count": len(detail.result.get("warnings") or []),
+            },
+        )
         mark_success(task)
+        task_logger.info(step="complete", event="task_completed", msg="CSV 检查任务完成")
     except Exception as e:
         logger.exception(f"CSV 检查任务 {task_id} 异常")
+        task_logger.error(
+            step="analyze",
+            event="csv_parse_error",
+            msg="CSV 解析异常",
+            data={"error": str(e)},
+        )
         mark_failed(task, f"CSV 解析异常: {str(e)}")
 
 
@@ -91,6 +120,7 @@ def retry_csv_quality_task(task_id: int) -> Task:
 
     detail.result = None
     reset_task(task)
+    create_task_logger(task).info(step="retry", event="task_retry_submitted", msg="任务已重新提交")
 
     from app.tasks.csv_quality_task import check_csv_quality
     check_csv_quality.delay(task.id, task.tenant_id)

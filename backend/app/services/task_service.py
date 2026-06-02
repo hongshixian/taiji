@@ -24,6 +24,14 @@ def create_task_record(user_id: int, task_type: str) -> Task:
     )
     db.session.add(task)
     db.session.flush()
+    from app.services.task_log_service import create_task_logger
+    task_logger = create_task_logger(task)
+    task_logger.info(
+        step="create",
+        event="task_created",
+        msg="任务已创建",
+        data={"task_type": task.task_type},
+    )
     return task
 
 
@@ -96,6 +104,7 @@ def task_base_to_dict(task: Task) -> dict:
         "task_type_name": task.task_type_name,
         "status": task.status if isinstance(task.status, str) else task.status.value,
         "error_message": task.error_message,
+        "log_path": task.log_path,
         "user_id": task.user_id,
         "username": task.user.username if task.user else None,
         "created_at": task.created_at.isoformat() if task.created_at else None,

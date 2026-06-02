@@ -20,6 +20,7 @@ services:
       - DATABASE_URL=sqlite:////app/data/taiji.db
       - REDIS_URL=redis://redis:6379/0
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-in-production}
+      - TASK_LOG_ROOT=/app/logs
       # 初始管理员（仅首次部署生效；ADMIN_PASSWORD 未设则随机生成并打印到日志）
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@taiji.local}
@@ -29,6 +30,7 @@ services:
         condition: service_healthy
     volumes:
       - ./app_data:/app/data
+      - ./app_logs:/app/logs
     restart: unless-stopped
 
   # ─── Celery Worker ─────────────────────────────
@@ -44,12 +46,14 @@ services:
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-in-production}
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - TASK_LOG_ROOT=/app/logs
       - RUN_MIGRATIONS=false
     depends_on:
       redis:
         condition: service_healthy
     volumes:
       - ./app_data:/app/data
+      - ./app_logs:/app/logs
     restart: unless-stopped
 
   # ─── Vue 前端 ──────────────────────────────────

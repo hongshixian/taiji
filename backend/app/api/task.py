@@ -4,10 +4,11 @@ from flask import Blueprint, request
 from flask_jwt_extended import jwt_required
 
 from app.schemas.task_schema import TaskQuerySchema
-from app.services.task_service import list_tasks, task_base_to_dict
+from app.services.task_log_service import task_log_response
+from app.services.task_service import get_task_or_404, list_tasks, task_base_to_dict
 from app.permissions import Permission
 from app.utils.decorators import require_permission
-from app.utils.response import paginated
+from app.utils.response import ok, paginated
 from app.utils.validation import validate_schema
 
 task_bp = Blueprint("task", __name__)
@@ -30,3 +31,13 @@ def list_all_tasks():
         page=pagination.page,
         per_page=pagination.per_page,
     )
+
+
+@task_bp.route("/<int:task_id>/logs", methods=["GET"])
+@jwt_required()
+@require_permission(Permission.TASK_READ)
+def get_task_logs(task_id):
+    """读取当前租户下指定任务的执行日志"""
+
+    task = get_task_or_404(task_id)
+    return ok(task_log_response(task))
