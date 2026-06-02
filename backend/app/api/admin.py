@@ -14,6 +14,7 @@ from app.services.auth_service import (
 )
 from app.utils.decorators import require_permission
 from app.utils.roles import Role
+from app import limiter
 from app.utils.response import ok, created, paginated
 from app.utils.errors import BusinessError, ErrorCode
 from app.permissions import Permission
@@ -44,6 +45,7 @@ def get_user(user_id):
 @admin_bp.route("/users", methods=["POST"])
 @jwt_required()
 @require_permission(Permission.USER_WRITE)
+@limiter.limit("20 per minute")
 def add_user():
     data = request.get_json()
     if not data:
@@ -120,6 +122,7 @@ def get_role(role_id):
 @admin_bp.route("/roles", methods=["POST"])
 @jwt_required()
 @require_permission(Permission.ROLE_WRITE)
+@limiter.limit("20 per minute")
 def add_role():
     from app.services.role_service import create_role, role_to_dict
     data = request.get_json() or {}

@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 from flask import Blueprint, request
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 
+from app import _get_client_ip
 from app.services.auth_service import (
     register_user,
     login_user,
@@ -26,8 +26,8 @@ from app.utils.jwt_blocklist import revoke_jti
 
 auth_bp = Blueprint("auth", __name__)
 
-# 本蓝图限流器 — 对敏感接口独立限制
-auth_limiter = Limiter(key_func=get_remote_address)
+# 本蓝图限流器 — 对敏感接口独立限制（使用与全局相同的 key 函数以支持反向代理）
+auth_limiter = Limiter(key_func=_get_client_ip)
 
 
 @auth_bp.route("/register", methods=["POST"])
@@ -71,6 +71,7 @@ def login():
 
 @auth_bp.route("/refresh", methods=["POST"])
 @jwt_required(refresh=True)
+@auth_limiter.limit("30 per minute")
 def refresh():
     """刷新 access token — 重新从当前 membership 读 perms，确保变更生效"""
     user_id = int(get_jwt_identity())
@@ -102,6 +103,7 @@ def my_tenants():
 
 @auth_bp.route("/switch-tenant", methods=["POST"])
 @jwt_required()
+@auth_limiter.limit("10 per minute")
 def switch_current_tenant():
     """普通用户/管理员切换到自己拥有 membership 的租户。"""
     data = request.get_json() or {}
@@ -127,6 +129,7 @@ def logout():
 
 @auth_bp.route("/password", methods=["PUT"])
 @jwt_required()
+@auth_limiter.limit("5 per minute")
 def update_password():
     """用户自助修改密码 — 成功后所有会话失效，需要重新登录"""
     data = request.get_json()

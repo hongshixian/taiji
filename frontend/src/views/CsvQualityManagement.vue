@@ -255,9 +255,9 @@ async function retryDbTask(row) {
     const { data } = await retryCsvQuality(row.id)
     historyTasks.value = historyTasks.value.filter(t => t.id !== row.id)
     total.value--
-    const task = { ...data.data, frontendStatus: 'pending', pollCount: 0, pollTimer: null, elapsed: 0, elapsedTimer: null }
-    activeTasks.value.unshift(task)
-    startPolling(task)
+    const newId = data.data.id
+    activeTasks.value.unshift({ ...data.data, id: newId, frontendStatus: 'pending', pollCount: 0, pollTimer: null, elapsed: 0, elapsedTimer: null })
+    startPolling(newId)
     ElMessage.success('已重新提交')
   } catch (err) {
     ElMessage.error('重试失败：' + (err.response?.data?.message || '网络异常'))
@@ -313,6 +313,16 @@ function handleFileExceed(files) {
   fileList.value = [{ name: file.name, raw: file }]
 }
 
+/** 通过 reactive proxy 更新 activeTasks 中的任务属性，确保 Vue 响应式追踪 */
+function _updateActiveTask(taskId, updates) {
+  const idx = activeTasks.value.findIndex(t => t.id === taskId)
+  if (idx !== -1) Object.assign(activeTasks.value[idx], updates)
+}
+
+function _getActiveTask(taskId) {
+  return activeTasks.value.find(t => t.id === taskId)
+}
+
 async function handleSubmit() {
   const name = taskName.value.trim()
   if (!name) return ElMessage.warning('请输入任务名')
@@ -326,63 +336,75 @@ async function handleSubmit() {
   selectedFile.value = null
   fileList.value = []
   const taskId = Date.now()
-  const task = { id: taskId, task_name: submittedName, filename: submittedFilename, frontendStatus: 'submitting', pollCount: 0, pollTimer: null, elapsed: 0, elapsedTimer: null, error: '' }
-  activeTasks.value.unshift(task)
+  activeTasks.value.unshift({ id: taskId, task_name: submittedName, filename: submittedFilename, frontendStatus: 'submitting', pollCount: 0, pollTimer: null, elapsed: 0, elapsedTimer: null, error: '' })
   submitting.value = true
 
   try {
     const { data } = await submitCsvQuality(submittedName, submittedFile)
-    task.id = data.data.id
-    task.frontendStatus = 'pending'
-    startPolling(task)
+    _updateActiveTask(taskId, { id: data.data.id, frontendStatus: 'pending' })
+    startPolling(data.data.id)
     ElMessage.success('任务已提交')
   } catch (err) {
-    task.frontendStatus = 'submit_failed'
-    task.error = err.response?.data?.message || '提交失败'
+    _updateActiveTask(taskId, { frontendStatus: 'submit_failed', error: err.response?.data?.message || '提交失败' })
   } finally {
     submitting.value = false
   }
 }
 
-function startPolling(task) {
-  stopPolling(task)
-  task.pollCount = 0
-  task.elapsedTimer = setInterval(() => task.elapsed++, 1000)
+function startPolling(taskId) {
+  stopPolling(taskId)
+  _updateActiveTask(taskId, { pollCount: 0 })
+  const task = _getActiveTask(taskId)
+  if (!task) return
+
+  task.elapsedTimer = setInterval(() => {
+    const t = _getActiveTask(taskId)
+    if (t) t.elapsed++
+  }, 1000)
 
   task.pollTimer = setInterval(async () => {
-    task.pollCount++
+    const t = _getActiveTask(taskId)
+    if (!t) { stopPolling(taskId); return }
+    _updateActiveTask(taskId, { pollCount: t.pollCount + 1 })
     try {
-      const { data } = await getCsvQuality(task.id)
+      const { data } = await getCsvQuality(t.id)
       const s = data.data.status
       if (s === 'success' || s === 'failed') {
-        stopPolling(task)
-        activeTasks.value = activeTasks.value.filter(t => t.id !== task.id)
+        stopPolling(taskId)
+        activeTasks.value = activeTasks.value.filter(x => x.id !== taskId)
         historyTasks.value.unshift(data.data)
         total.value++
         if (s === 'success') ElMessage.success('检查完成')
       } else {
-        task.frontendStatus = s
+        _updateActiveTask(taskId, { frontendStatus: s })
       }
     } catch (err) {
-      if (err.response?.status === 404) { task.frontendStatus = 'not_found'; stopPolling(task) }
-      else task.frontendStatus = 'query_error'
+      if (err.response?.status === 404) { _updateActiveTask(taskId, { frontendStatus: 'not_found' }); stopPolling(taskId) }
+      else _updateActiveTask(taskId, { frontendStatus: 'query_error' })
     }
-    if (task.pollCount >= MAX_POLLS && !['success','failed'].includes(task.frontendStatus)) {
-      stopPolling(task)
-      if (task.frontendStatus !== 'not_found') task.frontendStatus = 'timeout'
+    const current = _getActiveTask(taskId)
+    if (current && current.pollCount >= MAX_POLLS && !['success','failed'].includes(current.frontendStatus)) {
+      stopPolling(taskId)
+      if (current.frontendStatus !== 'not_found') _updateActiveTask(taskId, { frontendStatus: 'timeout' })
     }
   }, 2000)
 }
 
-function stopPolling(task) {
-  clearInterval(task.pollTimer)
-  clearInterval(task.elapsedTimer)
-  task.pollTimer = null
-  task.elapsedTimer = null
+function stopPolling(taskId) {
+  const t = _getActiveTask(taskId)
+  if (t) {
+    clearInterval(t.pollTimer)
+    clearInterval(t.elapsedTimer)
+    t.pollTimer = null
+    t.elapsedTimer = null
+  }
 }
 
 onMounted(fetchHistoryTasks)
-onUnmounted(() => activeTasks.value.forEach(stopPolling))
+onUnmounted(() => activeTasks.value.forEach(t => {
+  clearInterval(t.pollTimer)
+  clearInterval(t.elapsedTimer)
+}))
 </script>
 
 <style scoped>

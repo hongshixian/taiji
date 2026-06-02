@@ -8,6 +8,18 @@ from flask_jwt_extended import JWTManager, verify_jwt_in_request, get_jwt
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
+
+def _get_client_ip():
+    """限流 key 函数：优先读取反向代理传递的 X-Forwarded-For / X-Real-IP"""
+    # X-Forwarded-For 格式: "client_ip, proxy1_ip, proxy2_ip"
+    forwarded = request.headers.get("X-Forwarded-For", "").strip()
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    real_ip = request.headers.get("X-Real-IP", "").strip()
+    if real_ip:
+        return real_ip
+    return request.remote_addr or "127.0.0.1"
+
 from config import Config
 from app.utils.errors import register_error_handlers, ErrorCode, _err_response
 
@@ -16,7 +28,7 @@ db = SQLAlchemy()
 migrate = Migrate()
 jwt = JWTManager()
 limiter = Limiter(
-    key_func=get_remote_address,
+    key_func=_get_client_ip,
     default_limits=[],  # 不用全局默认限制，由各路由自行声明
 )
 
@@ -40,12 +52,23 @@ def create_app(config_obj=Config):
     flask_app = Flask(__name__)
     flask_app.config.from_object(config_obj)
 
+    # 生产环境密钥安全校验
+    if hasattr(config_obj, "_check_secrets"):
+        config_obj._check_secrets()
+
     # 初始化扩展
     db.init_app(flask_app)
     migrate.init_app(flask_app, db)
     jwt.init_app(flask_app)
     limiter.init_app(flask_app)
-    CORS(flask_app, supports_credentials=True)
+    # CORS — 仅允许配置的来源；未配置时默认允许同源（安全回退）
+    cors_origins = flask_app.config.get("CORS_ORIGINS", "")
+    if cors_origins:
+        allowed_origins = [o.strip() for o in cors_origins.split(",") if o.strip()]
+    else:
+        # 开发环境回退：允许前端 dev server 来源
+        allowed_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    CORS(flask_app, origins=allowed_origins, supports_credentials=True)
 
     # 初始化 Celery
     from celery_app import init_celery
@@ -76,6 +99,10 @@ def create_app(config_obj=Config):
     from app.api.admin import admin_bp
     from app.api.superadmin import superadmin_bp
     from app.api.audit import audit_bp
+
+    # 初始化 auth 蓝图独立限流器（需要在注册蓝图前完成）
+    from app.api.auth import auth_limiter
+    auth_limiter.init_app(flask_app)
 
     flask_app.register_blueprint(auth_bp, url_prefix=f"{API_V1}/auth")
     flask_app.register_blueprint(task_bp, url_prefix=f"{API_V1}/tasks")

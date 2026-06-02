@@ -22,6 +22,7 @@ from app.services.task_service import (
 from app.services.task_log_service import create_task_logger
 from app.utils.errors import BusinessError, ErrorCode
 from app.utils.logger import get_logger
+from app.utils.ssrf import safe_requests_get, validate_url
 
 logger = get_logger(__name__)
 
@@ -57,6 +58,14 @@ def execute_webpage_analysis(task_id: int) -> None:
         mark_failed(task, "任务详情不存在")
         return
 
+    # SSRF 防护：校验 URL 是否指向公网
+    try:
+        validate_url(detail.url)
+    except ValueError as e:
+        task_logger.error(step="validate", event="ssrf_blocked", msg="URL 校验失败", data={"url": detail.url, "reason": str(e)})
+        mark_failed(task, f"URL 不合法: {e}")
+        return
+
     mark_running(task)
     task_logger.info(
         step="execute",
@@ -68,7 +77,7 @@ def execute_webpage_analysis(task_id: int) -> None:
 
     try:
         task_logger.info(step="fetch", event="fetch_started", msg="开始抓取网页")
-        response = requests.get(
+        response = safe_requests_get(
             detail.url,
             timeout=REQUEST_TIMEOUT,
             headers={
@@ -77,7 +86,6 @@ def execute_webpage_analysis(task_id: int) -> None:
                     "+https://github.com/hongshixian/taiji)"
                 ),
             },
-            allow_redirects=True,
         )
         response.raise_for_status()
         response.encoding = response.apparent_encoding or "utf-8"

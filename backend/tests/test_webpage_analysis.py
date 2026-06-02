@@ -25,8 +25,9 @@ class TestWebpageAnalysisAPI:
         self.token = resp.get_json()["data"]["access_token"]
         self.headers = {"Authorization": f"Bearer {self.token}"}
 
+    @patch("app.utils.ssrf._resolve_host", return_value="93.184.216.34")
     @patch("app.api.webpage_analysis.analyze_webpage.delay")
-    def test_submit_webpage_analysis(self, mock_delay, client):
+    def test_submit_webpage_analysis(self, mock_delay, mock_dns, client):
         resp = client.post("/api/v1/tasks/webpage-analysis/", json={
             "url": "https://example.com",
         }, headers=self.headers)
@@ -60,8 +61,9 @@ class TestWebpageAnalysisAPI:
         })
         assert resp.status_code == 401
 
+    @patch("app.utils.ssrf._resolve_host", return_value="93.184.216.34")
     @patch("app.api.webpage_analysis.analyze_webpage.delay")
-    def test_get_task(self, mock_delay, client):
+    def test_get_task(self, mock_delay, mock_dns, client):
         submit_resp = client.post("/api/v1/tasks/webpage-analysis/", json={
             "url": "https://example.com",
         }, headers=self.headers)
@@ -77,8 +79,9 @@ class TestWebpageAnalysisAPI:
         resp = client.get("/api/v1/tasks/webpage-analysis/99999", headers=self.headers)
         assert resp.status_code == 404
 
+    @patch("app.utils.ssrf._resolve_host", return_value="93.184.216.34")
     @patch("app.api.webpage_analysis.analyze_webpage.delay")
-    def test_list_tasks(self, mock_delay, client):
+    def test_list_tasks(self, mock_delay, mock_dns, client):
         for i in range(2):
             client.post("/api/v1/tasks/webpage-analysis/", json={
                 "url": f"https://example{i}.com",
@@ -171,18 +174,35 @@ class TestExecuteWebpageAnalysis:
             db.session.commit()
             self.task_id = task.id
 
+    def _patch_requests(self, return_value=None, side_effect=None):
+        """返回适用于 safe_requests_get 的 patcher 列表（含 DNS mock）"""
+        patchers = [
+            # SSRF 防护会做 DNS 解析，需要 mock
+            patch("app.utils.ssrf._resolve_host", return_value="93.184.216.34"),
+        ]
+        if side_effect is not None:
+            patchers.append(
+                patch("app.utils.ssrf.requests.get", side_effect=side_effect)
+            )
+        else:
+            patchers.append(
+                patch("app.utils.ssrf.requests.get", return_value=return_value)
+            )
+        return patchers
+
     def test_execute_success(self, app):
         mock_resp = Mock()
         mock_resp.text = HTML_NORMAL
         mock_resp.raise_for_status = Mock()
         mock_resp.apparent_encoding = "utf-8"
+        mock_resp.is_redirect = False
 
         with app.app_context():
             from app import db
             from app.services.webpage_analysis_service import execute_webpage_analysis
 
-            with patch("app.services.webpage_analysis_service.requests.get",
-                       return_value=mock_resp):
+            with patch("app.utils.ssrf._resolve_host", return_value="93.184.216.34"), \
+                 patch("app.utils.ssrf.requests.get", return_value=mock_resp):
                 execute_webpage_analysis(self.task_id)
 
             task = db.session.get(Task, self.task_id)
@@ -199,13 +219,14 @@ class TestExecuteWebpageAnalysis:
         mock_resp.text = HTML_OG_TITLE
         mock_resp.raise_for_status = Mock()
         mock_resp.apparent_encoding = "utf-8"
+        mock_resp.is_redirect = False
 
         with app.app_context():
             from app import db
             from app.services.webpage_analysis_service import execute_webpage_analysis
 
-            with patch("app.services.webpage_analysis_service.requests.get",
-                       return_value=mock_resp):
+            with patch("app.utils.ssrf._resolve_host", return_value="93.184.216.34"), \
+                 patch("app.utils.ssrf.requests.get", return_value=mock_resp):
                 execute_webpage_analysis(self.task_id)
 
             detail = db.session.get(Task, self.task_id).webpage_analysis
@@ -216,13 +237,14 @@ class TestExecuteWebpageAnalysis:
         mock_resp.text = HTML_NO_META
         mock_resp.raise_for_status = Mock()
         mock_resp.apparent_encoding = "utf-8"
+        mock_resp.is_redirect = False
 
         with app.app_context():
             from app import db
             from app.services.webpage_analysis_service import execute_webpage_analysis
 
-            with patch("app.services.webpage_analysis_service.requests.get",
-                       return_value=mock_resp):
+            with patch("app.utils.ssrf._resolve_host", return_value="93.184.216.34"), \
+                 patch("app.utils.ssrf.requests.get", return_value=mock_resp):
                 execute_webpage_analysis(self.task_id)
 
             detail = db.session.get(Task, self.task_id).webpage_analysis
@@ -234,13 +256,14 @@ class TestExecuteWebpageAnalysis:
         mock_resp.text = HTML_EMPTY_TITLE
         mock_resp.raise_for_status = Mock()
         mock_resp.apparent_encoding = "utf-8"
+        mock_resp.is_redirect = False
 
         with app.app_context():
             from app import db
             from app.services.webpage_analysis_service import execute_webpage_analysis
 
-            with patch("app.services.webpage_analysis_service.requests.get",
-                       return_value=mock_resp):
+            with patch("app.utils.ssrf._resolve_host", return_value="93.184.216.34"), \
+                 patch("app.utils.ssrf.requests.get", return_value=mock_resp):
                 execute_webpage_analysis(self.task_id)
 
             detail = db.session.get(Task, self.task_id).webpage_analysis
@@ -253,8 +276,8 @@ class TestExecuteWebpageAnalysis:
             from app import db
             from app.services.webpage_analysis_service import execute_webpage_analysis
 
-            with patch("app.services.webpage_analysis_service.requests.get",
-                       side_effect=requests_lib.Timeout):
+            with patch("app.utils.ssrf._resolve_host", return_value="93.184.216.34"), \
+                 patch("app.utils.ssrf.requests.get", side_effect=requests_lib.Timeout):
                 execute_webpage_analysis(self.task_id)
 
             task = db.session.get(Task, self.task_id)
@@ -269,8 +292,8 @@ class TestExecuteWebpageAnalysis:
             from app import db
             from app.services.webpage_analysis_service import execute_webpage_analysis
 
-            with patch("app.services.webpage_analysis_service.requests.get",
-                       side_effect=requests_lib.ConnectionError):
+            with patch("app.utils.ssrf._resolve_host", return_value="93.184.216.34"), \
+                 patch("app.utils.ssrf.requests.get", side_effect=requests_lib.ConnectionError):
                 execute_webpage_analysis(self.task_id)
 
             task = db.session.get(Task, self.task_id)
@@ -284,13 +307,14 @@ class TestExecuteWebpageAnalysis:
         mock_resp.raise_for_status = Mock(
             side_effect=requests_lib.HTTPError(response=Mock(status_code=404))
         )
+        mock_resp.is_redirect = False
 
         with app.app_context():
             from app import db
             from app.services.webpage_analysis_service import execute_webpage_analysis
 
-            with patch("app.services.webpage_analysis_service.requests.get",
-                       return_value=mock_resp):
+            with patch("app.utils.ssrf._resolve_host", return_value="93.184.216.34"), \
+                 patch("app.utils.ssrf.requests.get", return_value=mock_resp):
                 execute_webpage_analysis(self.task_id)
 
             task = db.session.get(Task, self.task_id)
@@ -299,20 +323,21 @@ class TestExecuteWebpageAnalysis:
             assert "404" in task.error_message
 
     def test_execute_parse_error(self, app):
+        mock_resp = Mock()
+        mock_resp.text = HTML_NORMAL
+        mock_resp.raise_for_status = Mock()
+        mock_resp.apparent_encoding = "utf-8"
+        mock_resp.is_redirect = False
+
         with app.app_context():
             from app import db
             from app.services.webpage_analysis_service import execute_webpage_analysis
 
-            with patch("app.services.webpage_analysis_service.requests.get") as mock_get:
-                mock_resp = Mock()
-                mock_resp.text = HTML_NORMAL
-                mock_resp.raise_for_status = Mock()
-                mock_resp.apparent_encoding = "utf-8"
-                mock_get.return_value = mock_resp
-
-                with patch("app.services.webpage_analysis_service._extract_title",
-                           side_effect=Exception("解析崩溃")):
-                    execute_webpage_analysis(self.task_id)
+            with patch("app.utils.ssrf._resolve_host", return_value="93.184.216.34"), \
+                 patch("app.utils.ssrf.requests.get", return_value=mock_resp), \
+                 patch("app.services.webpage_analysis_service._extract_title",
+                       side_effect=Exception("解析崩溃")):
+                execute_webpage_analysis(self.task_id)
 
             task = db.session.get(Task, self.task_id)
             assert task.status == TaskStatus.FAILED.value

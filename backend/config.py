@@ -14,6 +14,24 @@ class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-me")
     FLASK_ENV = os.getenv("FLASK_ENV", "development")
 
+    # 生产环境启动校验：拒绝使用默认开发密钥
+    _INSECURE_SECRETS = {"dev-secret-change-me", "change-me-in-production"}
+
+    @classmethod
+    def _check_secrets(cls):
+        """生产环境下拒绝使用不安全的默认密钥"""
+        if cls.FLASK_ENV == "production":
+            if cls.SECRET_KEY in cls._INSECURE_SECRETS:
+                raise RuntimeError(
+                    "生产环境禁止使用默认 SECRET_KEY，"
+                    "请设置环境变量 SECRET_KEY 为随机强密钥"
+                )
+            if cls.JWT_SECRET_KEY in cls._INSECURE_SECRETS:
+                raise RuntimeError(
+                    "生产环境禁止使用默认 JWT_SECRET_KEY，"
+                    "请设置环境变量 JWT_SECRET_KEY 为随机强密钥"
+                )
+
     # 数据库 (默认 SQLite, 生产用 PostgreSQL)
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "sqlite:///data/taiji.db")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -30,6 +48,9 @@ class Config:
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "jwt-dev-secret-change-me-32bytes!")
     JWT_ACCESS_TOKEN_EXPIRES = int(os.getenv("JWT_ACCESS_TOKEN_EXPIRES", "1800"))   # 30 分钟
     JWT_REFRESH_TOKEN_EXPIRES = int(os.getenv("JWT_REFRESH_TOKEN_EXPIRES", "604800"))  # 7 天
+
+    # CORS — 允许的来源列表，逗号分隔；留空则仅允许同源请求
+    CORS_ORIGINS = os.getenv("CORS_ORIGINS", "")  # e.g. "http://localhost:5173,https://taiji.example.com"
 
     # 接口限流 (flask-limiter)
     # 默认使用内存存储，生产环境建议配置 RATELIMIT_STORAGE_URL

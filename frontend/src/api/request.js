@@ -73,7 +73,7 @@ request.interceptors.response.use(
     if (!refreshToken) {
       // 没有 refresh token，直接登出
       useAuthStore().logout()
-      window.location.href = '/login'
+      window.location.hash = '#/login'
       return Promise.reject(error)
     }
 
@@ -90,7 +90,7 @@ request.interceptors.response.use(
     } catch (refreshError) {
       processQueue(refreshError, null)
       useAuthStore().logout()
-      window.location.href = '/login'
+      window.location.hash = '#/login'
       return Promise.reject(refreshError)
     } finally {
       isRefreshing = false

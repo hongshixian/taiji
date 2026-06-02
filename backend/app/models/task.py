@@ -35,7 +35,7 @@ class Task(db.Model, TenantMixin):
     __tablename__ = "tasks"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     task_type = db.Column(db.String(80), nullable=False, index=True)
     status = db.Column(
         db.String(20),
