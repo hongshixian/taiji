@@ -17,6 +17,7 @@
         <template #default="{ row }">
           <span class="role-name">{{ row.name }}</span>
           <el-tag v-if="row.is_system" size="small" type="info" class="system-tag">系统</el-tag>
+          <el-tag v-else size="small" type="success" class="system-tag">当前租户</el-tag>
         </template>
       </el-table-column>
       <el-table-column prop="description" label="描述" min-width="200" />
@@ -27,7 +28,8 @@
       </el-table-column>
       <el-table-column label="操作" width="160" fixed="right">
         <template #default="{ row }">
-          <el-button text type="primary" size="small" @click="openEditDialog(row)" v-if="has('role:write')">
+          <el-button text type="primary" size="small" @click="openEditDialog(row)"
+                     v-if="has('role:write') && !row.is_system">
             编辑
           </el-button>
           <el-button text type="danger" size="small" @click="handleDelete(row)"

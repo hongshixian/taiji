@@ -114,7 +114,8 @@ def edit_system_settings():
 @superuser_required
 def get_roles_for_superadmin():
     from app.services.role_service import list_roles
-    return ok(list_roles())
+    tenant_id = request.args.get("tenant_id", type=int)
+    return ok(list_roles(tenant_id=tenant_id))
 
 
 @superadmin_bp.route("/superusers", methods=["GET"])

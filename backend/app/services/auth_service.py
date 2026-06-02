@@ -342,7 +342,7 @@ def update_user(user_id: int, data: dict) -> User:
                 raise BusinessError(ErrorCode.EMAIL_EXISTS)
             user.email = data["email"]
         if "role" in data:
-            role_id = _role_id_by_name(data["role"])
+            role_id = _role_id_by_name(data["role"], membership.tenant_id)
             if role_id is None:
                 raise BusinessError(ErrorCode.INVALID_ROLE)
             if role_id != membership.role_id:
@@ -407,7 +407,7 @@ def seed_admin(username: str, email: str, password: str,
                tenant_slug: str = DEFAULT_TENANT_SLUG, is_superuser: bool = True):
     """确保存在平台管理员账号，并让其加入 default 租户。"""
     with bypass_tenant_filter():
-        admin_role_id = _role_id_by_name("admin")
+        admin_role_id = _role_id_by_name("admin", tenant_id=None)
         existing = (
             User.query
             .join(TenantMembership, TenantMembership.user_id == User.id)
@@ -479,7 +479,7 @@ def _claims_for_membership(user: User, membership: TenantMembership) -> dict:
 
 def _add_membership(user_id: int, tenant_id: int, role_name: str,
                     is_owner: bool = False) -> TenantMembership:
-    role_id = _role_id_by_name(role_name)
+    role_id = _role_id_by_name(role_name, tenant_id)
     if role_id is None:
         raise BusinessError(ErrorCode.INVALID_ROLE)
     membership = TenantMembership(
@@ -492,9 +492,9 @@ def _add_membership(user_id: int, tenant_id: int, role_name: str,
     return membership
 
 
-def _role_id_by_name(name: str) -> int | None:
-    from app.models.role import Role
-    role = Role.query.filter_by(name=name).first()
+def _role_id_by_name(name: str, tenant_id: int | None = None) -> int | None:
+    from app.services.role_service import find_role_by_name
+    role = find_role_by_name(name, tenant_id)
     return role.id if role else None
 
 

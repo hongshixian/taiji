@@ -77,6 +77,8 @@ def delete_tenant(tenant_id: int):
             raise BusinessError(ErrorCode.TENANT_IN_USE, "租户内仍有用户")
         if Task.query.filter_by(tenant_id=tenant_id).first():
             raise BusinessError(ErrorCode.TENANT_IN_USE, "租户内仍有任务")
+        from app.models.role import Role
+        Role.query.filter_by(tenant_id=tenant_id).delete()
 
     db.session.delete(tenant)
     db.session.commit()

@@ -13,8 +13,8 @@ class Role:
 
     @classmethod
     def is_valid(cls, value):
-        """检查角色名是否存在于 roles 表（含自定义角色）"""
+        """检查角色名是否存在于当前租户作用域（含系统角色 + 租户自定义角色）"""
         if not value:
             return False
-        from app.models.role import Role as RoleModel
-        return RoleModel.query.filter_by(name=value).first() is not None
+        from app.services.role_service import find_role_by_name
+        return find_role_by_name(value) is not None

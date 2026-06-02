@@ -151,7 +151,8 @@ taiji/
 | `user` | task:read, task:create |
 | `guest` | task:read |
 
-- 系统角色 (is_system=true) 不可删除；admin 可在「角色管理」页新增自定义角色
+- 系统角色 (`is_system=true`, `tenant_id=NULL`) 全局共享且不可修改 / 删除；admin 可在「角色管理」页新增当前租户内的自定义角色
+- 自定义角色带 `tenant_id`，只在所属租户可见；不同租户可以创建同名角色并绑定不同权限
 - 角色挂在租户成员身份 (`tenant_memberships.role_id`) 上，同一用户在不同租户可拥有不同角色
 - 改密 / 改角色 / 禁用账户或成员身份会立即撤销该用户所有 JWT（用户级吊销 + Redis 黑名单）
 - 平台超级管理员通过 `is_superuser` 管理租户和系统设置；租户管理员通过当前租户角色权限管理成员与角色
@@ -185,7 +186,7 @@ cd backend
 python -m pytest tests/ -v
 ```
 
-54 个测试覆盖：健康检查、注册登录、JWT 鉴权、Token 刷新、多租户隔离、网页分析任务、CSV 检查任务。
+56 个测试覆盖：健康检查、注册登录、JWT 鉴权、Token 刷新、多租户隔离、RBAC 角色隔离、网页分析任务、CSV 检查任务。
 
 ---
 

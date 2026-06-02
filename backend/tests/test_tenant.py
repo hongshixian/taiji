@@ -149,6 +149,80 @@ class TestTenantIsolation:
         memberships = resp.get_json()["data"]["memberships"]
         assert {m["tenant_id"] for m in memberships} == {10, 20}
 
+    def test_custom_roles_are_scoped_to_tenant(self, client, app):
+        """租户自定义角色只在当前租户可见，同名角色可在不同租户独立定义"""
+        resp = client.post(
+            "/api/v1/admin/roles",
+            headers={"Authorization": f"Bearer {self.token_a}"},
+            json={
+                "name": "operator",
+                "description": "A 租户运营",
+                "permissions": ["task:read"],
+            },
+        )
+        assert resp.status_code == 201
+        role_a = resp.get_json()["data"]
+        assert role_a["tenant_id"] == 10
+        assert role_a["permissions"] == ["task:read"]
+
+        resp = client.get("/api/v1/admin/roles",
+                          headers={"Authorization": f"Bearer {self.token_b}"})
+        assert resp.status_code == 200
+        assert "operator" not in [r["name"] for r in resp.get_json()["data"]]
+
+        resp = client.post(
+            "/api/v1/admin/roles",
+            headers={"Authorization": f"Bearer {self.token_b}"},
+            json={
+                "name": "operator",
+                "description": "B 租户运营",
+                "permissions": ["task:create"],
+            },
+        )
+        assert resp.status_code == 201
+        role_b = resp.get_json()["data"]
+        assert role_b["tenant_id"] == 20
+        assert role_b["id"] != role_a["id"]
+        assert role_b["permissions"] == ["task:create"]
+
+        resp = client.get("/api/v1/admin/roles",
+                          headers={"Authorization": f"Bearer {self.token_a}"})
+        role_map = {r["name"]: r for r in resp.get_json()["data"]}
+        assert role_map["operator"]["tenant_id"] == 10
+        assert role_map["operator"]["permissions"] == ["task:read"]
+
+        resp = client.post(
+            "/api/v1/admin/users",
+            headers={"Authorization": f"Bearer {self.token_b}"},
+            json={
+                "username": "operator-b",
+                "email": "operator-b@test.com",
+                "password": "operatorpass",
+                "role": "operator",
+            },
+        )
+        assert resp.status_code == 201
+
+        with app.app_context():
+            from app.models.user import User
+            from app.models.tenant_membership import TenantMembership
+            from app.utils.decorators import bypass_tenant_filter
+
+            with bypass_tenant_filter():
+                user = User.query.filter_by(username="operator-b").first()
+                membership = TenantMembership.query.filter_by(
+                    user_id=user.id,
+                    tenant_id=20,
+                ).first()
+            assert membership.role_id == role_b["id"]
+
+        resp = client.post("/api/v1/auth/login",
+                           json={"username": "operator-b", "password": "operatorpass"})
+        token = resp.get_json()["data"]["access_token"]
+        resp = client.get("/api/v1/auth/me",
+                          headers={"Authorization": f"Bearer {token}"})
+        assert set(resp.get_json()["data"]["permissions"]) == {"task:create"}
+
     def test_register_goes_to_guest_tenant(self, client, app):
         """新注册用户自动获得 guest 租户成员身份"""
         resp = client.post("/api/v1/auth/register", json={

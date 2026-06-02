@@ -31,9 +31,16 @@ class Role(db.Model):
     """角色 — 系统角色 (is_system=true) 由代码定义，自定义角色由 admin 在运行时创建"""
 
     __tablename__ = "roles"
+    __table_args__ = (
+        db.UniqueConstraint("tenant_id", "name", name="uq_roles_tenant_name"),
+        db.Index("uq_roles_system_name", "name", unique=True,
+                 sqlite_where=db.text("tenant_id IS NULL"),
+                 postgresql_where=db.text("tenant_id IS NULL")),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True, index=True)
+    name = db.Column(db.String(50), nullable=False, index=True)
     description = db.Column(db.String(200))
     is_system = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
@@ -43,10 +50,12 @@ class Role(db.Model):
     # 多对多：一个角色绑定多个权限码
     permissions = db.relationship("Permission", secondary=role_permissions,
                                   lazy="joined", backref="roles")
+    tenant = db.relationship("Tenant", lazy="joined", foreign_keys=[tenant_id])
 
     @property
     def permission_codes(self) -> list[str]:
         return [p.code for p in self.permissions]
 
     def __repr__(self):
-        return f"<Role {self.name} (system={self.is_system})>"
+        scope = "system" if self.tenant_id is None else f"tenant={self.tenant_id}"
+        return f"<Role {self.name} ({scope}, system={self.is_system})>"

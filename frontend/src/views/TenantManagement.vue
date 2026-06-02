@@ -221,9 +221,9 @@ async function fetchTenants() {
   }
 }
 
-async function fetchRoles() {
+async function fetchRoles(tenantId = null) {
   try {
-    const { data } = await listSuperadminRoles()
+    const { data } = await listSuperadminRoles(tenantId)
     roleOptions.value = data.data || []
   } catch (err) {
     ElMessage.error(err.response?.data?.message || '加载角色失败')
@@ -321,7 +321,7 @@ async function openMembersDialog(row) {
   memberTenant.value = row
   resetMemberForm()
   membersDialogVisible.value = true
-  await fetchMembers()
+  await Promise.all([fetchMembers(), fetchRoles(row.id)])
 }
 
 async function fetchMembers() {

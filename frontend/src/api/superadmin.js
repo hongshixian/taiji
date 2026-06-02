@@ -44,8 +44,10 @@ export function removeSuperuser(userId) {
 }
 
 // ─── 超级管理员角色/成员管理辅助 ─────────────────────
-export function listSuperadminRoles() {
-  return request.get('/superadmin/roles')
+export function listSuperadminRoles(tenantId = null) {
+  return request.get('/superadmin/roles', {
+    params: tenantId ? { tenant_id: tenantId } : {},
+  })
 }
 
 export function listTenantMembers(tenantId) {
