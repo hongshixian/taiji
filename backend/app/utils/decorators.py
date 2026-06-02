@@ -2,7 +2,6 @@
 
 设计：
 - @require_permission(*codes) 是基础装饰器，从 JWT claim 读 perms 列表判断
-- @admin_required 是兼容层，等价于 @require_permission("user:read")（admin 才有此权限）
 - @superuser_required 用于平台运维（可跨 tenant 操作）
 """
 
@@ -36,20 +35,6 @@ def require_permission(*codes: str):
     return decorator
 
 
-def admin_required(fn):
-    """兼容层 — 仅要求 user:read 权限（其实是要求 admin 角色）
-
-    新代码请直接用 @require_permission(...) 表达具体所需权限。
-    """
-    @wraps(fn)
-    def wrapper(*args, **kwargs):
-        user_perms = set(get_jwt().get("perms", []))
-        if "user:read" not in user_perms:
-            raise BusinessError(ErrorCode.PERMISSION_DENIED)
-        return fn(*args, **kwargs)
-    return wrapper
-
-
 def superuser_required(fn):
     """要求当前用户为平台超级管理员（is_superuser=true）
 
@@ -81,4 +66,3 @@ def bypass_tenant_filter():
         yield
     finally:
         g.bypass_tenant_filter = old
-
