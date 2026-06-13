@@ -1,17 +1,36 @@
 <template>
-  <div class="task-management">
-    <div class="top-bar">
-      <div class="page-title">
-        <el-icon class="page-icon"><Tickets /></el-icon>
-        <h2>网页内容分析</h2>
+  <div class="page-shell webpage-task">
+    <header class="page-header">
+      <span class="page-header__eyebrow t-eyebrow">任务 · 网页内容分析</span>
+      <div class="page-header__row">
+        <h1 class="page-header__title">网页内容分析</h1>
+        <el-button type="primary" @click="showDialog = true">
+          <el-icon><Plus /></el-icon>&nbsp;新建任务
+        </el-button>
       </div>
-      <el-button type="primary" size="default" @click="showDialog = true">
-        <el-icon><Plus /></el-icon>&nbsp;创建任务
-      </el-button>
-    </div>
+      <p class="page-header__lede">
+        提交一个公网 URL，由 Worker 异步抓取并提取标题与正文。任务在当前租户内可见。
+      </p>
+    </header>
+
+    <!-- 概览指标 -->
+    <section class="metric-strip">
+      <div class="metric">
+        <span class="t-eyebrow">进行中</span>
+        <span class="t-mono metric-value">{{ activeTasks.length }}</span>
+      </div>
+      <div class="metric">
+        <span class="t-eyebrow">历史记录</span>
+        <span class="t-mono metric-value">{{ total }}</span>
+      </div>
+      <div class="metric">
+        <span class="t-eyebrow">轮询超时</span>
+        <span class="t-mono metric-value">{{ MAX_POLLS * 2 }} 秒</span>
+      </div>
+    </section>
 
     <!-- 创建任务弹窗 -->
-    <el-dialog v-model="showDialog" title="创建分析任务" width="500px" :close-on-click-modal="false">
+    <el-dialog v-model="showDialog" title="新建分析任务" width="500px" :close-on-click-modal="false">
       <el-form @submit.prevent="handleSubmit">
         <el-form-item label="目标 URL">
           <el-input v-model="url" placeholder="https://example.com" />
@@ -24,75 +43,97 @@
     </el-dialog>
 
     <!-- 进行中任务卡片 -->
-    <h3 v-if="activeTasks.length" class="section-title">进行中</h3>
-    <div v-for="task in activeTasks" :key="'a-' + task.id" class="result-card">
-      <el-card>
-        <template #header>
-          <div class="card-header">
-            <span class="card-url">{{ task.url }}</span>
-            <div class="card-actions">
-              <el-tag :type="statusTag(task.frontendStatus)" size="small">
+    <section v-if="activeTasks.length" class="task-section">
+      <div class="task-section__header">
+        <span class="t-eyebrow">进行中</span>
+        <span class="t-caption">{{ activeTasks.length }} 个任务正在轮询</span>
+      </div>
+      <div class="active-list">
+        <article v-for="task in activeTasks" :key="'a-' + task.id" class="active-card">
+          <header class="active-card__header">
+            <span class="active-card__url" :title="task.url">{{ task.url }}</span>
+            <div class="active-card__actions">
+              <span class="status-pill" :data-tone="statusTone(task.frontendStatus)">
                 {{ statusLabel(task.frontendStatus) }}
-              </el-tag>
+              </span>
               <el-button v-if="canOpenTaskLogs(task)" text type="primary" size="small" @click="openTaskLogs(task)">日志</el-button>
             </div>
-          </div>
-        </template>
-        <el-skeleton :rows="3" animated />
-        <div class="elapsed-time">已等待 {{ task.elapsed }} 秒</div>
-      </el-card>
-    </div>
+          </header>
+          <el-skeleton :rows="2" animated />
+          <footer class="active-card__meta">
+            <span class="t-caption">已等待</span>
+            <span class="t-mono">{{ task.elapsed }}s</span>
+            <span class="t-caption">·</span>
+            <span class="t-caption">轮询</span>
+            <span class="t-mono">{{ task.pollCount }}/{{ MAX_POLLS }}</span>
+          </footer>
+        </article>
+      </div>
+    </section>
 
     <!-- 历史任务表格 -->
-    <h3 v-if="historyTasks.length" class="section-title">历史记录</h3>
-    <el-table v-if="historyTasks.length" :data="historyTasks" stripe v-loading="tableLoading" class="history-table">
-      <el-table-column label="URL" min-width="280">
-        <template #default="{ row }">
-          <span class="url-text">{{ row.url }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="标题" min-width="180">
-        <template #default="{ row }">{{ row.title || '—' }}</template>
-      </el-table-column>
-      <el-table-column label="创建者" width="120">
-        <template #default="{ row }">{{ row.username || '—' }}</template>
-      </el-table-column>
-      <el-table-column label="状态" width="100">
-        <template #default="{ row }">
-          <el-tag :type="dbStatusTag(row.status)" size="small">{{ dbStatusLabel(row.status) }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="日志" width="80">
-        <template #default="{ row }">
-          <el-button text type="primary" size="small" @click="openTaskLogs(row)">日志</el-button>
-        </template>
-      </el-table-column>
-      <el-table-column label="提交时间" width="170">
-        <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
-      </el-table-column>
-      <el-table-column label="操作" width="160">
-        <template #default="{ row }">
-          <el-button v-if="row.status === 'failed'" text type="primary" size="small" @click="retryDbTask(row)">重新分析</el-button>
-          <el-button v-if="has('task:delete:any')" text type="danger" size="small" @click="handleDelete(row)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <section v-if="historyTasks.length" class="task-section" data-density="compact">
+      <div class="task-section__header">
+        <span class="t-eyebrow">历史记录</span>
+        <span class="t-caption">第 {{ page }} 页 · 每页 {{ perPage }} 条</span>
+      </div>
+      <el-table :data="historyTasks" stripe v-loading="tableLoading" class="history-table">
+        <el-table-column label="URL" min-width="280">
+          <template #default="{ row }">
+            <span class="url-text">{{ row.url }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="标题" min-width="180">
+          <template #default="{ row }">{{ row.title || '—' }}</template>
+        </el-table-column>
+        <el-table-column label="创建者" width="120">
+          <template #default="{ row }">{{ row.username || '—' }}</template>
+        </el-table-column>
+        <el-table-column label="状态" width="110">
+          <template #default="{ row }">
+            <span class="status-pill" :data-tone="dbStatusTone(row.status)">
+              {{ dbStatusLabel(row.status) }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="日志" width="80">
+          <template #default="{ row }">
+            <el-button text type="primary" size="small" @click="openTaskLogs(row)">日志</el-button>
+          </template>
+        </el-table-column>
+        <el-table-column label="提交时间" width="170">
+          <template #default="{ row }">
+            <span class="t-mono">{{ formatTime(row.created_at) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="160">
+          <template #default="{ row }">
+            <el-button v-if="row.status === 'failed'" text type="primary" size="small" @click="retryDbTask(row)">重新分析</el-button>
+            <el-button v-if="has('task:delete:any')" text type="danger" size="small" @click="handleDelete(row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
 
-    <!-- 分页 -->
-    <el-pagination
-      v-if="total > perPage"
-      v-model:current-page="page"
-      :page-size="perPage"
-      :total="total"
-      layout="prev, pager, next"
-      class="pagination"
-      @current-change="fetchHistoryTasks"
-    />
+      <el-pagination
+        v-if="total > perPage"
+        v-model:current-page="page"
+        :page-size="perPage"
+        :total="total"
+        layout="prev, pager, next"
+        class="pagination"
+        @current-change="fetchHistoryTasks"
+      />
+    </section>
 
     <!-- 空状态 -->
-    <div v-if="activeTasks.length === 0 && historyTasks.length === 0 && !tableLoading" class="empty-state">
-      <el-empty description="暂无任务，点击上方按钮创建" />
-    </div>
+    <section v-if="activeTasks.length === 0 && historyTasks.length === 0 && !tableLoading" class="empty-state">
+      <span class="t-eyebrow">暂无任务</span>
+      <h3 class="empty-state__title">还没有提交过分析任务</h3>
+      <p class="empty-state__lede">输入一个公网 URL 开始抓取。Worker 会在后台异步处理。</p>
+      <el-button type="primary" @click="showDialog = true">
+        <el-icon><Plus /></el-icon>&nbsp;提交第一个任务
+      </el-button>
+    </section>
 
     <TaskLogDialog ref="taskLogDialogRef" />
   </div>
@@ -115,8 +156,8 @@ const MAX_POLLS = 30
 const showDialog = ref(false)
 const url = ref('')
 const submitting = ref(false)
-const activeTasks = ref([])      // 进行中的（前端追踪）
-const historyTasks = ref([])      // 历史任务（后端加载）
+const activeTasks = ref([])
+const historyTasks = ref([])
 const tableLoading = ref(false)
 const page = ref(1)
 const perPage = 20
@@ -128,29 +169,23 @@ const statusLabel = (s) => {
   const map = { submitting:'提交中', submit_failed:'提交失败', pending:'排队中', running:'分析中', success:'已完成', failed:'失败', timeout:'超时', not_found:'任务丢失', query_error:'查询异常' }
   return map[s] || s
 }
-const statusTag = (s) => {
-  const map = { submitting:'info', submit_failed:'danger', pending:'info', running:'warning', success:'success', failed:'danger', timeout:'warning', not_found:'warning', query_error:'info' }
-  return map[s] || 'info'
+// tone:neutral / progress / success / warning / danger
+const statusTone = (s) => {
+  const map = { submitting:'progress', submit_failed:'danger', pending:'neutral', running:'progress', success:'success', failed:'danger', timeout:'warning', not_found:'warning', query_error:'neutral' }
+  return map[s] || 'neutral'
 }
 const dbStatusLabel = (s) => {
   const map = { pending:'排队中', running:'分析中', success:'已完成', failed:'失败' }
   return map[s] || s
 }
-const dbStatusTag = (s) => {
-  const map = { pending:'info', running:'warning', success:'success', failed:'danger' }
-  return map[s] || 'info'
+const dbStatusTone = (s) => {
+  const map = { pending:'neutral', running:'progress', success:'success', failed:'danger' }
+  return map[s] || 'neutral'
 }
 function formatTime(iso) { return iso ? new Date(iso).toLocaleString('zh-CN') : '' }
 
-function openTaskLogs(row) {
-  taskLogDialogRef.value?.open(row)
-}
-
-function canOpenTaskLogs(task) {
-  return !['submitting', 'submit_failed'].includes(task.frontendStatus)
-}
-
-// ─── 历史任务 ─────────────────────────────
+function openTaskLogs(row) { taskLogDialogRef.value?.open(row) }
+function canOpenTaskLogs(task) { return !['submitting', 'submit_failed'].includes(task.frontendStatus) }
 
 async function fetchHistoryTasks() {
   tableLoading.value = true
@@ -168,7 +203,6 @@ async function fetchHistoryTasks() {
 async function retryDbTask(row) {
   try {
     const { data } = await retryWebpageAnalysis(row.id)
-    // 从历史列表移除，加入进行中
     historyTasks.value = historyTasks.value.filter(t => t.id !== row.id)
     total.value--
     const newId = data.data.id
@@ -182,13 +216,13 @@ async function retryDbTask(row) {
 
 async function handleDelete(row) {
   try {
-    await ElMessageBox.confirm('确定要删除该任务吗？删除后不可恢复。', '删除确认', {
-      confirmButtonText: '确定删除',
+    await ElMessageBox.confirm('确定删除该任务？删除后不可恢复。', '删除确认', {
+      confirmButtonText: '确认删除',
       cancelButtonText: '取消',
       type: 'warning',
     })
   } catch {
-    return // 取消
+    return
   }
   try {
     await deleteWebpageAnalysis(row.id)
@@ -200,14 +234,10 @@ async function handleDelete(row) {
   }
 }
 
-// ─── 创建任务 ─────────────────────────────
-
-/** 通过 reactive proxy 更新 activeTasks 中的任务属性，确保 Vue 响应式追踪 */
 function _updateActiveTask(taskId, updates) {
   const idx = activeTasks.value.findIndex(t => t.id === taskId)
   if (idx !== -1) Object.assign(activeTasks.value[idx], updates)
 }
-
 function _getActiveTask(taskId) {
   return activeTasks.value.find(t => t.id === taskId)
 }
@@ -256,7 +286,6 @@ function startPolling(taskId) {
       const s = data.data.status
       if (s === 'success' || s === 'failed') {
         stopPolling(taskId)
-        // 移到历史列表
         activeTasks.value = activeTasks.value.filter(x => x.id !== taskId)
         historyTasks.value.unshift(data.data)
         total.value++
@@ -294,20 +323,174 @@ onUnmounted(() => activeTasks.value.forEach(t => {
 </script>
 
 <style scoped>
-.task-management { max-width: 1200px; margin: 0 auto; }
-.top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-.page-title { display: flex; align-items: center; gap: 10px; }
-.page-title h2 { margin: 0; font-weight: 600; color: var(--el-text-color-primary); }
-.page-icon { font-size: 22px; color: var(--taiji-accent); }
-.section-title { margin: 0 0 12px; color: var(--el-text-color-regular); font-size: 14px; font-weight: 500; letter-spacing: 1px; }
-.result-card { margin-bottom: 12px; }
-.card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.card-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.card-url { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%; font-size: 13px; color: var(--el-text-color-regular); }
-.elapsed-time { color: var(--el-text-color-secondary); font-size: 12px; margin-top: 8px; }
-.history-table { width: 100%; border-radius: var(--taiji-radius-sm); overflow: hidden; }
-.url-text { color: var(--el-color-primary); cursor: pointer; word-break: break-all; }
-.url-text:hover { color: var(--taiji-accent); text-decoration: underline; }
-.pagination { margin-top: 16px; justify-content: center; }
-.empty-state { padding: 60px 0; }
+.webpage-task {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-9);
+}
+
+.page-header__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-7);
+}
+
+/* ─── 指标条 ─── */
+.metric-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-7);
+  padding: var(--space-7) var(--space-8);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+}
+.metric { display: flex; flex-direction: column; gap: var(--space-3); }
+.metric-value {
+  font-size: var(--text-3xl);
+  color: var(--fg-primary);
+  font-weight: var(--weight-semibold);
+}
+
+/* ─── 任务区块 ─── */
+.task-section { display: flex; flex-direction: column; gap: var(--space-6); }
+.task-section__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+/* ─── 进行中卡片 ─── */
+.active-list { display: flex; flex-direction: column; gap: var(--space-5); }
+.active-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-7) var(--space-8);
+  box-shadow: var(--shadow-xs);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  transition: box-shadow var(--dur-base) var(--ease-out),
+              border-color var(--dur-base) var(--ease-out);
+}
+.active-card:hover {
+  box-shadow: var(--shadow-sm);
+  border-color: var(--border-default);
+}
+.active-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-5);
+}
+.active-card__url {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--fg-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.active-card__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  flex-shrink: 0;
+}
+.active-card__meta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  color: var(--fg-secondary);
+}
+
+/* ─── 状态徽章（自定义，不用 el-tag 以脱离 primary 色映射）─── */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-5);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.02em;
+  background: var(--badge-bg-neutral);
+  color: var(--badge-fg-neutral);
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.status-pill[data-tone='success'] {
+  background: var(--color-success-bg);
+  color: var(--color-success-fg);
+  border-color: var(--color-success-border);
+}
+.status-pill[data-tone='warning'] {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-fg);
+  border-color: var(--color-warning-border);
+}
+.status-pill[data-tone='danger'] {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-fg);
+  border-color: var(--color-danger-border);
+}
+.status-pill[data-tone='progress'] {
+  background: var(--color-info-bg);
+  color: var(--color-info-fg);
+  border-color: var(--color-info-border);
+}
+
+/* ─── 历史表格 ─── */
+.history-table {
+  width: 100%;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+.url-text {
+  color: var(--violet-600);
+  cursor: pointer;
+  word-break: break-all;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+.url-text:hover { color: var(--violet-700); text-decoration: underline; }
+[data-theme="dark"] .url-text,
+html.dark .url-text { color: var(--violet-300); }
+[data-theme="dark"] .url-text:hover,
+html.dark .url-text:hover { color: var(--violet-200); }
+
+.pagination { margin-top: var(--space-6); justify-content: center; }
+
+/* ─── 空状态 ─── */
+.empty-state {
+  background: var(--bg-surface);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-12) var(--space-9);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-5);
+}
+.empty-state__title {
+  margin: 0;
+  font-size: var(--text-2xl);
+  color: var(--fg-primary);
+}
+.empty-state__lede {
+  margin: 0;
+  color: var(--fg-secondary);
+  max-width: 48ch;
+}
+.empty-state .el-button { margin-top: var(--space-3); }
+
+@media (max-width: 768px) {
+  .page-header__row { flex-direction: column; align-items: flex-start; }
+}
 </style>

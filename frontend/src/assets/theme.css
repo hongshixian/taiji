@@ -1,127 +1,241 @@
 /* ────────────────────────────────────────────────
-   太极 (Taiji) 主题系统
-   基调：墨黑 + 朱砂 + 玉白（国风克制）
+   Taiji × Fangcun AI — application theme
+   Layer 1 of 2:
+     • tokens/semantic.css    raw + semantic + component tokens (do not edit)
+     • theme.css (this file)  Element Plus override + global resets + utilities
+   Brand language: violet primary, champagne accent (rare), serif display
+   for marketing-tier surfaces only. Product UI stays neutral.
    ──────────────────────────────────────────────── */
 
-:root {
-  /* 品牌色 */
-  --taiji-primary: #1a1a1a;          /* 墨黑 */
-  --taiji-accent: #c0392b;           /* 朱砂红（点缀） */
-  --taiji-accent-soft: #e74c3c;
-  --taiji-ink: #2c3e50;              /* 深蓝灰 */
-  --taiji-jade: #16a085;             /* 玉绿 */
-  --taiji-gold: #d4a017;             /* 暖金 */
+@import url('./tokens/semantic.css');
 
-  /* 渐变 */
-  --taiji-gradient-brand: linear-gradient(135deg, #1e1e2e 0%, #2c3e50 100%);
-  --taiji-gradient-accent: linear-gradient(135deg, #c0392b 0%, #d4a017 100%);
-  --taiji-gradient-hero: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+/* ─── Element Plus → Fangcun semantic mapping ─────
+   Element Plus reads --el-* tokens at runtime. We map them to our
+   semantic tokens so every Element component inherits the brand without
+   per-component overrides.
+   ─────────────────────────────────────────────── */
+:root,
+[data-theme="light"] {
+  /* primary = violet-600 (interactive brand) */
+  --el-color-primary:          var(--violet-600);
+  --el-color-primary-light-3:  var(--violet-500);
+  --el-color-primary-light-5:  var(--violet-400);
+  --el-color-primary-light-7:  var(--violet-300);
+  --el-color-primary-light-8:  var(--violet-200);
+  --el-color-primary-light-9:  var(--violet-100);
+  --el-color-primary-dark-2:   var(--violet-700);
 
-  /* 表面 / 卡片阴影 */
-  --taiji-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.06);
-  --taiji-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.04);
-  --taiji-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.08), 0 4px 8px rgba(0, 0, 0, 0.04);
-  --taiji-shadow-hover: 0 8px 24px rgba(44, 62, 80, 0.12);
+  --el-color-success:          var(--color-success-fg);
+  --el-color-success-light-3:  var(--success-border);
+  --el-color-success-light-5:  var(--success-bg);
+  --el-color-success-light-9:  var(--success-bg);
 
-  /* 圆角 */
-  --taiji-radius-sm: 6px;
-  --taiji-radius-md: 10px;
-  --taiji-radius-lg: 16px;
+  --el-color-warning:          var(--color-warning-fg);
+  --el-color-warning-light-3:  var(--warning-border);
+  --el-color-warning-light-5:  var(--warning-bg);
+  --el-color-warning-light-9:  var(--warning-bg);
 
-  /* Element Plus 主题色覆盖 */
-  --el-color-primary: var(--taiji-ink);
-  --el-color-primary-light-3: #4a6278;
-  --el-color-primary-light-5: #6b7f93;
-  --el-color-primary-light-7: #a8b5c2;
-  --el-color-primary-light-8: #c8d2db;
-  --el-color-primary-light-9: #eaeef2;
-  --el-color-primary-dark-2: #1f2d3a;
+  --el-color-danger:           var(--color-danger-fg);
+  --el-color-danger-light-3:   var(--danger-border);
+  --el-color-danger-light-5:   var(--danger-bg);
+  --el-color-danger-light-9:   var(--danger-bg);
 
-  --el-color-danger: var(--taiji-accent);
-  --el-color-success: var(--taiji-jade);
-  --el-color-warning: var(--taiji-gold);
+  --el-color-error:            var(--color-danger-fg);
+  --el-color-info:             var(--fg-secondary);
 
-  --el-border-radius-base: var(--taiji-radius-sm);
+  /* surfaces */
+  --el-bg-color:               var(--bg-canvas);
+  --el-bg-color-page:          var(--bg-canvas);
+  --el-bg-color-overlay:       var(--bg-surface-raised);
+  --el-fill-color:             var(--bg-surface-sunken);
+  --el-fill-color-light:       var(--bg-surface-sunken);
+  --el-fill-color-lighter:     var(--bg-surface);
+  --el-fill-color-extra-light: var(--bg-surface);
+  --el-fill-color-blank:       var(--bg-surface);
+  --el-mask-color:              var(--bg-overlay);
+
+  /* text */
+  --el-text-color-primary:    var(--fg-primary);
+  --el-text-color-regular:    var(--fg-primary);
+  --el-text-color-secondary:  var(--fg-secondary);
+  --el-text-color-placeholder: var(--fg-tertiary);
+  --el-text-color-disabled:   var(--fg-disabled);
+
+  /* borders */
+  --el-border-color:           var(--border-default);
+  --el-border-color-light:     var(--border-subtle);
+  --el-border-color-lighter:   var(--border-subtle);
+  --el-border-color-extra-light: var(--border-subtle);
+  --el-border-color-dark:      var(--border-strong);
+  --el-border-color-darker:    var(--border-strong);
+
+  --el-border-radius-base:    var(--radius-md);
+  --el-border-radius-small:   var(--radius-sm);
+  --el-border-radius-round:   var(--radius-full);
+  --el-border-radius-circle:  50%;
+
+  /* shadows / box */
+  --el-box-shadow:        var(--shadow-md);
+  --el-box-shadow-light:  var(--shadow-sm);
+  --el-box-shadow-lighter: var(--shadow-xs);
+  --el-box-shadow-dark:   var(--shadow-lg);
+
+  /* spacing — keep Element defaults; our pages handle macro layout */
 }
 
-/* ─── 暗色模式 ──────────────────────────────────── */
-html.dark {
-  --taiji-primary: #f0f0f0;
-  --taiji-ink: #5a8fb8;
+/* ─── Dark theme — re-map for Element Plus dark mode ─── */
+html.dark,
+[data-theme="dark"] {
+  --el-color-primary:          var(--violet-400);
+  --el-color-primary-light-3:  var(--violet-300);
+  --el-color-primary-light-5:  var(--violet-200);
+  --el-color-primary-light-7:  rgba(143, 114, 208, 0.45);
+  --el-color-primary-light-8:  rgba(143, 114, 208, 0.30);
+  --el-color-primary-light-9:  rgba(143, 114, 208, 0.18);
+  --el-color-primary-dark-2:   var(--violet-500);
 
-  --taiji-gradient-brand: linear-gradient(135deg, #0d1117 0%, #1a2332 100%);
-  --taiji-gradient-hero: linear-gradient(135deg, #000000 0%, #16222a 50%, #2c5364 100%);
+  --el-bg-color:               var(--bg-canvas);
+  --el-bg-color-page:          var(--bg-canvas);
+  --el-bg-color-overlay:       var(--bg-surface-raised);
+  --el-fill-color:             var(--bg-surface-sunken);
+  --el-fill-color-light:       var(--bg-surface-sunken);
+  --el-fill-color-lighter:     var(--bg-surface);
+  --el-fill-color-extra-light: var(--bg-surface);
+  --el-fill-color-blank:       var(--bg-surface);
 
-  --taiji-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --taiji-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
-  --taiji-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
-  --taiji-shadow-hover: 0 8px 24px rgba(90, 143, 184, 0.2);
+  --el-text-color-primary:    var(--fg-primary);
+  --el-text-color-regular:    var(--fg-primary);
+  --el-text-color-secondary:  var(--fg-secondary);
+  --el-text-color-placeholder: var(--fg-tertiary);
+  --el-text-color-disabled:   var(--fg-disabled);
 
-  --el-color-primary: #5a8fb8;
-  --el-color-primary-light-3: #4a7596;
-  --el-color-primary-light-5: #3a5d78;
-  --el-color-primary-light-7: #2c4659;
-  --el-color-primary-light-8: #243845;
-  --el-color-primary-light-9: #1a2832;
+  --el-border-color:           var(--border-default);
+  --el-border-color-light:     var(--border-subtle);
+  --el-border-color-lighter:   var(--border-subtle);
+  --el-border-color-extra-light: var(--border-subtle);
+  --el-border-color-dark:      var(--border-strong);
+  --el-border-color-darker:    var(--border-strong);
 }
 
-/* ─── 全局重置 ──────────────────────────────────── */
-* {
-  box-sizing: border-box;
-}
-html, body {
-  margin: 0;
-  padding: 0;
-}
+/* Bridge: ensure html.dark also activates [data-theme="dark"] tokens.
+   We keep html.dark as the toggle class (legacy) but also set data-theme
+   in main.js so semantic.css's [data-theme="dark"] block resolves. */
+html.dark { color-scheme: dark; }
+
+/* ─── Global resets ─────────────────────────────── */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei',
-               'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: var(--el-bg-color);
-  color: var(--el-text-color-primary);
-  transition: background 0.3s ease, color 0.3s ease;
+  background: var(--bg-canvas);
+  color: var(--fg-primary);
+  font-size: var(--text-md);
+  line-height: var(--leading-relaxed);
+  transition: background var(--dur-base) var(--ease-out),
+              color var(--dur-base) var(--ease-out);
 }
 
-/* 自定义滚动条 */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
+/* Scrollbar — subtle, neutral */
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb {
-  background: var(--el-border-color);
-  border-radius: 4px;
+  background: var(--border-default);
+  border-radius: var(--radius-full);
 }
-::-webkit-scrollbar-thumb:hover {
-  background: var(--el-border-color-darker);
-}
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+::-webkit-scrollbar-track { background: transparent; }
 
-/* ─── 路由切换过渡 ──────────────────────────────── */
+/* ─── Route transition ─────────────────────────── */
 .fade-slide-enter-active,
 .fade-slide-leave-active {
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  transition: opacity var(--dur-slow) var(--ease-out),
+              transform var(--dur-slow) var(--ease-out);
 }
-.fade-slide-enter-from {
-  opacity: 0;
-  transform: translateY(8px);
-}
-.fade-slide-leave-to {
-  opacity: 0;
-  transform: translateY(-8px);
-}
+.fade-slide-enter-from { opacity: 0; transform: translateY(8px); }
+.fade-slide-leave-to   { opacity: 0; transform: translateY(-8px); }
 
-/* ─── 卡片 hover 增强 ──────────────────────────── */
+/* ─── Element Plus card hover (used in product UI dashboards) ─── */
 .el-card.is-hover-shadow:hover {
-  box-shadow: var(--taiji-shadow-hover) !important;
-  transform: translateY(-2px);
-  transition: all 0.25s ease;
+  box-shadow: var(--shadow-md) !important;
+  transform: translateY(-1px);
+  transition: box-shadow var(--dur-base) var(--ease-out),
+              transform var(--dur-base) var(--ease-out);
+  border-color: var(--card-border-hover);
 }
 
-/* ─── 通用工具类 ──────────────────────────────── */
-.taiji-gradient-text {
-  background: var(--taiji-gradient-accent);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
+/* ─── Page-level layout helpers ─────────────────── */
+.page-shell {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-9) var(--space-8);
+}
+
+.page-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-9);
+}
+.page-header__eyebrow { color: var(--fg-tertiary); }
+.page-header__title   { margin: 0; color: var(--fg-primary); }
+.page-header__lede    { color: var(--fg-secondary); max-width: 64ch; margin: 0; }
+
+/* Section title — used inside dashboards */
+.page-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+}
+.page-title h2 {
+  margin: 0;
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+  color: var(--fg-primary);
+}
+.page-icon {
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-md);
+  background: var(--bg-brand-soft);
+  color: var(--violet-600);
+}
+[data-theme="dark"] .page-icon,
+html.dark .page-icon { color: var(--violet-300); }
+
+/* ─── Utility — gradient/serif title (marketing only) ─── */
+.fc-display-serif {
+  font-family: 'Instrument Serif', 'Noto Serif SC', Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+.fc-italic-word { font-style: italic; }
+
+/* Champagne accent — use sparingly (≤10% pixel area per surface) */
+.fc-champagne { color: #c9b37e; }
+
+/* Grain overlay — apply to a positioned dark hero. The pseudo-element
+   covers its parent and respects its border-radius. */
+.fc-grain { position: relative; isolation: isolate; }
+.fc-grain::after {
+  content: '';
+  position: absolute; inset: 0;
+  pointer-events: none;
+  opacity: 0.08;
+  z-index: 0;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.4 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  background-size: 240px 240px;
+  mix-blend-mode: overlay;
+  border-radius: inherit;
+}
+.fc-grain > * { position: relative; z-index: 1; }
+
+/* Focus ring — apply to ad-hoc interactive elements that aren't Element components */
+.fc-focus:focus-visible {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  box-shadow: var(--focus-ring);
+  border-radius: inherit;
 }

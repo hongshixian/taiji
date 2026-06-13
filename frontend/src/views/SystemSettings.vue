@@ -1,22 +1,24 @@
 <template>
-  <div class="system-settings">
-    <div class="top-bar">
-      <div class="page-title">
-        <el-icon class="page-icon"><Operation /></el-icon>
-        <h2>系统设置</h2>
-      </div>
-    </div>
+  <div class="page-shell system-settings">
+    <header class="page-header">
+      <span class="page-header__eyebrow t-eyebrow">超级管理员 · 平台配置</span>
+      <h1 class="page-header__title">系统设置</h1>
+      <p class="page-header__lede">
+        平台级 key/value 配置和超级管理员名册。修改这里的设置会影响整个平台。
+      </p>
+    </header>
 
-    <el-card shadow="never" class="settings-card" v-loading="loading">
-      <template #header>
-        <div class="card-title">
-          <el-icon><UserFilled /></el-icon>
-          <span>注册策略</span>
-        </div>
-      </template>
+    <section class="settings-card" v-loading="loading">
+      <header class="settings-card__header">
+        <span class="t-eyebrow">注册策略</span>
+        <h2 class="settings-card__title">默认注册租户</h2>
+        <p class="t-body-sm settings-card__lede">
+          新公开注册的用户会自动加入这里选择的租户。
+        </p>
+      </header>
 
       <el-form label-width="140px" class="settings-form">
-        <el-form-item label="默认注册租户">
+        <el-form-item label="默认租户">
           <el-select
             v-model="form.defaultRegistrationTenantSlug"
             filterable
@@ -36,44 +38,46 @@
           </el-button>
         </el-form-item>
       </el-form>
-    </el-card>
+    </section>
 
-    <el-card shadow="never" class="settings-card">
-      <template #header>
-        <div class="section-head">
-          <div class="card-title">
-            <el-icon><User /></el-icon>
-            <span>超级管理员</span>
-          </div>
-          <div class="add-superuser">
-            <el-input
-              v-model="superuserIdentifier"
-              clearable
-              placeholder="用户名或邮箱"
-              style="width: 220px"
-              @keyup.enter="handleAddSuperuser"
-            />
-            <el-button type="primary" :loading="addingSuperuser" @click="handleAddSuperuser">
-              添加
-            </el-button>
-          </div>
+    <section class="settings-card">
+      <header class="settings-card__header settings-card__header--row">
+        <div>
+          <span class="t-eyebrow">权限</span>
+          <h2 class="settings-card__title">超级管理员</h2>
+          <p class="t-body-sm settings-card__lede">
+            可绕过权限校验的平台运营账号。无法移除自己的超管身份。
+          </p>
         </div>
-      </template>
+        <div class="add-superuser">
+          <el-input
+            v-model="superuserIdentifier"
+            clearable
+            placeholder="用户名或邮箱"
+            style="width: 220px"
+            @keyup.enter="handleAddSuperuser"
+          />
+          <el-button type="primary" :loading="addingSuperuser" @click="handleAddSuperuser">
+            添加
+          </el-button>
+        </div>
+      </header>
 
-      <el-table :data="superusers" stripe v-loading="superusersLoading">
+      <el-table :data="superusers" stripe v-loading="superusersLoading" data-density="compact">
         <el-table-column prop="username" label="用户名" min-width="140" />
-        <el-table-column prop="email" label="邮箱" min-width="200" />
-        <el-table-column label="加入租户" min-width="220">
+        <el-table-column prop="email" label="邮箱" min-width="200">
+          <template #default="{ row }"><span class="t-mono">{{ row.email }}</span></template>
+        </el-table-column>
+        <el-table-column label="加入租户" min-width="240">
           <template #default="{ row }">
-            <el-tag
+            <span
               v-for="m in row.memberships"
               :key="m.id"
-              size="small"
-              effect="plain"
-              class="tenant-tag"
+              class="status-pill status-pill--inline"
+              data-tone="neutral"
             >
               {{ m.tenant_name }}
-            </el-tag>
+            </span>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="110" fixed="right">
@@ -90,7 +94,7 @@
           </template>
         </el-table-column>
       </el-table>
-    </el-card>
+    </section>
   </div>
 </template>
 
@@ -213,58 +217,78 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.system-settings { max-width: 900px; margin: 0 auto; }
-.top-bar { margin-bottom: 24px; }
-.page-title { display: flex; align-items: center; gap: 10px; }
-.page-title h2 { margin: 0; font-weight: 600; color: var(--el-text-color-primary); }
-.page-icon { font-size: 22px; color: var(--taiji-accent); }
+.system-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-9);
+  max-width: 960px;
+}
+
 .settings-card {
-  border: 1px solid var(--el-border-color-lighter);
-  margin-bottom: 20px;
-}
-.section-head {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-8);
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: var(--space-7);
+  box-shadow: var(--shadow-xs);
+}
+.settings-card__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.settings-card__header--row {
+  flex-direction: row;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--space-7);
 }
-.card-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--el-text-color-primary);
+.settings-card__title {
+  margin: 0;
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  color: var(--fg-primary);
+  letter-spacing: -0.01em;
 }
-.settings-form {
-  max-width: 560px;
+.settings-card__lede {
+  margin: 0;
+  color: var(--fg-secondary);
+  max-width: 56ch;
 }
+.settings-form { max-width: 560px; }
+
 .add-superuser {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-5);
+  flex-shrink: 0;
 }
-.tenant-tag {
-  margin-right: 6px;
-  margin-bottom: 4px;
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-5);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  background: var(--badge-bg-neutral);
+  color: var(--badge-fg-neutral);
+  border: 1px solid transparent;
+  white-space: nowrap;
 }
-@media (max-width: 640px) {
-  .section-head {
-    align-items: flex-start;
+.status-pill--inline {
+  margin-right: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+@media (max-width: 768px) {
+  .settings-card__header--row {
     flex-direction: column;
+    align-items: flex-start;
   }
-  .add-superuser {
-    width: 100%;
-  }
-  .add-superuser .el-input {
-    flex: 1;
-  }
-  .settings-form :deep(.el-form-item__label) {
-    width: 100% !important;
-    justify-content: flex-start;
-  }
-  .settings-form :deep(.el-form-item__content) {
-    margin-left: 0 !important;
-  }
+  .add-superuser { width: 100%; }
+  .add-superuser .el-input { flex: 1; }
 }
 </style>

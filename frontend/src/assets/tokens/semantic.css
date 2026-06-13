@@ -1,0 +1,363 @@
+/* ======================================================================
+   Fangcun AI — Semantic & Component Tokens
+   Sprint 1 deliverable · Apr 2026
+   --------------------------------------------------------------------
+   3 layers:
+     (1) RAW    — colors_and_type.css    (--violet-500, --ink-900, ...)
+     (2) SEMANTIC — this file             (--bg-surface, --fg-primary, ...)
+     (3) COMPONENT — this file            (--button-primary-bg, ...)
+   Rule: components reference ONLY component or semantic tokens.
+         Semantic tokens reference ONLY raw tokens.
+         Raw tokens live in colors_and_type.css.
+   ====================================================================== */
+
+@import url('./colors_and_type.css');
+
+:root,
+[data-theme="light"] {
+  /* ---------------- SURFACES ---------------- */
+  --bg-canvas:         var(--ink-25);   /* app background */
+  --bg-surface:        var(--ink-0);    /* cards, panels */
+  --bg-surface-raised: var(--ink-0);    /* popovers, modals */
+  --bg-surface-sunken: var(--ink-50);   /* wells, input fields */
+  --bg-surface-muted:  var(--ink-100);  /* disabled backgrounds, skeleton */
+  --bg-inverse:        var(--ink-950);  /* terminal, hero dark blocks */
+  --bg-brand:          var(--violet-700);
+  --bg-brand-soft:     var(--violet-50);
+  --bg-overlay:        rgba(10, 10, 20, 0.45);
+
+  /* ---------------- FOREGROUND ---------------- */
+  --fg-primary:    var(--ink-900);
+  --fg-secondary:  var(--ink-600);
+  --fg-tertiary:   var(--ink-400);
+  --fg-disabled:   var(--ink-300);
+  --fg-inverse:    var(--ink-50);
+  --fg-on-brand:   var(--ink-0);
+  --fg-link:       var(--violet-600);
+  --fg-link-hover: var(--violet-700);
+
+  /* ---------------- BORDERS ---------------- */
+  --border-subtle:   var(--ink-100);
+  --border-default:  var(--ink-200);
+  --border-strong:   var(--ink-300);
+  --border-brand:    var(--violet-400);
+  --border-focus:    var(--violet-500);
+
+  /* ---------------- FOCUS RING ---------------- */
+  /* Single focus ring usable on ANY background. 3px violet at 40% a. */
+  --focus-ring:         0 0 0 3px rgba(109, 79, 186, 0.40);
+  --focus-ring-inverse: 0 0 0 3px rgba(181, 159, 226, 0.60);
+  --focus-ring-danger:  0 0 0 3px rgba(214, 59, 74, 0.35);
+  --focus-outline-width: 2px;
+
+  /* ---------------- STATE OVERLAYS ---------------- */
+  /* Composable tints — layer on any surface */
+  --state-hover:   rgba(30, 20, 64, 0.04);
+  --state-press:   rgba(30, 20, 64, 0.08);
+  --state-selected: rgba(109, 79, 186, 0.10);
+
+  /* ---------------- SEMANTIC COLORS ---------------- */
+  --color-success-fg:     var(--success);
+  --color-success-bg:     var(--success-bg);
+  --color-success-border: var(--success-border);
+  --color-warning-fg:     var(--warning);
+  --color-warning-bg:     var(--warning-bg);
+  --color-warning-border: var(--warning-border);
+  --color-danger-fg:      var(--danger);
+  --color-danger-bg:      var(--danger-bg);
+  --color-danger-border:  var(--danger-border);
+  --color-info-fg:        var(--violet-600);
+  --color-info-bg:        var(--violet-50);
+  --color-info-border:    var(--violet-200);
+
+  /* ===================================================================
+     COMPONENT TOKENS  — layer 3
+     Every interactive component reads ONLY these.
+     =================================================================== */
+
+  /* Button · primary */
+  --button-primary-bg:             var(--violet-600);
+  --button-primary-bg-hover:       var(--violet-700);
+  --button-primary-bg-active:      var(--violet-800);
+  --button-primary-bg-disabled:    var(--ink-200);
+  --button-primary-fg:             var(--ink-0);
+  --button-primary-fg-disabled:    var(--ink-400);
+  --button-primary-border:         transparent;
+  --button-primary-shadow:         var(--shadow-sm);
+
+  /* Button · secondary (ghost-outline) */
+  --button-secondary-bg:           transparent;
+  --button-secondary-bg-hover:     var(--state-hover);
+  --button-secondary-bg-active:    var(--state-press);
+  --button-secondary-fg:           var(--fg-primary);
+  --button-secondary-border:       var(--border-default);
+  --button-secondary-border-hover: var(--border-strong);
+
+  /* Button · tertiary (text) */
+  --button-tertiary-bg:            transparent;
+  --button-tertiary-bg-hover:      var(--state-hover);
+  --button-tertiary-fg:            var(--violet-600);
+
+  /* Button · danger */
+  --button-danger-bg:              var(--danger);
+  --button-danger-bg-hover:        #b8323f;
+  --button-danger-fg:              var(--ink-0);
+
+  /* Button sizing (density-aware, see Sprint 2) */
+  --button-padding-y:     8px;
+  --button-padding-x:     16px;
+  --button-radius:        var(--radius-md);
+  --button-font-size:     var(--text-md);
+  --button-font-weight:   var(--weight-medium);
+  --button-min-height:    36px;
+
+  /* Input */
+  --input-bg:              var(--bg-surface);
+  --input-bg-disabled:     var(--bg-surface-muted);
+  --input-fg:              var(--fg-primary);
+  --input-fg-placeholder:  var(--fg-tertiary);
+  --input-border:          var(--border-default);
+  --input-border-hover:    var(--border-strong);
+  --input-border-focus:    var(--border-focus);
+  --input-border-error:    var(--color-danger-fg);
+  --input-radius:          var(--radius-md);
+  --input-padding-y:       8px;
+  --input-padding-x:       12px;
+  --input-min-height:      36px;
+
+  /* Card */
+  --card-bg:            var(--bg-surface);
+  --card-bg-hover:      var(--bg-surface);
+  --card-border:        var(--border-subtle);
+  --card-border-hover:  var(--border-default);
+  --card-shadow:        var(--shadow-xs);
+  --card-shadow-hover:  var(--shadow-sm);
+  --card-radius:        var(--radius-lg);
+  --card-padding:       var(--space-8);
+
+  /* Badge */
+  --badge-bg-neutral:     var(--ink-100);
+  --badge-fg-neutral:     var(--ink-700);
+  --badge-bg-brand:       var(--violet-100);
+  --badge-fg-brand:       var(--violet-700);
+  --badge-bg-success:     var(--color-success-bg);
+  --badge-fg-success:     var(--color-success-fg);
+  --badge-bg-warning:     var(--color-warning-bg);
+  --badge-fg-warning:     var(--color-warning-fg);
+  --badge-bg-danger:      var(--color-danger-bg);
+  --badge-fg-danger:      var(--color-danger-fg);
+  --badge-radius:         var(--radius-full);
+  --badge-font-size:      var(--text-xs);
+  --badge-font-weight:    var(--weight-semibold);
+  --badge-padding-y:      2px;
+  --badge-padding-x:      8px;
+
+  /* Dialog / Modal */
+  --dialog-bg:        var(--bg-surface-raised);
+  --dialog-border:    var(--border-subtle);
+  --dialog-shadow:    var(--shadow-xl);
+  --dialog-radius:    var(--radius-xl);
+  --dialog-overlay:   var(--bg-overlay);
+
+  /* Menu / Popover */
+  --menu-bg:          var(--bg-surface-raised);
+  --menu-border:      var(--border-subtle);
+  --menu-shadow:      var(--shadow-lg);
+  --menu-radius:      var(--radius-md);
+  --menu-item-bg-hover: var(--state-hover);
+  --menu-item-fg:       var(--fg-primary);
+
+  /* Tooltip */
+  --tooltip-bg:       var(--ink-900);
+  --tooltip-fg:       var(--ink-50);
+  --tooltip-radius:   var(--radius-sm);
+  --tooltip-font-size: var(--text-xs);
+
+  /* Table */
+  --table-bg:             var(--bg-surface);
+  --table-bg-row-hover:   var(--state-hover);
+  --table-bg-row-stripe:  var(--bg-surface-sunken);
+  --table-border:         var(--border-subtle);
+  --table-header-bg:      var(--bg-surface-sunken);
+  --table-header-fg:      var(--fg-secondary);
+
+  /* Toast */
+  --toast-bg:         var(--bg-surface-raised);
+  --toast-border:     var(--border-subtle);
+  --toast-shadow:     var(--shadow-lg);
+  --toast-radius:     var(--radius-lg);
+}
+
+/* ========================================================================
+   DARK THEME
+   Contrast-validated. Every semantic + component token overridden.
+   Activate with  <html data-theme="dark">  or  <section data-theme="dark">
+   ======================================================================== */
+[data-theme="dark"] {
+  /* Surfaces — near-black with violet undertone */
+  --bg-canvas:         #0a0714;
+  --bg-surface:        #120c22;
+  --bg-surface-raised: #1a1330;
+  --bg-surface-sunken: #08050f;
+  --bg-surface-muted:  #221838;
+  --bg-inverse:        var(--ink-25);
+  --bg-brand:          var(--violet-600);
+  --bg-brand-soft:     rgba(109, 79, 186, 0.15);
+  --bg-overlay:        rgba(0, 0, 0, 0.6);
+
+  --fg-primary:    #f5f0ff;
+  --fg-secondary:  #b8acd0;
+  --fg-tertiary:   #8478a0;
+  --fg-disabled:   #554b6a;
+  --fg-inverse:    var(--ink-900);
+  --fg-on-brand:   #ffffff;
+  --fg-link:       var(--violet-300);
+  --fg-link-hover: var(--violet-200);
+
+  --border-subtle:   rgba(245, 240, 255, 0.08);
+  --border-default:  rgba(245, 240, 255, 0.14);
+  --border-strong:   rgba(245, 240, 255, 0.24);
+  --border-brand:    var(--violet-400);
+  --border-focus:    var(--violet-300);
+
+  --focus-ring:         0 0 0 3px rgba(181, 159, 226, 0.55);
+  --focus-ring-inverse: 0 0 0 3px rgba(109, 79, 186, 0.45);
+  --focus-ring-danger:  0 0 0 3px rgba(244, 120, 135, 0.45);
+
+  --state-hover:    rgba(245, 240, 255, 0.06);
+  --state-press:    rgba(245, 240, 255, 0.12);
+  --state-selected: rgba(143, 114, 208, 0.22);
+
+  /* Semantic — brighter fg on dark for AA */
+  --color-success-fg:     #4ed5a0;
+  --color-success-bg:     rgba(22, 165, 113, 0.16);
+  --color-success-border: rgba(22, 165, 113, 0.38);
+  --color-warning-fg:     #f5b84a;
+  --color-warning-bg:     rgba(217, 143, 0, 0.16);
+  --color-warning-border: rgba(217, 143, 0, 0.38);
+  --color-danger-fg:      #f47887;
+  --color-danger-bg:      rgba(214, 59, 74, 0.18);
+  --color-danger-border:  rgba(214, 59, 74, 0.42);
+  --color-info-fg:        var(--violet-300);
+  --color-info-bg:        rgba(109, 79, 186, 0.18);
+  --color-info-border:    rgba(109, 79, 186, 0.42);
+
+  /* Component — override only what changes */
+  --button-primary-bg:          var(--violet-500);
+  --button-primary-bg-hover:    var(--violet-400);
+  --button-primary-bg-active:   var(--violet-300);
+  --button-primary-bg-disabled: rgba(245, 240, 255, 0.12);
+  --button-primary-fg-disabled: rgba(245, 240, 255, 0.35);
+  --button-tertiary-fg:         var(--violet-300);
+
+  --input-bg:           var(--bg-surface-sunken);
+  --input-bg-disabled:  var(--bg-surface-muted);
+
+  --card-border:        rgba(245, 240, 255, 0.08);
+  --card-border-hover:  rgba(245, 240, 255, 0.18);
+  --card-shadow:        0 1px 0 rgba(0, 0, 0, 0.3);
+  --card-shadow-hover:  0 4px 16px rgba(0, 0, 0, 0.4);
+
+  --badge-bg-neutral:   rgba(245, 240, 255, 0.08);
+  --badge-fg-neutral:   var(--fg-secondary);
+  --badge-bg-brand:     rgba(109, 79, 186, 0.22);
+  --badge-fg-brand:     var(--violet-200);
+
+  --tooltip-bg:         #f5f0ff;
+  --tooltip-fg:         var(--ink-900);
+
+  --table-header-bg:    var(--bg-surface-sunken);
+
+  --toast-shadow:       0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* ========================================================================
+   DENSITY MODES  (Sprint 2 preview — shipped now, used opt-in)
+   <element data-density="compact"> to scope
+   ======================================================================== */
+[data-density="compact"] {
+  --button-padding-y: 4px;
+  --button-padding-x: 10px;
+  --button-min-height: 28px;
+  --button-font-size: var(--text-sm);
+  --input-padding-y: 4px;
+  --input-padding-x: 8px;
+  --input-min-height: 28px;
+  --card-padding: var(--space-6);
+}
+[data-density="roomy"] {
+  --button-padding-y: 12px;
+  --button-padding-x: 22px;
+  --button-min-height: 48px;
+  --button-font-size: var(--text-lg);
+  --input-padding-y: 12px;
+  --input-padding-x: 16px;
+  --input-min-height: 48px;
+  --card-padding: var(--space-10);
+}
+
+/* ========================================================================
+   ACCESSIBILITY PRIMITIVES
+   ======================================================================== */
+
+/* Screen-reader-only — visible to AT, invisible to sighted users */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0);
+  white-space: nowrap; border: 0;
+}
+
+/* Focus ring — apply to any interactive element */
+.focus-ring:focus-visible,
+[data-focus-ring]:focus-visible {
+  outline: var(--focus-outline-width) solid transparent;
+  outline-offset: 2px;
+  box-shadow: var(--focus-ring);
+  border-radius: inherit;
+}
+.focus-ring-inset:focus-visible {
+  outline: none;
+  box-shadow: inset var(--focus-ring);
+}
+
+/* Skip link — first interactive element for keyboard users */
+.skip-link {
+  position: absolute;
+  top: -48px; left: 12px;
+  padding: 10px 16px;
+  background: var(--bg-brand);
+  color: var(--fg-on-brand);
+  font-weight: var(--weight-semibold);
+  border-radius: var(--radius-md);
+  z-index: 9999;
+  transition: top 180ms var(--ease-out);
+}
+.skip-link:focus-visible {
+  top: 12px;
+  box-shadow: var(--focus-ring);
+}
+
+/* Reduced motion — opt OUT of decorative animation */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* High-contrast mode — use forced-colors instead of our tokens */
+@media (forced-colors: active) {
+  :root {
+    --border-default: CanvasText;
+    --border-focus:   Highlight;
+    --fg-primary:     CanvasText;
+    --bg-surface:     Canvas;
+  }
+  .focus-ring:focus-visible {
+    outline: 2px solid Highlight;
+  }
+}

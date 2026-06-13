@@ -4,53 +4,54 @@
       <!-- 顶栏 -->
       <el-header class="app-header">
         <div class="header-left">
-          <el-icon class="collapse-btn" @click="collapsed = !collapsed">
-            <component :is="collapsed ? 'Expand' : 'Fold'" />
-          </el-icon>
-          <div class="brand">
-            <img src="./assets/taiji-logo.svg" alt="taiji" class="brand-logo" />
-            <span class="brand-text">太极</span>
-          </div>
+          <button
+            type="button"
+            class="collapse-btn fc-focus"
+            :aria-label="collapsed ? '展开侧边栏' : '收起侧边栏'"
+            @click="collapsed = !collapsed"
+          >
+            <el-icon><component :is="collapsed ? 'Expand' : 'Fold'" /></el-icon>
+          </button>
+          <router-link to="/" class="brand fc-focus" aria-label="返回主页">
+            <img src="./assets/brand/logo-mark-purple.svg" alt="" class="brand-logo" />
+            <span class="brand-stack">
+              <span class="brand-mark">太极</span>
+              <span class="brand-sub">Fangcun · Taiji</span>
+            </span>
+          </router-link>
         </div>
 
         <div class="header-right">
-          <!-- 当前租户 -->
           <TenantSwitcher />
 
-          <!-- 主题切换 -->
           <el-tooltip :content="isDark ? '切换为浅色' : '切换为深色'" placement="bottom">
-            <el-icon class="header-icon" @click="toggleTheme">
-              <component :is="isDark ? 'Sunny' : 'Moon'" />
-            </el-icon>
+            <button
+              type="button"
+              class="header-icon fc-focus"
+              :aria-label="isDark ? '切换为浅色' : '切换为深色'"
+              @click="toggleTheme"
+            >
+              <el-icon><component :is="isDark ? 'Sunny' : 'Moon'" /></el-icon>
+            </button>
           </el-tooltip>
 
-          <!-- 通知（占位） -->
-          <el-tooltip content="暂无新通知" placement="bottom">
-            <el-badge :is-dot="false" class="header-icon-wrap">
-              <el-icon class="header-icon"><Bell /></el-icon>
-            </el-badge>
-          </el-tooltip>
-
-          <!-- 用户菜单 -->
           <el-dropdown trigger="click" @command="handleCommand">
-            <div class="user-trigger">
+            <button type="button" class="user-trigger fc-focus">
               <el-avatar :size="32" class="user-avatar" :class="{ 'is-superuser': authStore.isSuperuser }">
                 {{ avatarInitial }}
               </el-avatar>
-              <span class="username">{{ authStore.user?.username }}</span>
+              <span class="user-meta">
+                <span class="username">{{ authStore.user?.username }}</span>
+                <span class="user-role">{{ roleLabel }}</span>
+              </span>
               <el-icon class="caret"><ArrowDown /></el-icon>
-            </div>
+            </button>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item disabled>
-                  <el-tag :type="roleTagType" size="small" effect="light">
-                    {{ roleLabel }}
-                  </el-tag>
-                </el-dropdown-item>
-                <el-dropdown-item divided command="settings">
+                <el-dropdown-item command="settings">
                   <el-icon><Setting /></el-icon> 个人设置
                 </el-dropdown-item>
-                <el-dropdown-item command="logout">
+                <el-dropdown-item divided command="logout">
                   <el-icon><SwitchButton /></el-icon> 退出登录
                 </el-dropdown-item>
               </el-dropdown-menu>
@@ -60,8 +61,7 @@
       </el-header>
 
       <el-container>
-        <!-- 侧边栏 -->
-        <el-aside :width="collapsed ? '64px' : '210px'" class="app-aside">
+        <el-aside :width="collapsed ? '64px' : '224px'" class="app-aside">
           <el-menu
             :default-active="currentRoute"
             :default-openeds="defaultOpeneds"
@@ -113,11 +113,11 @@
             </el-menu-item>
           </el-menu>
           <div v-if="!collapsed" class="aside-footer">
-            <span>☯ Taiji v0.1</span>
+            <span class="t-eyebrow">Fangcun · Taiji</span>
+            <span class="aside-version">v0.1</span>
           </div>
         </el-aside>
 
-        <!-- 主内容区 -->
         <el-main class="app-main">
           <router-view v-slot="{ Component }">
             <transition name="fade-slide" mode="out-in">
@@ -142,6 +142,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { usePermission } from './composables/usePermission'
 import TenantSwitcher from './components/TenantSwitcher.vue'
+import { applyTheme, isDarkActive } from './utils/theme'
 import {
   CSV_QUALITY_TASK_TYPE,
   TASK_TYPE_ROUTES,
@@ -154,7 +155,7 @@ const authStore = useAuthStore()
 const { has } = usePermission()
 
 const collapsed = ref(window.innerWidth < 900)
-const isDark = ref(document.documentElement.classList.contains('dark'))
+const isDark = ref(isDarkActive())
 
 const isLoggedIn = computed(() => authStore.isLoggedIn)
 const currentRoute = computed(() => route.path)
@@ -172,18 +173,10 @@ const roleLabel = computed(() => {
   if (u.is_superuser) return '超级管理员'
   return u.role_name || u.role || '普通用户'
 })
-const roleTagType = computed(() => {
-  const u = authStore.user
-  if (!u) return 'info'
-  if (u.is_superuser) return 'danger'
-  if (u.role === 'admin') return 'warning'
-  return 'info'
-})
 
 function toggleTheme() {
   isDark.value = !isDark.value
-  document.documentElement.classList.toggle('dark', isDark.value)
-  localStorage.setItem('taiji-theme', isDark.value ? 'dark' : 'light')
+  applyTheme(isDark.value)
 }
 
 function handleCommand(cmd) {
@@ -204,106 +197,126 @@ onUnmounted(() => window.removeEventListener('resize', handleResize))
 </script>
 
 <style>
-.app-layout {
-  height: 100vh;
-}
+.app-layout { height: 100vh; }
 
 /* ─── 顶栏 ───────────────────────────────── */
 .app-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--el-bg-color);
-  border-bottom: 1px solid var(--el-border-color-lighter);
-  padding: 0 24px;
-  height: 60px;
-  box-shadow: var(--taiji-shadow-sm);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0 var(--space-8);
+  height: 64px;
   z-index: 10;
+  position: relative;
 }
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
+.header-left { display: flex; align-items: center; gap: var(--space-7); }
+
 .collapse-btn {
-  font-size: 20px;
+  width: 36px; height: 36px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  color: var(--el-text-color-secondary);
-  transition: color 0.2s, transform 0.2s;
+  color: var(--fg-secondary);
+  font-size: 18px;
+  transition: background var(--dur-base) var(--ease-out),
+              color var(--dur-base) var(--ease-out);
 }
 .collapse-btn:hover {
-  color: var(--el-color-primary);
-  transform: scale(1.1);
+  background: var(--state-hover);
+  color: var(--fg-primary);
 }
+
 .brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-5);
+  text-decoration: none;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
 }
-.brand-logo {
-  width: 28px;
-  height: 28px;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+.brand-logo { width: 28px; height: 28px; }
+.brand-stack { display: flex; flex-direction: column; line-height: 1.1; }
+.brand-mark {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.04em;
+  color: var(--fg-primary);
 }
-.brand-text {
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: 2px;
-  color: var(--el-text-color-primary);
+.brand-sub {
+  font-family: var(--font-mono);
+  font-size: var(--text-3xs);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-tertiary);
+  margin-top: 2px;
 }
 
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-}
-.header-icon,
-.header-icon-wrap .header-icon {
-  font-size: 18px;
-  color: var(--el-text-color-secondary);
+.header-right { display: flex; align-items: center; gap: var(--space-5); }
+
+.header-icon {
+  width: 36px; height: 36px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: color 0.2s, transform 0.2s;
+  font-size: 18px;
+  color: var(--fg-secondary);
+  transition: background var(--dur-base) var(--ease-out),
+              color var(--dur-base) var(--ease-out);
 }
 .header-icon:hover {
-  color: var(--taiji-accent);
-  transform: scale(1.1);
+  background: var(--state-hover);
+  color: var(--fg-primary);
 }
+
 .user-trigger {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-5);
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: var(--taiji-radius-sm);
-  transition: background 0.2s;
+  padding: var(--space-2) var(--space-5) var(--space-2) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  background: transparent;
+  transition: background var(--dur-base) var(--ease-out),
+              border-color var(--dur-base) var(--ease-out);
 }
 .user-trigger:hover {
-  background: var(--el-fill-color-light);
+  background: var(--state-hover);
+  border-color: var(--border-subtle);
 }
 .user-avatar {
-  background: var(--taiji-gradient-accent);
-  color: #fff;
-  font-weight: 600;
+  background: var(--violet-600);
+  color: var(--fg-on-brand);
+  font-weight: var(--weight-semibold);
 }
 .user-avatar.is-superuser {
-  background: linear-gradient(135deg, var(--taiji-accent), #ff7849);
-  box-shadow: 0 0 0 2px var(--el-color-danger-light-7);
+  background: var(--brand-gradient);
+  box-shadow: 0 0 0 2px rgba(109, 79, 186, 0.25);
 }
+.user-meta { display: flex; flex-direction: column; line-height: 1.2; }
 .username {
-  color: var(--el-text-color-primary);
-  font-size: 14px;
-  font-weight: 500;
+  color: var(--fg-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
 }
-.caret {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
+.user-role {
+  color: var(--fg-tertiary);
+  font-size: var(--text-xs);
+  margin-top: 2px;
 }
+.caret { font-size: 12px; color: var(--fg-tertiary); }
 
 /* ─── 侧边栏 ─────────────────────────────── */
 .app-aside {
-  background: var(--el-bg-color);
-  border-right: 1px solid var(--el-border-color-lighter);
-  transition: width 0.3s;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-subtle);
+  transition: width var(--dur-slow) var(--ease-out);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -312,55 +325,83 @@ onUnmounted(() => window.removeEventListener('resize', handleResize))
 .side-menu {
   border-right: none !important;
   flex: 1;
+  background: transparent;
+  padding: var(--space-5) var(--space-4);
 }
 .side-menu .el-menu-item,
 .side-menu .el-sub-menu__title {
-  height: 48px;
-  line-height: 48px;
-  margin: 4px 8px;
-  border-radius: var(--taiji-radius-sm);
+  height: 40px;
+  line-height: 40px;
+  margin: var(--space-2) 0;
+  border-radius: var(--radius-md);
+  color: var(--fg-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+.side-menu .el-menu-item:hover,
+.side-menu .el-sub-menu__title:hover {
+  background: var(--state-hover) !important;
+  color: var(--fg-primary) !important;
 }
 .side-menu .el-sub-menu .el-menu-item {
-  margin-left: 12px;
+  margin-left: var(--space-5);
   min-width: 0;
 }
 .side-menu .el-menu-item.is-active {
-  background: var(--el-color-primary-light-9);
-  color: var(--taiji-accent);
-  font-weight: 500;
+  background: var(--state-selected) !important;
+  color: var(--violet-600);
+  font-weight: var(--weight-semibold);
+  position: relative;
+}
+[data-theme="dark"] .side-menu .el-menu-item.is-active,
+html.dark .side-menu .el-menu-item.is-active {
+  color: var(--violet-300);
 }
 .side-menu .el-menu-item.is-active::before {
   content: '';
   position: absolute;
-  left: 0;
+  left: -4px;
   top: 50%;
   transform: translateY(-50%);
   width: 3px;
   height: 60%;
-  background: var(--taiji-accent);
-  border-radius: 0 2px 2px 0;
+  background: var(--violet-600);
+  border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
+}
+[data-theme="dark"] .side-menu .el-menu-item.is-active::before,
+html.dark .side-menu .el-menu-item.is-active::before {
+  background: var(--violet-300);
+}
+.side-menu .el-menu-item .el-icon,
+.side-menu .el-sub-menu__title .el-icon {
+  color: inherit;
 }
 .aside-footer {
-  padding: 12px 16px;
-  color: var(--el-text-color-placeholder);
-  font-size: 12px;
-  text-align: center;
-  border-top: 1px solid var(--el-border-color-lighter);
+  padding: var(--space-6) var(--space-7);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.aside-version {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-tertiary);
 }
 
 /* ─── 主内容区 ───────────────────────────── */
 .app-main {
-  background: var(--el-bg-color-page);
-  min-height: calc(100vh - 60px);
-  padding: 24px;
+  background: var(--bg-canvas);
+  min-height: calc(100vh - 64px);
+  padding: var(--space-9) var(--space-9);
   overflow-y: auto;
 }
 
 /* ─── 响应式 ─────────────────────────────── */
 @media (max-width: 768px) {
-  .app-header { padding: 0 12px; }
-  .username { display: none; }
-  .header-right { gap: 12px; }
-  .app-main { padding: 12px; }
+  .app-header { padding: 0 var(--space-5); }
+  .user-meta { display: none; }
+  .header-right { gap: var(--space-3); }
+  .app-main { padding: var(--space-6); }
 }
 </style>

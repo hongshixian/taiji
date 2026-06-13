@@ -1,23 +1,22 @@
 <template>
-  <div class="settings">
-    <div class="top-bar">
-      <div class="page-title">
-        <el-icon class="page-icon"><Tools /></el-icon>
-        <h2>通用设置</h2>
-      </div>
-    </div>
+  <div class="page-shell settings">
+    <header class="page-header">
+      <span class="page-header__eyebrow t-eyebrow">个人 · 偏好</span>
+      <h1 class="page-header__title">通用设置</h1>
+      <p class="page-header__lede">
+        外观、安全、关于。修改密码后会自动退出登录。
+      </p>
+    </header>
 
-    <!-- 外观 -->
-    <el-card shadow="never" class="settings-card">
-      <template #header>
-        <div class="card-title">
-          <el-icon><Brush /></el-icon>&nbsp;外观
-        </div>
-      </template>
-      <div class="setting-item">
-        <div>
-          <div class="item-label">主题模式</div>
-          <div class="item-desc">切换浅色 / 深色界面</div>
+    <section class="settings-card">
+      <header class="settings-card__header">
+        <span class="t-eyebrow">外观</span>
+        <h2 class="settings-card__title">主题</h2>
+      </header>
+      <div class="setting-row">
+        <div class="setting-row__text">
+          <div class="setting-row__label">主题模式</div>
+          <div class="setting-row__desc">切换浅色 / 深色界面。系统设置会被本地偏好覆盖。</div>
         </div>
         <el-switch
           v-model="isDark"
@@ -26,27 +25,24 @@
           @change="toggleTheme"
         />
       </div>
-    </el-card>
+    </section>
 
-    <!-- 安全 -->
-    <el-card shadow="never" class="settings-card">
-      <template #header>
-        <div class="card-title">
-          <el-icon><Lock /></el-icon>&nbsp;安全
+    <section class="settings-card">
+      <header class="settings-card__header">
+        <span class="t-eyebrow">安全</span>
+        <h2 class="settings-card__title">登录密码</h2>
+      </header>
+      <div class="setting-row">
+        <div class="setting-row__text">
+          <div class="setting-row__label">修改密码</div>
+          <div class="setting-row__desc">修改后所有现有 token 立即失效，需要重新登录。</div>
         </div>
-      </template>
-      <div class="setting-item">
-        <div>
-          <div class="item-label">登录密码</div>
-          <div class="item-desc">修改后需要重新登录</div>
-        </div>
-        <el-button type="primary" plain size="default" @click="pwdDialogVisible = true">
+        <el-button type="primary" plain @click="pwdDialogVisible = true">
           修改密码
         </el-button>
       </div>
-    </el-card>
+    </section>
 
-    <!-- 修改密码弹窗 -->
     <el-dialog v-model="pwdDialogVisible" title="修改密码" width="460px" :close-on-click-modal="false">
       <el-form
         ref="pwdFormRef"
@@ -72,20 +68,30 @@
       </template>
     </el-dialog>
 
-    <!-- 关于 -->
-    <el-card shadow="never" class="settings-card">
-      <template #header>
-        <div class="card-title">
-          <el-icon><InfoFilled /></el-icon>&nbsp;关于
+    <section class="settings-card">
+      <header class="settings-card__header">
+        <span class="t-eyebrow">关于</span>
+        <h2 class="settings-card__title">项目信息</h2>
+      </header>
+      <dl class="about-grid">
+        <div>
+          <dt class="t-eyebrow">项目</dt>
+          <dd class="t-mono about-value">Taiji × Fangcun</dd>
         </div>
-      </template>
-      <div class="about-grid">
-        <div><span class="about-label">项目</span><span class="about-value">太极 Taiji</span></div>
-        <div><span class="about-label">版本</span><span class="about-value">v0.1.0</span></div>
-        <div><span class="about-label">技术栈</span><span class="about-value">Flask 3 + Vue 3 + Celery + Redis</span></div>
-        <div><span class="about-label">开源协议</span><span class="about-value">MIT License</span></div>
-      </div>
-    </el-card>
+        <div>
+          <dt class="t-eyebrow">版本</dt>
+          <dd class="t-mono about-value">v0.1.0</dd>
+        </div>
+        <div>
+          <dt class="t-eyebrow">技术栈</dt>
+          <dd class="about-value">Flask 3 · Vue 3 · Celery · Redis</dd>
+        </div>
+        <div>
+          <dt class="t-eyebrow">协议</dt>
+          <dd class="about-value">MIT License</dd>
+        </div>
+      </dl>
+    </section>
   </div>
 </template>
 
@@ -95,18 +101,16 @@ import { ElMessage } from 'element-plus'
 import { Moon, Sunny } from '@element-plus/icons-vue'
 import { useAuthStore } from '../stores/auth'
 import { changePassword } from '../api/auth'
+import { applyTheme, isDarkActive } from '../utils/theme'
 
 const authStore = useAuthStore()
 
-// 主题
-const isDark = ref(document.documentElement.classList.contains('dark'))
+const isDark = ref(isDarkActive())
 
 function toggleTheme(value) {
-  document.documentElement.classList.toggle('dark', value)
-  localStorage.setItem('taiji-theme', value ? 'dark' : 'light')
+  applyTheme(value)
 }
 
-// 修改密码
 const pwdDialogVisible = ref(false)
 const pwdFormRef = ref(null)
 const pwdSubmitting = ref(false)
@@ -168,59 +172,75 @@ async function handleChangePassword() {
 </script>
 
 <style scoped>
-.settings { max-width: 800px; margin: 0 auto; }
-.top-bar { margin-bottom: 24px; }
-.page-title { display: flex; align-items: center; gap: 10px; }
-.page-title h2 { margin: 0; font-weight: 600; color: var(--el-text-color-primary); }
-.page-icon { font-size: 22px; color: var(--taiji-accent); }
-.settings-card {
-  border: 1px solid var(--el-border-color-lighter);
-  margin-bottom: 20px;
-}
-.card-title {
+.settings {
   display: flex;
-  align-items: center;
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--el-text-color-primary);
+  flex-direction: column;
+  gap: var(--space-9);
+  max-width: 800px;
 }
-.setting-item {
+
+.settings-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+  box-shadow: var(--shadow-xs);
+}
+.settings-card__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.settings-card__title {
+  margin: 0;
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  color: var(--fg-primary);
+  letter-spacing: -0.01em;
+}
+
+.setting-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 0;
+  gap: var(--space-7);
 }
-.item-label {
-  font-size: 14px;
-  color: var(--el-text-color-primary);
-  font-weight: 500;
+.setting-row__text { display: flex; flex-direction: column; gap: 2px; }
+.setting-row__label {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--fg-primary);
 }
-.item-desc {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-  margin-top: 4px;
+.setting-row__desc {
+  font-size: var(--text-sm);
+  color: var(--fg-secondary);
 }
+
 .about-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px 24px;
+  gap: var(--space-6) var(--space-9);
+  margin: 0;
 }
 .about-grid > div {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-2);
 }
-.about-label {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-  letter-spacing: 1px;
+.about-grid dt { letter-spacing: 0.18em; }
+.about-grid dd {
+  margin: 0;
+  font-size: var(--text-md);
+  color: var(--fg-primary);
+  font-weight: var(--weight-medium);
 }
-.about-value {
-  font-size: 14px;
-  color: var(--el-text-color-primary);
-  font-weight: 500;
-}
+.about-value { color: var(--fg-primary); }
+
 @media (max-width: 600px) {
   .about-grid { grid-template-columns: 1fr; }
+  .setting-row { flex-direction: column; align-items: flex-start; gap: var(--space-5); }
 }
 </style>

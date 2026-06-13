@@ -1,72 +1,60 @@
 <template>
-  <div class="tenant-management">
-    <div class="top-bar">
-      <div class="page-title">
-        <el-icon class="page-icon"><OfficeBuilding /></el-icon>
-        <h2>租户管理</h2>
+  <div class="page-shell tenant-management">
+    <header class="page-header">
+      <span class="page-header__eyebrow t-eyebrow">超级管理员 · 租户</span>
+      <div class="page-header__row">
+        <h1 class="page-header__title">租户管理</h1>
+        <el-button type="primary" @click="openCreateDialog">
+          <el-icon><Plus /></el-icon>&nbsp;新建租户
+        </el-button>
       </div>
-      <el-button type="primary" @click="openCreateDialog">
-        <el-icon><Plus /></el-icon>&nbsp;新建租户
-      </el-button>
-    </div>
+      <p class="page-header__lede">
+        管理平台所有租户。只能切换到自己已加入并启用的租户；系统租户不可删除。
+      </p>
+    </header>
 
-    <el-alert
-      v-if="authStore.isSuperuser"
-      type="info"
-      :closable="false"
-      show-icon
-      style="margin-bottom: 16px;"
-    >
-      作为超级管理员，你可以管理平台所有租户；只有已加入的租户可切换为当前操作租户。
-    </el-alert>
+    <section class="data-section" data-density="compact">
+      <el-table :data="tenants" stripe v-loading="loading" class="data-table">
+        <el-table-column prop="id" label="ID" width="60" />
+        <el-table-column label="标识 (slug)" min-width="180">
+          <template #default="{ row }">
+            <span class="slug t-mono">{{ row.slug }}</span>
+            <span v-if="row.is_system" class="status-pill status-pill--inline" data-tone="neutral">系统</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="name" label="名称" min-width="160" />
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }">
+            <span class="status-pill" :data-tone="row.is_active ? 'success' : 'danger'">
+              {{ row.is_active ? '正常' : '已禁用' }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="用户数" width="100" align="center">
+          <template #default="{ row }"><span class="t-mono">{{ row.user_count ?? '—' }}</span></template>
+        </el-table-column>
+        <el-table-column label="任务数" width="100" align="center">
+          <template #default="{ row }"><span class="t-mono">{{ row.task_count ?? '—' }}</span></template>
+        </el-table-column>
+        <el-table-column label="创建时间" width="180">
+          <template #default="{ row }"><span class="t-mono">{{ formatTime(row.created_at) }}</span></template>
+        </el-table-column>
+        <el-table-column label="操作" width="260" fixed="right">
+          <template #default="{ row }">
+            <el-button text type="primary" size="small" @click="handleSwitchTo(row)"
+                       :disabled="row.id === authStore.currentTenant?.id || !canSwitchTo(row)">
+              切换
+            </el-button>
+            <el-button text type="primary" size="small" @click="openMembersDialog(row)">成员</el-button>
+            <el-button text type="primary" size="small" @click="openEditDialog(row)">编辑</el-button>
+            <el-button text type="danger" size="small" @click="handleDelete(row)" :disabled="row.is_system">
+              删除
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </section>
 
-    <!-- 租户表格 -->
-    <el-table :data="tenants" stripe v-loading="loading">
-      <el-table-column prop="id" label="ID" width="60" />
-      <el-table-column label="标识 (slug)" min-width="140">
-        <template #default="{ row }">
-          <span class="slug">{{ row.slug }}</span>
-          <el-tag v-if="row.is_system" size="small" type="info" class="system-tag">系统</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column prop="name" label="名称" min-width="140" />
-      <el-table-column label="状态" width="90">
-        <template #default="{ row }">
-          <el-tag :type="row.is_active ? 'success' : 'danger'" size="small">
-            {{ row.is_active ? '正常' : '已禁用' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="用户数" width="90" align="center">
-        <template #default="{ row }">{{ row.user_count ?? '-' }}</template>
-      </el-table-column>
-      <el-table-column label="任务数" width="90" align="center">
-        <template #default="{ row }">{{ row.task_count ?? '-' }}</template>
-      </el-table-column>
-      <el-table-column label="创建时间" width="170">
-        <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
-      </el-table-column>
-      <el-table-column label="操作" width="250" fixed="right">
-        <template #default="{ row }">
-          <el-button text type="primary" size="small" @click="handleSwitchTo(row)"
-                     :disabled="row.id === authStore.currentTenant?.id || !canSwitchTo(row)">
-            切换
-          </el-button>
-          <el-button text type="primary" size="small" @click="openMembersDialog(row)">
-            成员
-          </el-button>
-          <el-button text type="primary" size="small" @click="openEditDialog(row)">
-            编辑
-          </el-button>
-          <el-button text type="danger" size="small" @click="handleDelete(row)"
-                     :disabled="row.is_system">
-            删除
-          </el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-
-    <!-- 创建/编辑弹窗 -->
     <el-dialog v-model="dialogVisible" :title="editMode ? '编辑租户' : '新建租户'"
                width="480px" :close-on-click-modal="false">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
@@ -74,7 +62,7 @@
           <el-input
             v-model="form.slug"
             :disabled="editMode"
-            placeholder="如 acme-corp（仅小写字母/数字/连字符）"
+            placeholder="如 acme-corp（仅小写字母 / 数字 / 连字符）"
           />
           <div class="form-hint" v-if="editMode">slug 创建后不可修改</div>
         </el-form-item>
@@ -93,10 +81,9 @@
       </template>
     </el-dialog>
 
-    <!-- 成员管理弹窗 -->
     <el-dialog
       v-model="membersDialogVisible"
-      :title="`成员管理 - ${memberTenant?.name || ''}`"
+      :title="`成员管理 — ${memberTenant?.name || ''}`"
       width="760px"
       :close-on-click-modal="false"
     >
@@ -110,37 +97,35 @@
             :value="role.name"
           />
         </el-select>
-        <el-button type="primary" :loading="addingMember" @click="handleAddMember">
-          添加
-        </el-button>
+        <el-button type="primary" :loading="addingMember" @click="handleAddMember">添加</el-button>
       </div>
 
-      <el-table :data="members" stripe v-loading="membersLoading">
+      <el-table :data="members" stripe v-loading="membersLoading" data-density="compact">
         <el-table-column prop="username" label="用户名" min-width="130" />
-        <el-table-column prop="email" label="邮箱" min-width="180" />
-        <el-table-column label="角色" width="130">
+        <el-table-column prop="email" label="邮箱" min-width="200">
+          <template #default="{ row }"><span class="t-mono">{{ row.email }}</span></template>
+        </el-table-column>
+        <el-table-column label="角色" width="140">
           <template #default="{ row }">
-            <el-tag size="small" effect="plain">{{ row.role_name || row.role }}</el-tag>
+            <span class="status-pill" data-tone="neutral">{{ row.role_name || row.role }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="超级管理员" width="110">
+        <el-table-column label="超级管理员" width="120">
           <template #default="{ row }">
-            <el-tag v-if="row.is_superuser" type="danger" size="small">是</el-tag>
-            <span v-else>-</span>
+            <span v-if="row.is_superuser" class="status-pill" data-tone="danger">是</span>
+            <span v-else class="t-caption">—</span>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="90">
+        <el-table-column label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.membership_active ? 'success' : 'danger'" size="small">
+            <span class="status-pill" :data-tone="row.membership_active ? 'success' : 'danger'">
               {{ row.membership_active ? '正常' : '禁用' }}
-            </el-tag>
+            </span>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="100" fixed="right">
           <template #default="{ row }">
-            <el-button text type="danger" size="small" @click="handleRemoveMember(row)">
-              移除
-            </el-button>
+            <el-button text type="danger" size="small" @click="handleRemoveMember(row)">移除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -383,32 +368,71 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.tenant-management { max-width: 1200px; margin: 0 auto; }
-.top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-.page-title { display: flex; align-items: center; gap: 10px; }
-.page-title h2 { margin: 0; font-weight: 600; color: var(--el-text-color-primary); }
-.page-icon { font-size: 22px; color: var(--taiji-accent); }
-
-.slug {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 13px;
-  color: var(--el-text-color-primary);
+.tenant-management {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-9);
 }
-.system-tag { margin-left: 8px; }
+.page-header__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-7);
+}
+.data-section { display: flex; flex-direction: column; gap: var(--space-6); }
+.data-table {
+  width: 100%;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+.slug { color: var(--fg-primary); }
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-5);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  background: var(--badge-bg-neutral);
+  color: var(--badge-fg-neutral);
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.status-pill[data-tone='success'] {
+  background: var(--color-success-bg);
+  color: var(--color-success-fg);
+  border-color: var(--color-success-border);
+}
+.status-pill[data-tone='danger'] {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-fg);
+  border-color: var(--color-danger-border);
+}
+.status-pill[data-tone='neutral'] {
+  background: var(--badge-bg-neutral);
+  color: var(--badge-fg-neutral);
+}
+.status-pill--inline { margin-left: var(--space-5); }
+
 .member-add {
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) 150px auto;
-  gap: 8px;
-  margin-bottom: 16px;
+  grid-template-columns: minmax(220px, 1fr) 160px auto;
+  gap: var(--space-5);
+  margin-bottom: var(--space-7);
 }
 .form-hint {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-  margin-top: 4px;
+  font-size: var(--text-xs);
+  color: var(--fg-tertiary);
+  margin-top: var(--space-2);
 }
+
 @media (max-width: 900px) {
-  .member-add {
-    grid-template-columns: 1fr;
-  }
+  .member-add { grid-template-columns: 1fr; }
+}
+@media (max-width: 768px) {
+  .page-header__row { flex-direction: column; align-items: flex-start; }
 }
 </style>

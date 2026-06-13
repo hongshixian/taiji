@@ -1,19 +1,37 @@
 <template>
-  <div class="csv-quality-management">
-    <div class="top-bar">
-      <div class="page-title">
-        <el-icon class="page-icon"><Grid /></el-icon>
-        <h2>CSV 数据质量检查</h2>
+  <div class="page-shell csv-task">
+    <header class="page-header">
+      <span class="page-header__eyebrow t-eyebrow">任务 · CSV 数据检查</span>
+      <div class="page-header__row">
+        <h1 class="page-header__title">CSV 数据质量检查</h1>
+        <el-button type="primary" @click="showDialog = true">
+          <el-icon><Plus /></el-icon>&nbsp;新建任务
+        </el-button>
       </div>
-      <el-button type="primary" size="default" @click="showDialog = true">
-        <el-icon><Plus /></el-icon>&nbsp;创建任务
-      </el-button>
-    </div>
+      <p class="page-header__lede">
+        上传 CSV，由 Worker 推断字段类型并检测空值、重复行与异常。任务在当前租户内可见。
+      </p>
+    </header>
 
-    <el-dialog v-model="showDialog" title="创建 CSV 检查任务" width="680px" :close-on-click-modal="false">
+    <section class="metric-strip">
+      <div class="metric">
+        <span class="t-eyebrow">进行中</span>
+        <span class="t-mono metric-value">{{ activeTasks.length }}</span>
+      </div>
+      <div class="metric">
+        <span class="t-eyebrow">历史记录</span>
+        <span class="t-mono metric-value">{{ total }}</span>
+      </div>
+      <div class="metric">
+        <span class="t-eyebrow">轮询超时</span>
+        <span class="t-mono metric-value">{{ MAX_POLLS * 2 }} 秒</span>
+      </div>
+    </section>
+
+    <el-dialog v-model="showDialog" title="新建 CSV 检查任务" width="680px" :close-on-click-modal="false">
       <el-form label-position="top" @submit.prevent="handleSubmit">
         <el-form-item label="任务名">
-          <el-input v-model="taskName" placeholder="例如：6 月用户导入数据检查" maxlength="100" show-word-limit />
+          <el-input v-model="taskName" placeholder="例如:6 月用户导入数据检查" maxlength="100" show-word-limit />
         </el-form-item>
         <el-form-item label="CSV 文件">
           <el-upload
@@ -39,137 +57,162 @@
       </template>
     </el-dialog>
 
-    <h3 v-if="activeTasks.length" class="section-title">进行中</h3>
-    <div v-for="task in activeTasks" :key="'a-' + task.id" class="result-card">
-      <el-card>
-        <template #header>
-          <div class="card-header">
-            <span class="card-title-text">{{ task.task_name || task.filename || '未命名任务' }}</span>
-            <div class="card-actions">
-              <el-tag :type="statusTag(task.frontendStatus)" size="small">
+    <section v-if="activeTasks.length" class="task-section">
+      <div class="task-section__header">
+        <span class="t-eyebrow">进行中</span>
+        <span class="t-caption">{{ activeTasks.length }} 个任务正在轮询</span>
+      </div>
+      <div class="active-list">
+        <article v-for="task in activeTasks" :key="'a-' + task.id" class="active-card">
+          <header class="active-card__header">
+            <span class="active-card__title">{{ task.task_name || task.filename || '未命名任务' }}</span>
+            <div class="active-card__actions">
+              <span class="status-pill" :data-tone="statusTone(task.frontendStatus)">
                 {{ statusLabel(task.frontendStatus) }}
-              </el-tag>
+              </span>
               <el-button v-if="canOpenTaskLogs(task)" text type="primary" size="small" @click="openTaskLogs(task)">日志</el-button>
             </div>
-          </div>
-        </template>
-        <el-skeleton :rows="3" animated />
-        <div class="elapsed-time">已等待 {{ task.elapsed }} 秒</div>
-      </el-card>
-    </div>
+          </header>
+          <el-skeleton :rows="2" animated />
+          <footer class="active-card__meta">
+            <span class="t-caption">已等待</span>
+            <span class="t-mono">{{ task.elapsed }}s</span>
+            <span class="t-caption">·</span>
+            <span class="t-caption">轮询</span>
+            <span class="t-mono">{{ task.pollCount }}/{{ MAX_POLLS }}</span>
+          </footer>
+        </article>
+      </div>
+    </section>
 
-    <h3 v-if="historyTasks.length" class="section-title">历史记录</h3>
-    <el-table v-if="historyTasks.length" :data="historyTasks" stripe v-loading="tableLoading" class="history-table">
-      <el-table-column type="expand">
-        <template #default="{ row }">
-          <div class="result-detail" v-if="row.result">
-            <div class="summary-grid">
-              <div>
-                <span class="summary-label">数据行</span>
-                <strong>{{ row.result.data_row_count }}</strong>
+    <section v-if="historyTasks.length" class="task-section" data-density="compact">
+      <div class="task-section__header">
+        <span class="t-eyebrow">历史记录</span>
+        <span class="t-caption">第 {{ page }} 页 · 每页 {{ perPage }} 条</span>
+      </div>
+      <el-table :data="historyTasks" stripe v-loading="tableLoading" class="history-table">
+        <el-table-column type="expand">
+          <template #default="{ row }">
+            <div class="result-detail" v-if="row.result">
+              <div class="summary-grid">
+                <div class="summary-cell">
+                  <span class="t-eyebrow">数据行</span>
+                  <strong class="t-mono summary-value">{{ row.result.data_row_count }}</strong>
+                </div>
+                <div class="summary-cell">
+                  <span class="t-eyebrow">字段数</span>
+                  <strong class="t-mono summary-value">{{ row.result.column_count }}</strong>
+                </div>
+                <div class="summary-cell">
+                  <span class="t-eyebrow">重复行</span>
+                  <strong class="t-mono summary-value">{{ row.result.duplicate_rows }}</strong>
+                </div>
               </div>
-              <div>
-                <span class="summary-label">字段数</span>
-                <strong>{{ row.result.column_count }}</strong>
+
+              <el-alert
+                v-if="row.result.warnings?.length"
+                type="warning"
+                :closable="false"
+                class="warning-alert"
+              >
+                <template #title>{{ row.result.warnings.join('；') }}</template>
+              </el-alert>
+
+              <div class="field-section">
+                <span class="t-eyebrow detail-title">字段概览</span>
+                <el-table :data="fieldRows(row.result)" size="small" border>
+                  <el-table-column prop="name" label="字段" min-width="160" />
+                  <el-table-column prop="type" label="推断类型" width="120" />
+                  <el-table-column prop="empty" label="空值数" width="100" />
+                </el-table>
               </div>
-              <div>
-                <span class="summary-label">重复行</span>
-                <strong>{{ row.result.duplicate_rows }}</strong>
+
+              <div class="field-section" v-if="row.result.preview?.length">
+                <span class="t-eyebrow detail-title">数据预览</span>
+                <el-table :data="row.result.preview" size="small" border>
+                  <el-table-column
+                    v-for="column in row.result.columns"
+                    :key="column"
+                    :prop="column"
+                    :label="column"
+                    min-width="140"
+                    show-overflow-tooltip
+                  />
+                </el-table>
               </div>
             </div>
+            <el-empty v-else description="暂无检查结果" :image-size="70" />
+          </template>
+        </el-table-column>
+        <el-table-column label="任务名" min-width="180">
+          <template #default="{ row }">{{ row.task_name || '未命名任务' }}</template>
+        </el-table-column>
+        <el-table-column label="文件名" min-width="180">
+          <template #default="{ row }">
+            <span class="t-mono">{{ row.filename || '—' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="规模" width="160">
+          <template #default="{ row }">
+            <span v-if="row.result" class="t-mono">{{ row.result.data_row_count }} 行 · {{ row.result.column_count }} 列</span>
+            <span v-else>—</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="风险提示" min-width="160">
+          <template #default="{ row }">
+            <span v-if="row.result?.warnings?.length" class="status-pill" data-tone="warning">
+              {{ row.result.warnings.length }} 项
+            </span>
+            <span v-else class="t-caption">—</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="创建者" width="120">
+          <template #default="{ row }">{{ row.username || '—' }}</template>
+        </el-table-column>
+        <el-table-column label="状态" width="110">
+          <template #default="{ row }">
+            <span class="status-pill" :data-tone="dbStatusTone(row.status)">
+              {{ dbStatusLabel(row.status) }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="日志" width="80">
+          <template #default="{ row }">
+            <el-button text type="primary" size="small" @click="openTaskLogs(row)">日志</el-button>
+          </template>
+        </el-table-column>
+        <el-table-column label="提交时间" width="170">
+          <template #default="{ row }">
+            <span class="t-mono">{{ formatTime(row.created_at) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="160">
+          <template #default="{ row }">
+            <el-button v-if="row.status === 'failed'" text type="primary" size="small" @click="retryDbTask(row)">重新检查</el-button>
+            <el-button v-if="has('task:delete:any')" text type="danger" size="small" @click="handleDelete(row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
 
-            <el-alert
-              v-if="row.result.warnings?.length"
-              type="warning"
-              :closable="false"
-              class="warning-alert"
-            >
-              <template #title>{{ row.result.warnings.join('；') }}</template>
-            </el-alert>
+      <el-pagination
+        v-if="total > perPage"
+        v-model:current-page="page"
+        :page-size="perPage"
+        :total="total"
+        layout="prev, pager, next"
+        class="pagination"
+        @current-change="fetchHistoryTasks"
+      />
+    </section>
 
-            <div class="field-section">
-              <div class="detail-title">字段概览</div>
-              <el-table :data="fieldRows(row.result)" size="small" border>
-                <el-table-column prop="name" label="字段" min-width="160" />
-                <el-table-column prop="type" label="推断类型" width="120" />
-                <el-table-column prop="empty" label="空值数" width="100" />
-              </el-table>
-            </div>
-
-            <div class="field-section" v-if="row.result.preview?.length">
-              <div class="detail-title">数据预览</div>
-              <el-table :data="row.result.preview" size="small" border>
-                <el-table-column
-                  v-for="column in row.result.columns"
-                  :key="column"
-                  :prop="column"
-                  :label="column"
-                  min-width="140"
-                  show-overflow-tooltip
-                />
-              </el-table>
-            </div>
-          </div>
-          <el-empty v-else description="暂无检查结果" :image-size="70" />
-        </template>
-      </el-table-column>
-      <el-table-column label="任务名" min-width="180">
-        <template #default="{ row }">{{ row.task_name || '未命名任务' }}</template>
-      </el-table-column>
-      <el-table-column label="文件名" min-width="180">
-        <template #default="{ row }">{{ row.filename || '—' }}</template>
-      </el-table-column>
-      <el-table-column label="规模" width="140">
-        <template #default="{ row }">
-          <span v-if="row.result">{{ row.result.data_row_count }} 行 / {{ row.result.column_count }} 列</span>
-          <span v-else>—</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="风险提示" min-width="180">
-        <template #default="{ row }">
-          <el-tag v-if="row.result?.warnings?.length" type="warning" size="small">
-            {{ row.result.warnings.length }} 项
-          </el-tag>
-          <span v-else>—</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="创建者" width="120">
-        <template #default="{ row }">{{ row.username || '—' }}</template>
-      </el-table-column>
-      <el-table-column label="状态" width="100">
-        <template #default="{ row }">
-          <el-tag :type="dbStatusTag(row.status)" size="small">{{ dbStatusLabel(row.status) }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="日志" width="80">
-        <template #default="{ row }">
-          <el-button text type="primary" size="small" @click="openTaskLogs(row)">日志</el-button>
-        </template>
-      </el-table-column>
-      <el-table-column label="提交时间" width="170">
-        <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
-      </el-table-column>
-      <el-table-column label="操作" width="160">
-        <template #default="{ row }">
-          <el-button v-if="row.status === 'failed'" text type="primary" size="small" @click="retryDbTask(row)">重新检查</el-button>
-          <el-button v-if="has('task:delete:any')" text type="danger" size="small" @click="handleDelete(row)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-
-    <el-pagination
-      v-if="total > perPage"
-      v-model:current-page="page"
-      :page-size="perPage"
-      :total="total"
-      layout="prev, pager, next"
-      class="pagination"
-      @current-change="fetchHistoryTasks"
-    />
-
-    <div v-if="activeTasks.length === 0 && historyTasks.length === 0 && !tableLoading" class="empty-state">
-      <el-empty description="暂无任务，点击上方按钮创建" />
-    </div>
+    <section v-if="activeTasks.length === 0 && historyTasks.length === 0 && !tableLoading" class="empty-state">
+      <span class="t-eyebrow">暂无任务</span>
+      <h3 class="empty-state__title">还没有上传过 CSV</h3>
+      <p class="empty-state__lede">选择一份本地 CSV 文件开始检查。Worker 会在后台处理。</p>
+      <el-button type="primary" @click="showDialog = true">
+        <el-icon><Plus /></el-icon>&nbsp;上传第一份 CSV
+      </el-button>
+    </section>
 
     <TaskLogDialog ref="taskLogDialogRef" />
   </div>
@@ -207,27 +250,22 @@ const statusLabel = (s) => {
   const map = { submitting:'提交中', submit_failed:'提交失败', pending:'排队中', running:'检查中', success:'已完成', failed:'失败', timeout:'超时', not_found:'任务丢失', query_error:'查询异常' }
   return map[s] || s
 }
-const statusTag = (s) => {
-  const map = { submitting:'info', submit_failed:'danger', pending:'info', running:'warning', success:'success', failed:'danger', timeout:'warning', not_found:'warning', query_error:'info' }
-  return map[s] || 'info'
+const statusTone = (s) => {
+  const map = { submitting:'progress', submit_failed:'danger', pending:'neutral', running:'progress', success:'success', failed:'danger', timeout:'warning', not_found:'warning', query_error:'neutral' }
+  return map[s] || 'neutral'
 }
 const dbStatusLabel = (s) => {
   const map = { pending:'排队中', running:'检查中', success:'已完成', failed:'失败' }
   return map[s] || s
 }
-const dbStatusTag = (s) => {
-  const map = { pending:'info', running:'warning', success:'success', failed:'danger' }
-  return map[s] || 'info'
+const dbStatusTone = (s) => {
+  const map = { pending:'neutral', running:'progress', success:'success', failed:'danger' }
+  return map[s] || 'neutral'
 }
 function formatTime(iso) { return iso ? new Date(iso).toLocaleString('zh-CN') : '' }
 
-function openTaskLogs(row) {
-  taskLogDialogRef.value?.open(row)
-}
-
-function canOpenTaskLogs(task) {
-  return !['submitting', 'submit_failed'].includes(task.frontendStatus)
-}
+function openTaskLogs(row) { taskLogDialogRef.value?.open(row) }
+function canOpenTaskLogs(task) { return !['submitting', 'submit_failed'].includes(task.frontendStatus) }
 
 function fieldRows(result) {
   return (result.columns || []).map((name) => ({
@@ -266,8 +304,8 @@ async function retryDbTask(row) {
 
 async function handleDelete(row) {
   try {
-    await ElMessageBox.confirm('确定要删除该任务吗？删除后不可恢复。', '删除确认', {
-      confirmButtonText: '确定删除',
+    await ElMessageBox.confirm('确定删除该任务？删除后不可恢复。', '删除确认', {
+      confirmButtonText: '确认删除',
       cancelButtonText: '取消',
       type: 'warning',
     })
@@ -313,12 +351,10 @@ function handleFileExceed(files) {
   fileList.value = [{ name: file.name, raw: file }]
 }
 
-/** 通过 reactive proxy 更新 activeTasks 中的任务属性，确保 Vue 响应式追踪 */
 function _updateActiveTask(taskId, updates) {
   const idx = activeTasks.value.findIndex(t => t.id === taskId)
   if (idx !== -1) Object.assign(activeTasks.value[idx], updates)
 }
-
 function _getActiveTask(taskId) {
   return activeTasks.value.find(t => t.id === taskId)
 }
@@ -408,31 +444,202 @@ onUnmounted(() => activeTasks.value.forEach(t => {
 </script>
 
 <style scoped>
-.csv-quality-management { max-width: 1200px; margin: 0 auto; }
-.top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-.page-title { display: flex; align-items: center; gap: 10px; }
-.page-title h2 { margin: 0; font-weight: 600; color: var(--el-text-color-primary); }
-.page-icon { font-size: 22px; color: var(--taiji-accent); }
-.section-title { margin: 0 0 12px; color: var(--el-text-color-regular); font-size: 14px; font-weight: 500; letter-spacing: 1px; }
-.result-card { margin-bottom: 12px; }
-.card-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.card-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.card-title-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 70%; font-size: 13px; color: var(--el-text-color-regular); }
-.elapsed-time { color: var(--el-text-color-secondary); font-size: 12px; margin-top: 8px; }
-.history-table { width: 100%; border-radius: var(--taiji-radius-sm); overflow: hidden; }
-.result-detail { padding: 8px 20px 18px; }
-.summary-grid { display: grid; grid-template-columns: repeat(3, minmax(120px, 1fr)); gap: 12px; margin-bottom: 12px; }
-.summary-grid > div { background: var(--el-fill-color-lighter); border: 1px solid var(--el-border-color-lighter); border-radius: var(--taiji-radius-sm); padding: 12px; }
-.summary-label { display: block; color: var(--el-text-color-secondary); font-size: 12px; margin-bottom: 6px; }
-.warning-alert { margin-bottom: 14px; }
-.field-section { margin-top: 14px; }
-.detail-title { font-size: 13px; font-weight: 600; color: var(--el-text-color-primary); margin-bottom: 8px; }
+.csv-task {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-9);
+}
+.page-header__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-7);
+}
+
+.metric-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-7);
+  padding: var(--space-7) var(--space-8);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+}
+.metric { display: flex; flex-direction: column; gap: var(--space-3); }
+.metric-value {
+  font-size: var(--text-3xl);
+  color: var(--fg-primary);
+  font-weight: var(--weight-semibold);
+}
+
+.task-section { display: flex; flex-direction: column; gap: var(--space-6); }
+.task-section__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.active-list { display: flex; flex-direction: column; gap: var(--space-5); }
+.active-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: var(--space-7) var(--space-8);
+  box-shadow: var(--shadow-xs);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  transition: box-shadow var(--dur-base) var(--ease-out),
+              border-color var(--dur-base) var(--ease-out);
+}
+.active-card:hover {
+  box-shadow: var(--shadow-sm);
+  border-color: var(--border-default);
+}
+.active-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-5);
+}
+.active-card__title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--fg-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.active-card__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  flex-shrink: 0;
+}
+.active-card__meta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  color: var(--fg-secondary);
+}
+
+/* status pill — shared tone system */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-5);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  background: var(--badge-bg-neutral);
+  color: var(--badge-fg-neutral);
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.status-pill[data-tone='success'] {
+  background: var(--color-success-bg);
+  color: var(--color-success-fg);
+  border-color: var(--color-success-border);
+}
+.status-pill[data-tone='warning'] {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-fg);
+  border-color: var(--color-warning-border);
+}
+.status-pill[data-tone='danger'] {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-fg);
+  border-color: var(--color-danger-border);
+}
+.status-pill[data-tone='progress'] {
+  background: var(--color-info-bg);
+  color: var(--color-info-fg);
+  border-color: var(--color-info-border);
+}
+
+/* table */
+.history-table {
+  width: 100%;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+/* expanded result */
+.result-detail {
+  padding: var(--space-5) var(--space-7) var(--space-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+  gap: var(--space-5);
+}
+.summary-cell {
+  background: var(--bg-surface-sunken);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-6) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.summary-value {
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  color: var(--fg-primary);
+}
+.warning-alert {
+  border-radius: var(--radius-md);
+}
+.field-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.detail-title {
+  display: block;
+  letter-spacing: 0.18em;
+}
+
 .csv-upload { width: 100%; }
-.upload-icon { font-size: 32px; color: var(--el-text-color-secondary); margin-bottom: 8px; }
-.pagination { margin-top: 16px; justify-content: center; }
-.empty-state { padding: 60px 0; }
-@media (max-width: 760px) {
-  .top-bar { align-items: stretch; flex-direction: column; gap: 12px; }
+.upload-icon {
+  font-size: 32px;
+  color: var(--fg-tertiary);
+  margin-bottom: var(--space-3);
+}
+.pagination { margin-top: var(--space-6); justify-content: center; }
+
+/* empty state */
+.empty-state {
+  background: var(--bg-surface);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-lg);
+  padding: var(--space-12) var(--space-9);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-5);
+}
+.empty-state__title {
+  margin: 0;
+  font-size: var(--text-2xl);
+  color: var(--fg-primary);
+}
+.empty-state__lede {
+  margin: 0;
+  color: var(--fg-secondary);
+  max-width: 48ch;
+}
+
+@media (max-width: 768px) {
+  .page-header__row { flex-direction: column; align-items: flex-start; }
   .summary-grid { grid-template-columns: 1fr; }
 }
 </style>

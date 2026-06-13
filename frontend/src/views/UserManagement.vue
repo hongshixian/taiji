@@ -1,66 +1,68 @@
 <template>
-  <div class="user-management">
-    <div class="top-bar">
-      <div class="page-title">
-        <el-icon class="page-icon"><UserFilled /></el-icon>
-        <h2>用户管理</h2>
+  <div class="page-shell user-management">
+    <header class="page-header">
+      <span class="page-header__eyebrow t-eyebrow">租户 · 成员</span>
+      <div class="page-header__row">
+        <h1 class="page-header__title">用户管理</h1>
+        <el-button type="primary" @click="openCreateDialog">
+          <el-icon><Plus /></el-icon>&nbsp;添加用户
+        </el-button>
       </div>
-      <el-button type="primary" @click="openCreateDialog">
-        <el-icon><Plus /></el-icon>&nbsp;添加用户
-      </el-button>
-    </div>
+      <p class="page-header__lede">
+        管理当前租户的成员、角色与状态。删除会移除该成员资格；若用户没有其他租户身份，全局账号也会被删除。
+      </p>
+    </header>
 
-    <!-- 用户表格 -->
-    <el-table :data="users" stripe v-loading="loading">
-      <el-table-column prop="id" label="ID" width="60" />
-      <el-table-column prop="username" label="用户名" min-width="120" />
-      <el-table-column prop="email" label="邮箱" min-width="180" />
-      <el-table-column label="角色" width="120">
-        <template #default="{ row }">
-          <el-tag :type="roleTagType(row)" size="small">
-            {{ roleLabel(row) }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="状态" width="90">
-        <template #default="{ row }">
-          <el-tag :type="memberActive(row) ? 'success' : 'danger'" size="small">
-            {{ memberActive(row) ? '正常' : '禁用' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="创建时间" width="170">
-        <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
-      </el-table-column>
-      <el-table-column label="操作" width="160" fixed="right">
-        <template #default="{ row }">
-          <el-button text type="primary" size="small" @click="openEditDialog(row)">编辑</el-button>
-          <el-button text type="danger" size="small" @click="handleDelete(row)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <section class="data-section" data-density="compact">
+      <el-table :data="users" stripe v-loading="loading" class="data-table">
+        <el-table-column prop="id" label="ID" width="60" />
+        <el-table-column prop="username" label="用户名" min-width="120" />
+        <el-table-column prop="email" label="邮箱" min-width="200">
+          <template #default="{ row }"><span class="t-mono">{{ row.email }}</span></template>
+        </el-table-column>
+        <el-table-column label="角色" width="140">
+          <template #default="{ row }">
+            <span class="status-pill" :data-tone="roleTone(row)">{{ roleLabel(row) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }">
+            <span class="status-pill" :data-tone="memberActive(row) ? 'success' : 'danger'">
+              {{ memberActive(row) ? '正常' : '禁用' }}
+            </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="创建时间" width="180">
+          <template #default="{ row }"><span class="t-mono">{{ formatTime(row.created_at) }}</span></template>
+        </el-table-column>
+        <el-table-column label="操作" width="160" fixed="right">
+          <template #default="{ row }">
+            <el-button text type="primary" size="small" @click="openEditDialog(row)">编辑</el-button>
+            <el-button text type="danger" size="small" @click="handleDelete(row)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
 
-    <!-- 分页 -->
-    <el-pagination
-      v-if="total > perPage"
-      v-model:current-page="page"
-      :page-size="perPage"
-      :total="total"
-      layout="prev, pager, next"
-      class="pagination"
-      @current-change="fetchUsers"
-    />
+      <el-pagination
+        v-if="total > perPage"
+        v-model:current-page="page"
+        :page-size="perPage"
+        :total="total"
+        layout="prev, pager, next"
+        class="pagination"
+        @current-change="fetchUsers"
+      />
+    </section>
 
-    <!-- 创建/编辑弹窗 -->
     <el-dialog v-model="dialogVisible" :title="editMode ? '编辑用户' : '添加用户'" width="480px" :close-on-click-modal="false">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="用户名" prop="username">
-          <el-input v-model="form.username" :disabled="editMode" placeholder="3-80 个字符" />
+          <el-input v-model="form.username" :disabled="editMode" placeholder="3 至 80 个字符" />
         </el-form-item>
         <el-form-item label="邮箱" prop="email">
           <el-input v-model="form.email" placeholder="user@example.com" />
         </el-form-item>
-        <el-form-item label="密码" :prop="editMode ? 'password' : 'password'">
+        <el-form-item label="密码">
           <el-input v-model="form.password" type="password" show-password :placeholder="editMode ? '留空则不修改' : '至少 6 位'" />
         </el-form-item>
         <el-form-item label="角色" prop="role">
@@ -68,7 +70,7 @@
             <el-option v-for="r in roleOptions" :key="r.name"
                        :label="r.description || r.name" :value="r.name">
               <span style="float: left">{{ r.description || r.name }}</span>
-              <span style="float: right; color: var(--el-text-color-secondary); font-size: 12px; font-family: monospace;">{{ r.name }}</span>
+              <span style="float: right; color: var(--fg-tertiary); font-size: 12px; font-family: var(--font-mono);">{{ r.name }}</span>
             </el-option>
           </el-select>
         </el-form-item>
@@ -133,12 +135,11 @@ function roleLabel(row) {
   return { admin: '管理员', user: '普通用户', guest: '访客' }[row.role] || row.role || '未知'
 }
 
-function roleTagType(row) {
-  // 系统角色用固定颜色；自定义角色用默认色
+function roleTone(row) {
   if (row.role === 'admin') return 'danger'
-  if (row.role === 'guest') return 'info'
-  if (row.role === 'user') return 'info'
-  return ''  // 自定义角色 — 主色
+  if (row.role === 'guest') return 'neutral'
+  if (row.role === 'user') return 'neutral'
+  return 'progress'  // 自定义角色 — 紫色 info
 }
 
 function memberActive(row) {
@@ -246,10 +247,60 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.user-management { max-width: 1200px; margin: 0 auto; }
-.top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-.page-title { display: flex; align-items: center; gap: 10px; }
-.page-title h2 { margin: 0; font-weight: 600; color: var(--el-text-color-primary); }
-.page-icon { font-size: 22px; color: var(--taiji-accent); }
-.pagination { margin-top: 16px; justify-content: center; }
+.user-management {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-9);
+}
+.page-header__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-7);
+}
+.data-section { display: flex; flex-direction: column; gap: var(--space-6); }
+.data-table {
+  width: 100%;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+.pagination { margin-top: var(--space-3); justify-content: center; }
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-5);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  background: var(--badge-bg-neutral);
+  color: var(--badge-fg-neutral);
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.status-pill[data-tone='success'] {
+  background: var(--color-success-bg);
+  color: var(--color-success-fg);
+  border-color: var(--color-success-border);
+}
+.status-pill[data-tone='warning'] {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-fg);
+  border-color: var(--color-warning-border);
+}
+.status-pill[data-tone='danger'] {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-fg);
+  border-color: var(--color-danger-border);
+}
+.status-pill[data-tone='progress'] {
+  background: var(--color-info-bg);
+  color: var(--color-info-fg);
+  border-color: var(--color-info-border);
+}
+
+@media (max-width: 768px) {
+  .page-header__row { flex-direction: column; align-items: flex-start; }
+}
 </style>

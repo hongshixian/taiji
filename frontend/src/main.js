@@ -7,6 +7,7 @@ import './assets/theme.css'
 import { createPinia } from 'pinia'
 import router from './router'
 import App from './App.vue'
+import { applyTheme, getStoredTheme } from './utils/theme'
 
 const app = createApp(App)
 
@@ -19,11 +20,9 @@ app.use(ElementPlus)
 app.use(createPinia())
 app.use(router)
 
-// 初始化暗色模式
-const savedTheme = localStorage.getItem('taiji-theme')
-if (savedTheme === 'dark' ||
-    (!savedTheme && window.matchMedia?.('(prefers-color-scheme: dark)').matches)) {
-  document.documentElement.classList.add('dark')
-}
+// 初始化主题:同步 html.dark (Element Plus 暗色) 与 data-theme (Fangcun semantic tokens)
+const savedTheme = getStoredTheme()
+const prefersDark = !savedTheme && window.matchMedia?.('(prefers-color-scheme: dark)').matches
+applyTheme(savedTheme === 'dark' || prefersDark)
 
 app.mount('#app')
