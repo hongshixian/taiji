@@ -63,15 +63,6 @@
             <el-option label="AutoPrompt（自动提示搜索）" value="autoprompt" />
           </el-select>
         </el-form-item>
-        <el-form-item label="高级配置">
-          <el-collapse class="config-collapse" style="width:100%">
-            <el-collapse-item title="JSON 配置（可选）" name="cfg">
-              <el-input v-model="form.attackConfigRaw" type="textarea" :rows="4"
-                placeholder='{"num_steps": 100, "batch_size": 512}' />
-              <span v-if="configParseError" class="config-error">{{ configParseError }}</span>
-            </el-collapse-item>
-          </el-collapse>
-        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="closeDialog">取消</el-button>
@@ -249,7 +240,6 @@ const perPage = 20
 const total = ref(0)
 const { has } = usePermission()
 const taskLogDialogRef = ref(null)
-const configParseError = ref('')
 const modelPresets = ref([])
 const selectedModelId = ref(null)
 
@@ -267,7 +257,6 @@ const form = reactive({
   taskName: '',
   targetModelName: '',
   attackMethod: '',
-  attackConfigRaw: '',
 })
 
 function methodName(key) { return METHOD_LABELS[key] || key }
@@ -295,8 +284,7 @@ function canOpenTaskLogs(task) { return !['submitting', 'submit_failed'].include
 function closeDialog() {
   showDialog.value = false
   selectedModelId.value = null
-  Object.assign(form, { taskName: '', targetModelName: '', attackMethod: '', attackConfigRaw: '' })
-  configParseError.value = ''
+  Object.assign(form, { taskName: '', targetModelName: '', attackMethod: '' })
 }
 
 async function fetchModelPresets() {
@@ -364,22 +352,11 @@ async function handleSubmit() {
   if (!form.targetModelName.trim()) return ElMessage.warning('请从模型库选择被测模型')
   if (!form.attackMethod) return ElMessage.warning('请选择红队方法')
 
-  let attackConfig = null
-  if (form.attackConfigRaw.trim()) {
-    try {
-      attackConfig = JSON.parse(form.attackConfigRaw)
-      configParseError.value = ''
-    } catch {
-      configParseError.value = 'JSON 格式错误，请检查后重试'
-      return
-    }
-  }
-
   const payload = {
     task_name: form.taskName.trim(),
     target_model_name: form.targetModelName.trim(),
     attack_method: form.attackMethod,
-    attack_config: attackConfig,
+    attack_config: null,
   }
 
   closeDialog()
@@ -550,14 +527,6 @@ onUnmounted(() => activeTasks.value.forEach(t => {
   padding: var(--space-8) 0; color: var(--fg-tertiary);
 }
 .result-placeholder__icon { font-size: 32px; color: var(--border-default); }
-.config-error { color: var(--color-danger-fg); font-size: var(--text-xs); margin-top: var(--space-2); }
-:deep(.config-collapse) {
-  border-left: none;
-  border-right: none;
-}
-:deep(.config-collapse .el-collapse-item__header) {
-  padding-left: 0;
-}
 .pagination { margin-top: var(--space-6); justify-content: center; }
 .empty-state {
   background: var(--bg-surface);
