@@ -94,7 +94,7 @@
             <span class="t-eyebrow">最近</span>
             <h2 class="content-card__title">最新任务</h2>
           </div>
-          <el-link type="primary" :underline="false" @click="$router.push(webpageAnalysisRoute)">
+          <el-link type="primary" :underline="false" @click="$router.push('/tasks/benchmark')">
             全部 →
           </el-link>
         </header>

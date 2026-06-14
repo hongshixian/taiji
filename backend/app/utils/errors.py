@@ -52,6 +52,10 @@ class ErrorCode:
     AUTH_DISABLED = ErrCode(30005, "账户已禁用", http=403)
     TOKEN_REVOKED = ErrCode(30006, "Token 已撤销，请重新登录", http=401)
 
+    # ── 模型配置 ─────────────────────────────
+    MODEL_CONFIG_NOT_FOUND = ErrCode(40001, "模型配置不存在", http=404)
+    MODEL_CONFIG_NAME_EXISTS = ErrCode(40002, "模型显示名称已存在")
+
     # ── 系统级 ────────────────────────────────
     VALIDATION_ERROR = ErrCode(90001, "请求参数错误")
     EMPTY_BODY = ErrCode(90002, "请求体不能为空")

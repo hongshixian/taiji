@@ -33,14 +33,24 @@
         <el-form-item label="任务名称" required>
           <el-input v-model="form.taskName" placeholder="例：GPT-4o 安全边界测试" maxlength="100" show-word-limit />
         </el-form-item>
-        <el-form-item label="目标模型" required>
-          <el-input v-model="form.targetModelName" placeholder="例：gpt-4o" maxlength="200" />
-        </el-form-item>
-        <el-form-item label="API Endpoint">
-          <el-input v-model="form.targetModelEndpoint" placeholder="https://api.openai.com/v1" maxlength="500" />
-        </el-form-item>
-        <el-form-item label="API Key">
-          <el-input v-model="form.targetModelApiKey" type="password" show-password placeholder="sk-..." maxlength="500" />
+        <el-form-item label="被测模型" required>
+          <el-select
+            v-model="selectedModelId"
+            placeholder="选择已配置的模型（可选）"
+            clearable
+            style="width:100%"
+            @change="applyModelPreset"
+          >
+            <el-option
+              v-for="m in modelPresets"
+              :key="m.id"
+              :label="m.display_name"
+              :value="m.id"
+            >
+              <span>{{ m.display_name }}</span>
+              <span style="float:right;color:var(--fg-tertiary);font-size:12px;font-family:var(--font-mono)">{{ m.model_name }}</span>
+            </el-option>
+          </el-select>
         </el-form-item>
         <el-form-item label="红队方法" required>
           <el-select v-model="form.attackMethod" placeholder="选择红队攻击方法" style="width:100%">
@@ -54,7 +64,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="高级配置">
-          <el-collapse style="width:100%">
+          <el-collapse class="config-collapse" style="width:100%">
             <el-collapse-item title="JSON 配置（可选）" name="cfg">
               <el-input v-model="form.attackConfigRaw" type="textarea" :rows="4"
                 placeholder='{"num_steps": 100, "batch_size": 512}' />
@@ -125,11 +135,9 @@
                 </dl>
               </div>
               <div class="settings-card">
-                <p class="settings-card__label t-eyebrow">目标模型</p>
+                <p class="settings-card__label t-eyebrow">被测模型</p>
                 <dl class="info-dl">
                   <dt>模型名称</dt><dd>{{ row.target_model_name }}</dd>
-                  <dt>API Endpoint</dt><dd class="t-mono">{{ row.target_model_endpoint || '—' }}</dd>
-                  <dt>API Key</dt><dd class="t-mono">{{ row.target_model_api_key || '—' }}</dd>
                 </dl>
               </div>
               <div class="settings-card">
@@ -226,6 +234,7 @@ import {
   retryRedTeam,
   submitRedTeam,
 } from '../api/redTeam'
+import { listModels } from '../api/model'
 import TaskLogDialog from '../components/TaskLogDialog.vue'
 import { usePermission } from '../composables/usePermission'
 
@@ -241,6 +250,8 @@ const total = ref(0)
 const { has } = usePermission()
 const taskLogDialogRef = ref(null)
 const configParseError = ref('')
+const modelPresets = ref([])
+const selectedModelId = ref(null)
 
 const METHOD_LABELS = {
   gcg: 'GCG',
@@ -255,8 +266,6 @@ const METHOD_LABELS = {
 const form = reactive({
   taskName: '',
   targetModelName: '',
-  targetModelEndpoint: '',
-  targetModelApiKey: '',
   attackMethod: '',
   attackConfigRaw: '',
 })
@@ -285,8 +294,22 @@ function canOpenTaskLogs(task) { return !['submitting', 'submit_failed'].include
 
 function closeDialog() {
   showDialog.value = false
-  Object.assign(form, { taskName: '', targetModelName: '', targetModelEndpoint: '', targetModelApiKey: '', attackMethod: '', attackConfigRaw: '' })
+  selectedModelId.value = null
+  Object.assign(form, { taskName: '', targetModelName: '', attackMethod: '', attackConfigRaw: '' })
   configParseError.value = ''
+}
+
+async function fetchModelPresets() {
+  try {
+    const { data } = await listModels(1, 200, false)
+    modelPresets.value = data.data.items
+  } catch { /* non-critical */ }
+}
+
+function applyModelPreset(id) {
+  const m = modelPresets.value.find(x => x.id === id)
+  if (!m) return
+  form.targetModelName = m.model_name
 }
 
 async function fetchHistoryTasks() {
@@ -338,7 +361,7 @@ function _getActiveTask(taskId) { return activeTasks.value.find(t => t.id === ta
 
 async function handleSubmit() {
   if (!form.taskName.trim()) return ElMessage.warning('请填写任务名称')
-  if (!form.targetModelName.trim()) return ElMessage.warning('请填写目标模型名称')
+  if (!form.targetModelName.trim()) return ElMessage.warning('请从模型库选择被测模型')
   if (!form.attackMethod) return ElMessage.warning('请选择红队方法')
 
   let attackConfig = null
@@ -355,8 +378,6 @@ async function handleSubmit() {
   const payload = {
     task_name: form.taskName.trim(),
     target_model_name: form.targetModelName.trim(),
-    target_model_endpoint: form.targetModelEndpoint.trim() || null,
-    target_model_api_key: form.targetModelApiKey || null,
     attack_method: form.attackMethod,
     attack_config: attackConfig,
   }
@@ -427,7 +448,7 @@ function stopPolling(taskId) {
   }
 }
 
-onMounted(fetchHistoryTasks)
+onMounted(() => { fetchHistoryTasks(); fetchModelPresets() })
 onUnmounted(() => activeTasks.value.forEach(t => {
   clearInterval(t.pollTimer)
   clearInterval(t.elapsedTimer)
@@ -530,6 +551,13 @@ onUnmounted(() => activeTasks.value.forEach(t => {
 }
 .result-placeholder__icon { font-size: 32px; color: var(--border-default); }
 .config-error { color: var(--color-danger-fg); font-size: var(--text-xs); margin-top: var(--space-2); }
+:deep(.config-collapse) {
+  border-left: none;
+  border-right: none;
+}
+:deep(.config-collapse .el-collapse-item__header) {
+  padding-left: 0;
+}
 .pagination { margin-top: var(--space-6); justify-content: center; }
 .empty-state {
   background: var(--bg-surface);

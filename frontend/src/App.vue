@@ -91,6 +91,10 @@
                 <template #title>自动红队测评</template>
               </el-menu-item>
             </el-sub-menu>
+            <el-menu-item index="/models" v-if="has('model:read')">
+              <el-icon><Cpu /></el-icon>
+              <template #title>模型管理</template>
+            </el-menu-item>
             <el-menu-item index="/users" v-if="has('user:read')">
               <el-icon><User /></el-icon>
               <template #title>用户管理</template>

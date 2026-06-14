@@ -57,6 +57,12 @@ const routes = [
     },
   },
   {
+    path: '/models',
+    name: 'ModelManagement',
+    component: () => import('../views/ModelManagement.vue'),
+    meta: { requiresAuth: true, requiresPermission: 'model:read' },
+  },
+  {
     path: '/users',
     name: 'UserManagement',
     component: () => import('../views/UserManagement.vue'),

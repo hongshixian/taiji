@@ -25,6 +25,11 @@ class Permission:
     TASK_CREATE = "task:create"        # 创建任务
     TASK_DELETE_ANY = "task:delete:any"  # 删除任意用户的任务（admin 用）
 
+    # 模型配置
+    MODEL_READ = "model:read"          # 查看模型配置
+    MODEL_WRITE = "model:write"        # 新建 / 编辑模型配置
+    MODEL_DELETE = "model:delete"      # 删除模型配置
+
     # 系统
     SYSTEM_AUDIT = "system:audit"      # 查看审计日志（预留）
 
@@ -41,6 +46,9 @@ PERMISSIONS_REGISTRY: dict[str, str] = {
     Permission.TASK_READ: "查看自己的任务",
     Permission.TASK_CREATE: "创建任务",
     Permission.TASK_DELETE_ANY: "删除任意用户的任务",
+    Permission.MODEL_READ: "查看模型配置",
+    Permission.MODEL_WRITE: "新建 / 编辑模型配置",
+    Permission.MODEL_DELETE: "删除模型配置",
     Permission.SYSTEM_AUDIT: "查看审计日志",
 }
 
@@ -52,10 +60,12 @@ SYSTEM_ROLES: dict[str, set[str]] = {
         Permission.ROLE_ASSIGN, Permission.ROLE_READ, Permission.ROLE_WRITE,
         Permission.ROLE_DELETE,
         Permission.TASK_READ, Permission.TASK_CREATE, Permission.TASK_DELETE_ANY,
+        Permission.MODEL_READ, Permission.MODEL_WRITE, Permission.MODEL_DELETE,
         Permission.SYSTEM_AUDIT,
     },
     "user": {
         Permission.TASK_READ, Permission.TASK_CREATE,
+        Permission.MODEL_READ, Permission.MODEL_WRITE, Permission.MODEL_DELETE,
     },
     "guest": {
         Permission.TASK_READ,

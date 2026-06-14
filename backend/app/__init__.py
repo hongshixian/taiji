@@ -97,6 +97,7 @@ def create_app(config_obj=Config):
     from app.api.admin import admin_bp
     from app.api.superadmin import superadmin_bp
     from app.api.audit import audit_bp
+    from app.api.model_config import model_config_bp
 
     # 初始化 auth 蓝图独立限流器（需要在注册蓝图前完成）
     from app.api.auth import auth_limiter
@@ -107,6 +108,7 @@ def create_app(config_obj=Config):
     flask_app.register_blueprint(admin_bp, url_prefix=f"{API_V1}/admin")
     flask_app.register_blueprint(superadmin_bp, url_prefix=f"{API_V1}/superadmin")
     flask_app.register_blueprint(audit_bp, url_prefix=f"{API_V1}/audit-logs")
+    flask_app.register_blueprint(model_config_bp, url_prefix=f"{API_V1}/models")
 
     # 加载所有任务处理器并注册对应蓝图
     from app.handlers.registry import registry

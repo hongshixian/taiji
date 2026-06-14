@@ -34,24 +34,69 @@
           <el-input v-model="form.taskName" placeholder="例：GPT-4o MMLU 测评" maxlength="100" show-word-limit />
         </el-form-item>
         <el-form-item label="被测模型" required>
-          <el-input v-model="form.modelName" placeholder="例：gpt-4o" maxlength="200" />
+          <el-select
+            v-model="selectedModelId"
+            placeholder="选择已配置的模型（可选）"
+            clearable
+            style="width:100%"
+            @change="applyModelPreset"
+          >
+            <el-option
+              v-for="m in modelPresets"
+              :key="m.id"
+              :label="m.display_name"
+              :value="m.id"
+            >
+              <span>{{ m.display_name }}</span>
+              <span style="float:right;color:var(--fg-tertiary);font-size:12px;font-family:var(--font-mono)">{{ m.model_name }}</span>
+            </el-option>
+          </el-select>
         </el-form-item>
-        <el-form-item label="API Endpoint">
-          <el-input v-model="form.modelEndpoint" placeholder="https://api.openai.com/v1" maxlength="500" />
-        </el-form-item>
-        <el-form-item label="API Key">
-          <el-input v-model="form.modelApiKey" type="password" show-password placeholder="sk-..." maxlength="500" />
-        </el-form-item>
-        <el-form-item label="测评套件" required>
-          <el-select v-model="form.benchmarkSuite" placeholder="选择测评套件" style="width:100%">
-            <el-option label="MMLU（多任务语言理解）" value="mmlu" />
-            <el-option label="GSM8K（小学数学推理）" value="gsm8k" />
-            <el-option label="HellaSWAG（常识推理）" value="hellaswag" />
-            <el-option label="HumanEval（代码生成）" value="humaneval" />
+        <el-form-item label="测评 Benchmark" required>
+          <el-select v-model="form.benchmarkSuite" placeholder="选择测评 Benchmark" style="width:100%">
+            <el-option-group label="基础交互安全">
+              <el-option label="AIR Bench" value="air_bench" />
+              <el-option label="BeaverTails" value="beavertails" />
+              <el-option label="CoCoNot" value="coconot" />
+              <el-option label="LongSafety" value="longsafety" />
+              <el-option label="PKU SaferLHF" value="pku_saferlhf" />
+              <el-option label="SafetyBench" value="safetybench" />
+              <el-option label="StrongREJECT" value="strongreject" />
+              <el-option label="XSTest" value="xstest" />
+              <el-option label="SimpleQA Verified" value="simpleqa" />
+              <el-option label="TruthfulQA" value="truthfulqa" />
+              <el-option label="Sycophancy Eval" value="sycophancy_eval" />
+              <el-option label="StereoSet" value="stereoset" />
+              <el-option label="HealthBench" value="healthbench" />
+            </el-option-group>
+            <el-option-group label="工具调用与智能体安全">
+              <el-option label="AgentHarm" value="agentharm" />
+              <el-option label="Agent Threat Bench — 自主劫持" value="agent_threat_bench_autonomy_hijack" />
+              <el-option label="Agent Threat Bench — 数据泄露" value="agent_threat_bench_data_exfil" />
+              <el-option label="Agent Threat Bench — 记忆投毒" value="agent_threat_bench_memory_poison" />
+              <el-option label="PersistBench — 跨域持久性" value="persistbench_cross_domain" />
+              <el-option label="PersistBench — 谄媚记忆" value="persistbench_sycophancy" />
+              <el-option label="Prompt Injection" value="cyse2_prompt_injection" />
+              <el-option label="Make Me Pay" value="make_me_pay" />
+              <el-option label="MakeMeSay" value="makemesay" />
+              <el-option label="SAD" value="sad" />
+              <el-option label="DeceptionBench (ARIES)" value="deceptionbench_aries" />
+            </el-option-group>
+            <el-option-group label="前沿风险能力">
+              <el-option label="WMDP Cyber" value="wmdp_cyber" />
+              <el-option label="WMDP Bio" value="wmdp_bio" />
+              <el-option label="WMDP Chem" value="wmdp_chem" />
+              <el-option label="BigCodeBench" value="bigcodebench" />
+              <el-option label="HumanEval" value="humaneval" />
+              <el-option label="MMLU" value="mmlu" />
+              <el-option label="GSM8K" value="gsm8k" />
+              <el-option label="HellaSWAG" value="hellaswag" />
+              <el-option label="GDM Dangerous Capabilities: Stealth" value="gdm_dangerous_stealth" />
+            </el-option-group>
           </el-select>
         </el-form-item>
         <el-form-item label="高级配置">
-          <el-collapse style="width:100%">
+          <el-collapse class="config-collapse" style="width:100%">
             <el-collapse-item title="JSON 配置（可选）" name="cfg">
               <el-input v-model="form.benchmarkConfigRaw" type="textarea" :rows="4"
                 placeholder='{"num_fewshot": 5, "limit": 100}' />
@@ -126,8 +171,6 @@
                 <p class="settings-card__label t-eyebrow">被测模型</p>
                 <dl class="info-dl">
                   <dt>模型名称</dt><dd>{{ row.model_name }}</dd>
-                  <dt>API Endpoint</dt><dd class="t-mono">{{ row.model_endpoint || '—' }}</dd>
-                  <dt>API Key</dt><dd class="t-mono">{{ row.model_api_key || '—' }}</dd>
                 </dl>
               </div>
               <div class="settings-card">
@@ -224,6 +267,7 @@ import {
   retryBenchmark,
   submitBenchmark,
 } from '../api/benchmark'
+import { listModels } from '../api/model'
 import TaskLogDialog from '../components/TaskLogDialog.vue'
 import { usePermission } from '../composables/usePermission'
 
@@ -239,19 +283,30 @@ const total = ref(0)
 const { has } = usePermission()
 const taskLogDialogRef = ref(null)
 const configParseError = ref('')
+const modelPresets = ref([])
+const selectedModelId = ref(null)
 
 const SUITE_LABELS = {
-  mmlu: 'MMLU',
-  gsm8k: 'GSM8K',
-  hellaswag: 'HellaSWAG',
-  humaneval: 'HumanEval',
+  air_bench: 'AIR Bench', beavertails: 'BeaverTails', coconot: 'CoCoNot',
+  longsafety: 'LongSafety', pku_saferlhf: 'PKU SaferLHF', safetybench: 'SafetyBench',
+  strongreject: 'StrongREJECT', xstest: 'XSTest', simpleqa: 'SimpleQA',
+  truthfulqa: 'TruthfulQA', sycophancy_eval: 'Sycophancy Eval', stereoset: 'StereoSet',
+  healthbench: 'HealthBench', agentharm: 'AgentHarm',
+  agent_threat_bench_autonomy_hijack: 'AgentThreat-Hijack',
+  agent_threat_bench_data_exfil: 'AgentThreat-DataExfil',
+  agent_threat_bench_memory_poison: 'AgentThreat-MemPoison',
+  persistbench_cross_domain: 'PersistBench-CrossDomain',
+  persistbench_sycophancy: 'PersistBench-Sycophancy',
+  cyse2_prompt_injection: 'Prompt Injection', make_me_pay: 'Make Me Pay',
+  makemesay: 'MakeMeSay', sad: 'SAD', deceptionbench_aries: 'DeceptionBench-ARIES',
+  wmdp_cyber: 'WMDP Cyber', wmdp_bio: 'WMDP Bio', wmdp_chem: 'WMDP Chem',
+  bigcodebench: 'BigCodeBench', humaneval: 'HumanEval', mmlu: 'MMLU',
+  gsm8k: 'GSM8K', hellaswag: 'HellaSWAG', gdm_dangerous_stealth: 'GDM Stealth',
 }
 
 const form = reactive({
   taskName: '',
   modelName: '',
-  modelEndpoint: '',
-  modelApiKey: '',
   benchmarkSuite: '',
   benchmarkConfigRaw: '',
 })
@@ -280,8 +335,22 @@ function canOpenTaskLogs(task) { return !['submitting', 'submit_failed'].include
 
 function closeDialog() {
   showDialog.value = false
-  Object.assign(form, { taskName: '', modelName: '', modelEndpoint: '', modelApiKey: '', benchmarkSuite: '', benchmarkConfigRaw: '' })
+  selectedModelId.value = null
+  Object.assign(form, { taskName: '', modelName: '', benchmarkSuite: '', benchmarkConfigRaw: '' })
   configParseError.value = ''
+}
+
+async function fetchModelPresets() {
+  try {
+    const { data } = await listModels(1, 200, false)
+    modelPresets.value = data.data.items
+  } catch { /* non-critical */ }
+}
+
+function applyModelPreset(id) {
+  const m = modelPresets.value.find(x => x.id === id)
+  if (!m) return
+  form.modelName = m.model_name
 }
 
 async function fetchHistoryTasks() {
@@ -333,8 +402,8 @@ function _getActiveTask(taskId) { return activeTasks.value.find(t => t.id === ta
 
 async function handleSubmit() {
   if (!form.taskName.trim()) return ElMessage.warning('请填写任务名称')
-  if (!form.modelName.trim()) return ElMessage.warning('请填写被测模型名称')
-  if (!form.benchmarkSuite) return ElMessage.warning('请选择测评套件')
+  if (!form.modelName.trim()) return ElMessage.warning('请从模型库选择被测模型')
+  if (!form.benchmarkSuite) return ElMessage.warning('请选择测评 Benchmark')
 
   let benchmarkConfig = null
   if (form.benchmarkConfigRaw.trim()) {
@@ -350,8 +419,6 @@ async function handleSubmit() {
   const payload = {
     task_name: form.taskName.trim(),
     model_name: form.modelName.trim(),
-    model_endpoint: form.modelEndpoint.trim() || null,
-    model_api_key: form.modelApiKey || null,
     benchmark_suite: form.benchmarkSuite,
     benchmark_config: benchmarkConfig,
   }
@@ -422,7 +489,7 @@ function stopPolling(taskId) {
   }
 }
 
-onMounted(fetchHistoryTasks)
+onMounted(() => { fetchHistoryTasks(); fetchModelPresets() })
 onUnmounted(() => activeTasks.value.forEach(t => {
   clearInterval(t.pollTimer)
   clearInterval(t.elapsedTimer)
@@ -641,6 +708,14 @@ onUnmounted(() => activeTasks.value.forEach(t => {
   color: var(--color-danger-fg);
   font-size: var(--text-xs);
   margin-top: var(--space-2);
+}
+
+:deep(.config-collapse) {
+  border-left: none;
+  border-right: none;
+}
+:deep(.config-collapse .el-collapse-item__header) {
+  padding-left: 0;
 }
 
 /* ─── 分页 ─── */
