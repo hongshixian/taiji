@@ -3,7 +3,7 @@
     <!-- 品牌区 — 暗色 marketing tier -->
     <aside class="brand-side fc-grain">
       <div class="brand-content">
-        <span class="t-eyebrow brand-eyebrow">FANGCUN · TAIJI</span>
+        <span class="t-eyebrow brand-eyebrow">FANGCUN AI</span>
         <h1 class="brand-title fc-display-serif">
           为每一次推理，<br>
           构建可验证的<em class="fc-italic-word">边界</em>。

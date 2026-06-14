@@ -76,7 +76,7 @@
       <dl class="about-grid">
         <div>
           <dt class="t-eyebrow">项目</dt>
-          <dd class="t-mono about-value">Taiji × Fangcun</dd>
+          <dd class="t-mono about-value">方寸 AI 测评平台</dd>
         </div>
         <div>
           <dt class="t-eyebrow">版本</dt>

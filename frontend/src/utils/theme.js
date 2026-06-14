@@ -3,7 +3,7 @@
  * data-theme (用于 Fangcun semantic.css 的 [data-theme="dark"] 选择器)。
  */
 
-const STORAGE_KEY = 'taiji-theme'
+const STORAGE_KEY = 'fangcun-theme'
 
 export function applyTheme(isDark) {
   const root = document.documentElement

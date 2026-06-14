@@ -2,7 +2,7 @@
   <div class="auth-page">
     <aside class="brand-side fc-grain">
       <div class="brand-content">
-        <span class="t-eyebrow brand-eyebrow">FANGCUN · TAIJI</span>
+        <span class="t-eyebrow brand-eyebrow">FANGCUN AI</span>
         <h1 class="brand-title fc-display-serif">
           注册账号，<br>
           开始你的<em class="fc-italic-word">第一次</em>提交。

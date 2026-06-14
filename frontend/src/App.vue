@@ -15,8 +15,8 @@
           <router-link to="/" class="brand fc-focus" aria-label="返回主页">
             <img src="./assets/brand/logo-mark-purple.svg" alt="" class="brand-logo" />
             <span class="brand-stack">
-              <span class="brand-mark">太极</span>
-              <span class="brand-sub">Fangcun · Taiji</span>
+              <span class="brand-mark">方寸</span>
+              <span class="brand-sub">Fangcun AI 测评平台</span>
             </span>
           </router-link>
         </div>
@@ -113,7 +113,7 @@
             </el-menu-item>
           </el-menu>
           <div v-if="!collapsed" class="aside-footer">
-            <span class="t-eyebrow">Fangcun · Taiji</span>
+            <span class="t-eyebrow">Fangcun AI</span>
             <span class="aside-version">v0.1</span>
           </div>
         </el-aside>

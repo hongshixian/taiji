@@ -4,7 +4,7 @@
     <section class="hero fc-grain">
       <div class="hero-inner">
         <div class="hero-meta">
-          <span class="t-eyebrow hero-eyebrow">FANGCUN · TAIJI</span>
+          <span class="t-eyebrow hero-eyebrow">FANGCUN AI</span>
           <div class="hero-tags">
             <span class="hero-pill" v-if="tenantName">
               <el-icon><OfficeBuilding /></el-icon>
