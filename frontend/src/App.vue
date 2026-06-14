@@ -248,7 +248,7 @@ onUnmounted(() => window.removeEventListener('resize', handleResize))
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
 }
-.brand-logo { width: 28px; height: 28px; }
+.brand-logo { width: 56px; height: 56px; }
 .brand-stack { display: flex; flex-direction: column; line-height: 1.1; }
 .brand-mark {
   font-size: var(--text-lg);

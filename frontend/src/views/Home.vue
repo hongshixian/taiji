@@ -18,18 +18,18 @@
 
         <h1 class="hero-title fc-display-serif">
           {{ greeting }}，{{ authStore.user?.username }}。<br>
-          继续你的<em class="fc-italic-word">分析</em>。
+          继续你的<em class="fc-italic-word">测评</em>。
         </h1>
         <p class="hero-lede">
-          异步任务驱动的全栈骨架。提交一个 URL 或一份 CSV，让 Worker 在后台为你完成。
+          提交一个测评任务，让 Worker 在后台为你完成。
         </p>
 
         <div class="hero-actions">
-          <el-button type="primary" size="large" @click="$router.push(webpageAnalysisRoute)">
-            <el-icon><Plus /></el-icon>&nbsp;新建分析任务
+          <el-button type="primary" size="large" @click="">
+            <el-icon><Plus /></el-icon>&nbsp;新建测评任务
           </el-button>
-          <el-button size="large" plain @click="$router.push(csvQualityRoute)">
-            <el-icon><Grid /></el-icon>&nbsp;检查 CSV 数据
+          <el-button size="large" plain @click="">
+            <el-icon><DataAnalysis /></el-icon>&nbsp;查看测评榜单
           </el-button>
         </div>
 
