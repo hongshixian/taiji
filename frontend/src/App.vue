@@ -73,6 +73,10 @@
               <el-icon><HomeFilled /></el-icon>
               <template #title>主页</template>
             </el-menu-item>
+            <el-menu-item index="/leaderboard">
+              <el-icon><TrophyBase /></el-icon>
+              <template #title>测评榜单</template>
+            </el-menu-item>
             <el-sub-menu index="/tasks" v-if="has('task:read')">
               <template #title>
                 <el-icon><Tickets /></el-icon>

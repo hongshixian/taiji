@@ -26,6 +26,12 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/leaderboard',
+    name: 'Leaderboard',
+    component: () => import('../views/Leaderboard.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/tasks',
     redirect: TASK_TYPE_ROUTES[BENCHMARK_TASK_TYPE],
     meta: { requiresAuth: true, requiresPermission: 'task:read' },
