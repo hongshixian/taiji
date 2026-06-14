@@ -3,7 +3,20 @@
 from marshmallow import Schema, ValidationError, fields, validate, validates
 
 
-BENCHMARK_SUITES = ["mmlu", "gsm8k", "hellaswag", "humaneval"]
+BENCHMARK_SUITES = [
+    "air_bench", "beavertails", "coconot", "longsafety", "pku_saferlhf",
+    "safetybench", "strongreject", "xstest", "simpleqa", "truthfulqa",
+    "sycophancy_eval", "stereoset", "healthbench", "agentharm",
+    "agent_threat_bench_autonomy_hijack", "agent_threat_bench_data_exfil",
+    "agent_threat_bench_memory_poison", "persistbench_cross_domain",
+    "persistbench_sycophancy", "cyse2_prompt_injection", "make_me_pay",
+    "makemesay", "sad", "deceptionbench_aries", "wmdp_cyber", "wmdp_bio",
+    "wmdp_chem", "bigcodebench", "humaneval", "mmlu", "gsm8k", "hellaswag",
+    "gdm_dangerous_stealth", "uccb", "tac", "pre_flight", "medqa",
+    "deceptionbench_pku", "lab_bench_dbqa", "lab_bench_litqa",
+    "persistbench_beneficial_memory", "agentharm_benign", "safety_prompts",
+    "sosbench", "cyse4_mitre",
+]
 
 
 class BenchmarkSubmitSchema(Schema):
