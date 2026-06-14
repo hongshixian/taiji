@@ -7,7 +7,7 @@ from flask_jwt_extended import create_access_token, create_refresh_token
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app import db
-from app.models.tenant import DEFAULT_TENANT_SLUG, Tenant
+from app.models.tenant import GUEST_TENANT_SLUG, Tenant
 from app.models.tenant_membership import TenantMembership
 from app.models.user import User
 from app.utils.decorators import bypass_tenant_filter
@@ -512,8 +512,8 @@ def delete_user(user_id: int, current_user_id: int):
 
 
 def seed_admin(username: str, email: str, password: str,
-               tenant_slug: str = DEFAULT_TENANT_SLUG, is_superuser: bool = True):
-    """确保存在平台管理员账号，并让其加入 default 租户。"""
+               tenant_slug: str = GUEST_TENANT_SLUG, is_superuser: bool = True):
+    """确保存在平台管理员账号，并让其加入指定租户（默认 guest）。"""
     with bypass_tenant_filter():
         admin_role_id = _role_id_by_name("admin", tenant_id=None)
         existing = (
@@ -548,6 +548,10 @@ def _select_login_membership(user_id: int) -> TenantMembership:
         TenantMembership.is_active.is_(True),
         Tenant.is_active.is_(True),
     )
+    # 优先选非 guest 租户；若用户只有 guest 则回退到 guest
+    non_guest = query.filter(Tenant.slug != GUEST_TENANT_SLUG).order_by(TenantMembership.id).first()
+    if non_guest:
+        return non_guest
     membership = query.order_by(TenantMembership.id).first()
     if not membership:
         raise BusinessError(ErrorCode.INVALID_CREDENTIAL)

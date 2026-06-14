@@ -10,7 +10,7 @@ if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
     #   1. 若设置了 ADMIN_PASSWORD 环境变量 → 使用该密码
     #   2. 否则 → 随机生成 16 字符密码，打印到日志一次
     # 仅在无管理员账号存在时生效（已有 admin 时跳过 seed）
-    # 初始 admin 默认归 default 租户，且 is_superuser=true（保证有人能管 tenants）
+    # 初始 admin 归 guest 租户，且 is_superuser=true（保证有人能管 tenants）
     python3 - <<'PYEOF'
 import os
 import secrets
@@ -26,7 +26,7 @@ from app.services.auth_service import seed_admin
 app = create_app()
 with app.app_context():
     # 确保系统租户存在（migration 已 seed，这里是兜底）
-    for slug, name in [("default", "默认组织"), ("guest", "访客租户")]:
+    for slug, name in [("guest", "访客租户")]:
         if not Tenant.query.filter_by(slug=slug).first():
             print(f"[seed-tenant] 创建系统租户 {slug}")
             t = Tenant(slug=slug, name=name, is_system=True)
@@ -53,16 +53,16 @@ with app.app_context():
         password = secrets.token_urlsafe(12)  # 约 16 字符
         generated = True
 
-    # 初始 admin 归 default 租户，自动获得 superuser 权限
-    seed_admin(username, email, password, tenant_slug="default", is_superuser=True)
+    # 初始 admin 归 guest 租户，自动获得 superuser 权限
+    seed_admin(username, email, password, tenant_slug="guest", is_superuser=True)
 
     if generated:
         bar = "=" * 60
         print(f"\n{bar}", flush=True)
-        print(f"  🔐 首次部署：已创建管理员账号", flush=True)
+        print(f"  首次部署：已创建管理员账号", flush=True)
         print(f"  username: {username}", flush=True)
         print(f"  password: {password}", flush=True)
-        print(f"  tenant:   default", flush=True)
+        print(f"  tenant:   guest", flush=True)
         print(f"  is_superuser: true (可管理所有租户)", flush=True)
         print(f"  请立即保存此密码，登录后修改！本提示仅显示一次。", flush=True)
         print(f"  （如需自定义，可设置 ADMIN_PASSWORD 环境变量后重新部署）", flush=True)

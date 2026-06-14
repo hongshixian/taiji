@@ -232,8 +232,7 @@ def _seed_initial_data():
         column("is_system", sa.Boolean),
     )
     op.bulk_insert(tenants, [
-        {"id": 1, "slug": "default", "name": "默认组织", "is_active": True, "is_system": True},
-        {"id": 2, "slug": "guest", "name": "访客租户", "is_active": True, "is_system": True},
+        {"id": 1, "slug": "guest", "name": "访客租户", "is_active": True, "is_system": True},
     ])
 
     permissions = table(

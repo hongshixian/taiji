@@ -28,7 +28,7 @@
       </div>
     </section>
 
-    <el-dialog v-model="showDialog" title="新建 Benchmark 测评" width="600px" :close-on-click-modal="false">
+    <el-dialog v-model="showDialog" title="新建 Benchmark" width="600px" :close-on-click-modal="false">
       <el-form label-width="120px" @submit.prevent>
         <el-form-item label="任务名称" required>
           <el-input v-model="form.taskName" placeholder="例：GPT-4o MMLU 测评" maxlength="100" show-word-limit />
@@ -52,8 +52,8 @@
             </el-option>
           </el-select>
         </el-form-item>
-        <el-form-item label="测评 Benchmark" required>
-          <el-select v-model="form.benchmarkSuite" placeholder="选择测评 Benchmark" style="width:100%">
+        <el-form-item label="Benchmark" required>
+          <el-select v-model="form.benchmarkSuite" placeholder="选择 Benchmark" style="width:100%">
             <el-option-group label="基础交互安全">
               <el-option label="AIR Bench" value="air_bench" />
               <el-option label="BeaverTails" value="beavertails" />
@@ -94,15 +94,6 @@
               <el-option label="GDM Dangerous Capabilities: Stealth" value="gdm_dangerous_stealth" />
             </el-option-group>
           </el-select>
-        </el-form-item>
-        <el-form-item label="高级配置">
-          <el-collapse class="config-collapse" style="width:100%">
-            <el-collapse-item title="JSON 配置（可选）" name="cfg">
-              <el-input v-model="form.benchmarkConfigRaw" type="textarea" :rows="4"
-                placeholder='{"num_fewshot": 5, "limit": 100}' />
-              <span v-if="configParseError" class="config-error">{{ configParseError }}</span>
-            </el-collapse-item>
-          </el-collapse>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -282,7 +273,6 @@ const perPage = 20
 const total = ref(0)
 const { has } = usePermission()
 const taskLogDialogRef = ref(null)
-const configParseError = ref('')
 const modelPresets = ref([])
 const selectedModelId = ref(null)
 
@@ -308,7 +298,6 @@ const form = reactive({
   taskName: '',
   modelName: '',
   benchmarkSuite: '',
-  benchmarkConfigRaw: '',
 })
 
 function suiteName(key) { return SUITE_LABELS[key] || key }
@@ -336,8 +325,7 @@ function canOpenTaskLogs(task) { return !['submitting', 'submit_failed'].include
 function closeDialog() {
   showDialog.value = false
   selectedModelId.value = null
-  Object.assign(form, { taskName: '', modelName: '', benchmarkSuite: '', benchmarkConfigRaw: '' })
-  configParseError.value = ''
+  Object.assign(form, { taskName: '', modelName: '', benchmarkSuite: '' })
 }
 
 async function fetchModelPresets() {
@@ -403,24 +391,13 @@ function _getActiveTask(taskId) { return activeTasks.value.find(t => t.id === ta
 async function handleSubmit() {
   if (!form.taskName.trim()) return ElMessage.warning('请填写任务名称')
   if (!form.modelName.trim()) return ElMessage.warning('请从模型库选择被测模型')
-  if (!form.benchmarkSuite) return ElMessage.warning('请选择测评 Benchmark')
-
-  let benchmarkConfig = null
-  if (form.benchmarkConfigRaw.trim()) {
-    try {
-      benchmarkConfig = JSON.parse(form.benchmarkConfigRaw)
-      configParseError.value = ''
-    } catch {
-      configParseError.value = 'JSON 格式错误，请检查后重试'
-      return
-    }
-  }
+  if (!form.benchmarkSuite) return ElMessage.warning('请选择 Benchmark')
 
   const payload = {
     task_name: form.taskName.trim(),
     model_name: form.modelName.trim(),
     benchmark_suite: form.benchmarkSuite,
-    benchmark_config: benchmarkConfig,
+    benchmark_config: null,
   }
 
   closeDialog()
@@ -701,21 +678,6 @@ onUnmounted(() => activeTasks.value.forEach(t => {
 .result-placeholder__icon {
   font-size: 32px;
   color: var(--border-default);
-}
-
-/* ─── 表单样式 ─── */
-.config-error {
-  color: var(--color-danger-fg);
-  font-size: var(--text-xs);
-  margin-top: var(--space-2);
-}
-
-:deep(.config-collapse) {
-  border-left: none;
-  border-right: none;
-}
-:deep(.config-collapse .el-collapse-item__header) {
-  padding-left: 0;
 }
 
 /* ─── 分页 ─── */

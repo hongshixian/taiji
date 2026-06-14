@@ -27,5 +27,4 @@ class Tenant(db.Model):
 
 
 # 系统种子租户 slug 常量
-DEFAULT_TENANT_SLUG = "default"   # 现有 admin 数据归这里
-GUEST_TENANT_SLUG = "guest"       # 新注册用户默认归这里
+GUEST_TENANT_SLUG = "guest"       # 唯一系统租户，所有用户默认归这里
