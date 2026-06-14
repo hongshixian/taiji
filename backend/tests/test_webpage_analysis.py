@@ -26,7 +26,7 @@ class TestWebpageAnalysisAPI:
         self.headers = {"Authorization": f"Bearer {self.token}"}
 
     @patch("app.utils.ssrf._resolve_host", return_value="93.184.216.34")
-    @patch("app.api.webpage_analysis.analyze_webpage.delay")
+    @patch("app.handlers.webpage_analysis._handler._celery_task.delay")
     def test_submit_webpage_analysis(self, mock_delay, mock_dns, client):
         resp = client.post("/api/v1/tasks/webpage-analysis/", json={
             "url": "https://example.com",
@@ -41,7 +41,7 @@ class TestWebpageAnalysisAPI:
         assert "id" in data["data"]
         mock_delay.assert_called_once()
 
-    @patch("app.api.webpage_analysis.analyze_webpage.delay")
+    @patch("app.handlers.webpage_analysis._handler._celery_task.delay")
     def test_submit_invalid_url(self, mock_delay, client):
         resp = client.post("/api/v1/tasks/webpage-analysis/", json={
             "url": "not-a-url",
@@ -49,7 +49,7 @@ class TestWebpageAnalysisAPI:
         assert resp.status_code == 400
         mock_delay.assert_not_called()
 
-    @patch("app.api.webpage_analysis.analyze_webpage.delay")
+    @patch("app.handlers.webpage_analysis._handler._celery_task.delay")
     def test_submit_empty_body(self, mock_delay, client):
         resp = client.post("/api/v1/tasks/webpage-analysis/", json={}, headers=self.headers)
         assert resp.status_code == 400
@@ -62,7 +62,7 @@ class TestWebpageAnalysisAPI:
         assert resp.status_code == 401
 
     @patch("app.utils.ssrf._resolve_host", return_value="93.184.216.34")
-    @patch("app.api.webpage_analysis.analyze_webpage.delay")
+    @patch("app.handlers.webpage_analysis._handler._celery_task.delay")
     def test_get_task(self, mock_delay, mock_dns, client):
         submit_resp = client.post("/api/v1/tasks/webpage-analysis/", json={
             "url": "https://example.com",
@@ -80,7 +80,7 @@ class TestWebpageAnalysisAPI:
         assert resp.status_code == 404
 
     @patch("app.utils.ssrf._resolve_host", return_value="93.184.216.34")
-    @patch("app.api.webpage_analysis.analyze_webpage.delay")
+    @patch("app.handlers.webpage_analysis._handler._celery_task.delay")
     def test_list_tasks(self, mock_delay, mock_dns, client):
         for i in range(2):
             client.post("/api/v1/tasks/webpage-analysis/", json={

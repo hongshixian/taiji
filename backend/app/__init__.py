@@ -94,8 +94,6 @@ def create_app(config_obj=Config):
     # 注册业务蓝图（统一挂在 /api/v1/ 之下）
     from app.api.auth import auth_bp
     from app.api.task import task_bp
-    from app.api.webpage_analysis import webpage_analysis_bp
-    from app.api.csv_quality import csv_quality_bp
     from app.api.admin import admin_bp
     from app.api.superadmin import superadmin_bp
     from app.api.audit import audit_bp
@@ -106,11 +104,18 @@ def create_app(config_obj=Config):
 
     flask_app.register_blueprint(auth_bp, url_prefix=f"{API_V1}/auth")
     flask_app.register_blueprint(task_bp, url_prefix=f"{API_V1}/tasks")
-    flask_app.register_blueprint(webpage_analysis_bp, url_prefix=f"{API_V1}/tasks/webpage-analysis")
-    flask_app.register_blueprint(csv_quality_bp, url_prefix=f"{API_V1}/tasks/csv-quality")
     flask_app.register_blueprint(admin_bp, url_prefix=f"{API_V1}/admin")
     flask_app.register_blueprint(superadmin_bp, url_prefix=f"{API_V1}/superadmin")
     flask_app.register_blueprint(audit_bp, url_prefix=f"{API_V1}/audit-logs")
+
+    # 加载所有任务处理器并注册对应蓝图
+    from app.handlers.registry import registry
+    registry.discover()
+    for handler in registry.all():
+        flask_app.register_blueprint(
+            handler.make_blueprint(),
+            url_prefix=f"{API_V1}/tasks/{handler.url_prefix}",
+        )
 
     # ─── 多租户：从 JWT 装 g.tenant_id 和 g.is_superuser ───
     @flask_app.before_request

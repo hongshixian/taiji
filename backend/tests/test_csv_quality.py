@@ -25,7 +25,7 @@ class TestCsvQualityAPI:
         self.token = resp.get_json()["data"]["access_token"]
         self.headers = {"Authorization": f"Bearer {self.token}"}
 
-    @patch("app.api.csv_quality.check_csv_quality.delay")
+    @patch("app.handlers.csv_quality._handler._celery_task.delay")
     def test_submit_csv_quality(self, mock_delay, client):
         resp = client.post(
             "/api/v1/tasks/csv-quality/",
@@ -49,7 +49,7 @@ class TestCsvQualityAPI:
         assert "name,email" in data["content_sample"]
         mock_delay.assert_called_once()
 
-    @patch("app.api.csv_quality.check_csv_quality.delay")
+    @patch("app.handlers.csv_quality._handler._celery_task.delay")
     def test_submit_missing_task_name(self, mock_delay, client):
         resp = client.post(
             "/api/v1/tasks/csv-quality/",
@@ -63,7 +63,7 @@ class TestCsvQualityAPI:
         assert resp.status_code == 400
         mock_delay.assert_not_called()
 
-    @patch("app.api.csv_quality.check_csv_quality.delay")
+    @patch("app.handlers.csv_quality._handler._celery_task.delay")
     def test_submit_missing_file(self, mock_delay, client):
         resp = client.post(
             "/api/v1/tasks/csv-quality/",
@@ -85,7 +85,7 @@ class TestCsvQualityAPI:
         )
         assert resp.status_code == 401
 
-    @patch("app.api.csv_quality.check_csv_quality.delay")
+    @patch("app.handlers.csv_quality._handler._celery_task.delay")
     def test_get_and_list_csv_quality(self, mock_delay, client):
         submit_resp = client.post(
             "/api/v1/tasks/csv-quality/",

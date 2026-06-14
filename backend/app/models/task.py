@@ -23,10 +23,9 @@ class TaskType:
     CSV_QUALITY = "csv_quality_check"
 
 
-TASK_TYPE_NAMES = {
-    TaskType.WEBPAGE_ANALYSIS: "网页内容分析",
-    TaskType.CSV_QUALITY: "CSV 数据质量检查",
-}
+# 由 TaskRegistry.register() 在 handler 加载时动态填充；
+# 此处保留空 dict，不在模型层硬编码任务类型名称。
+TASK_TYPE_NAMES: dict = {}
 
 
 class Task(db.Model, TenantMixin):

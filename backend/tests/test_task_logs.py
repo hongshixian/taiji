@@ -6,7 +6,7 @@ from app.models.task import TaskType
 
 
 class TestTaskLogs:
-    @patch("app.api.webpage_analysis.analyze_webpage.delay")
+    @patch("app.handlers.webpage_analysis._handler._celery_task.delay")
     def test_task_create_writes_log_and_can_read(self, _mock_delay, client):
         client.post("/api/v1/auth/register", json={
             "username": "tasklog",
@@ -38,7 +38,7 @@ class TestTaskLogs:
         events = [item["event"] for item in data["items"]]
         assert "task_created" in events
 
-    @patch("app.api.webpage_analysis.analyze_webpage.delay")
+    @patch("app.handlers.webpage_analysis._handler._celery_task.delay")
     def test_task_logs_are_tenant_scoped(self, _mock_delay, client, app):
         with app.app_context():
             from app import db
