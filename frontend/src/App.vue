@@ -15,8 +15,8 @@
           <router-link to="/" class="brand fc-focus" aria-label="返回主页">
             <img src="./assets/brand/logo-mark-purple.svg" alt="" class="brand-logo" />
             <span class="brand-stack">
-              <span class="brand-mark">方寸</span>
-              <span class="brand-sub">Fangcun AI 测评平台</span>
+              <span class="brand-mark">方寸AI测评平台</span>
+              <span class="brand-sub">Fangcun AI Evaluation Platform</span>
             </span>
           </router-link>
         </div>
@@ -246,7 +246,7 @@ onUnmounted(() => window.removeEventListener('resize', handleResize))
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
 }
-.brand-logo { width: 56px; height: 56px; }
+.brand-logo { width: 72px; height: 72px; }
 .brand-stack { display: flex; flex-direction: column; line-height: 1.1; }
 .brand-mark {
   font-size: var(--text-lg);
