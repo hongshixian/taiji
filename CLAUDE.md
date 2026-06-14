@@ -30,6 +30,8 @@ docker compose up -d && docker compose down
 
 Default admin: seeded on first start by `docker/entrypoint.sh`. Uses `ADMIN_USERNAME/EMAIL/PASSWORD` env vars; if unset, generates a random password printed once — `docker compose logs backend | grep -A 5 "首次部署"`. Seeded admin is `is_superuser=True`, added to `guest` tenant as owner. Seed is skipped when an admin already exists.
 
+Model configs: `backend/seed_models.py` seeds a preset list of LLM endpoints (Claude, DeepSeek, GLM, GPT, Kimi, MiniMax, Qwen) into the `guest` tenant. Run from `backend/`: `python seed_models.py`. Idempotent — skips entries where `display_name` already exists.
+
 ## Architecture
 
 ### Backend (`backend/`)
@@ -47,6 +49,7 @@ Default admin: seeded on first start by `docker/entrypoint.sh`. Uses `ADMIN_USER
 - **SSRF** (`app/utils/ssrf.py`): use `safe_requests_get()` / `validate_url()` for any user-provided URL. Rejects private IPs, internal hostnames, non-http(s) schemes.
 - **Audit logs** (`AuditLog`): does not inherit `TenantMixin`; scope enforced in service. Call `record_audit_log()` before `db.session.commit()` — it only `add()`s, never commits.
 - **Model config** (`ModelConfig(TenantMixin)`): per-tenant LLM endpoints. `api_key` is write-only, excluded from all API output. Permissions `model:read/write/delete` granted to `admin+user` roles.
+- **Benchmark suites** (`app/schemas/benchmark_schema.py`): `BENCHMARK_SUITES` is the authoritative allowlist for submitted suite names — 46 suites covering safety (HealthBench, AgentHarm, WMDP, StrongREJECT, BeaverTails…), alignment (SycophancyEval, Deceptionbench…), and capability (MMLU, GSM8K, HumanEval, BigCodeBench…). Update this list when adding new evaluation sets.
 - **Migrations**: Flask-Migrate/Alembic in `backend/migrations/versions/`. Always generate a migration when models change; do not rely on `db.create_all()` outside tests.
 
 ### Frontend (`frontend/`)
@@ -57,6 +60,7 @@ Default admin: seeded on first start by `docker/entrypoint.sh`. Uses `ADMIN_USER
 - **Router guards**: `meta.requiresAuth / .guest / .requiresPermission / .requiresSuperuser`. Lazy-fetches user on first navigation if token present but no in-memory user.
 - **Task pages**: `BenchmarkManagement` + `RedTeamManagement` use `activeTasks` polling (2s, MAX_POLLS=30) via reactive proxy (`_updateActiveTask/_getActiveTask`) — never hold raw object references from closures.
 - **Theme — Fangcun tokens** (`src/assets/theme.css`): three-tier CSS variables: Primitive (`--violet-*`, `--ink-*`, `--space-*`, `--radius-*`) → Semantic (`--bg-*`, `--fg-*`, `--border-*`, `--shadow-*`, `--color-{success,warning,danger,info}-{bg,fg,border}`) → Element Plus overrides. **Use tokens; never hard-code hex or `--taiji-*` (removed).**
+- **Brand**: header displays "方寸AI测评平台 / Fangcun AI Evaluation Platform". Logo mark (`logo-mark-purple.svg`) rendered at 72px. Favicon (`public/favicon.svg`) uses transparent background with the brand mark at `scale(0.45)`.
 - **Dark mode**: `applyTheme(isDark)` sets both `html.dark` and `html[data-theme="dark"]`. Persisted in `localStorage['taiji-theme']`.
 - **Page conventions**: `.page-shell` wrapper → `.page-header` (eyebrow/title/lede) → `.task-section/.data-section/.settings-card` containers. Status badges use `.status-pill[data-tone="success|warning|danger|progress|neutral"]`, not `<el-tag :type>`. Empty states: dashed border + eyebrow/title/lede + CTA.
 - **Icons**: globally registered from `@element-plus/icons-vue` — `<el-icon><HomeFilled /></el-icon>` directly, no per-file import. No emoji for icons.
