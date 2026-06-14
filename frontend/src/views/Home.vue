@@ -3,7 +3,6 @@
     <!-- 暗色 hero — marketing tier -->
     <section class="hero fc-grain">
       <div class="hero-inner">
-        <div class="hero-content">
         <div class="hero-meta">
           <span class="t-eyebrow hero-eyebrow">FANGCUN AI</span>
           <div class="hero-tags">
@@ -35,12 +34,7 @@
         </div>
 
         <span class="hero-divider" aria-hidden="true"></span>
-        </div><!-- /.hero-content -->
-
-        <div class="hero-deco" aria-hidden="true">
-          <img src="../assets/brand/logo-mark-purple.svg" alt="" class="hero-deco__mark" />
-        </div>
-      </div><!-- /.hero-inner -->
+      </div>
     </section>
 
     <!-- 指标区 — metric callout -->
@@ -242,30 +236,10 @@ onMounted(async () => {
 .hero-inner {
   position: relative;
   z-index: 2;
-  max-width: 1080px;
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: var(--space-11);
-}
-.hero-content {
-  flex: 1;
-  min-width: 0;
+  max-width: 880px;
   display: flex;
   flex-direction: column;
   gap: var(--space-7);
-}
-.hero-deco {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.hero-deco__mark {
-  width: 300px;
-  height: 300px;
-  opacity: 0.3;
-  filter: drop-shadow(0 0 48px rgba(143, 114, 208, 0.5));
 }
 .hero-meta {
   display: flex;
@@ -503,6 +477,5 @@ html.dark .metric-card--accent {
 @media (max-width: 900px) {
   .content-grid { grid-template-columns: 1fr; }
   .hero { padding: var(--space-11) var(--space-9); }
-  .hero-deco { display: none; }
 }
 </style>
