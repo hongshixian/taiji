@@ -29,8 +29,6 @@ class TaskRegistry:
         """导入所有 handler 模块，触发模块末尾的 registry.register()。
         新增任务类型时，在这里加一行 import 即可。
         """
-        import app.handlers.webpage_analysis  # noqa: F401
-        import app.handlers.csv_quality       # noqa: F401
         import app.handlers.benchmark          # noqa: F401
         import app.handlers.red_team           # noqa: F401
 

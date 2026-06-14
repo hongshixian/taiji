@@ -2,11 +2,9 @@
 
 from app.schemas.auth_schema import LoginSchema, RegisterSchema
 from app.schemas.task_schema import TaskQuerySchema
-from app.schemas.webpage_analysis_schema import WebpageAnalysisSubmitSchema
 
 __all__ = [
     "LoginSchema",
     "RegisterSchema",
     "TaskQuerySchema",
-    "WebpageAnalysisSubmitSchema",
 ]

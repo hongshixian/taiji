@@ -5,8 +5,6 @@ from app.models._tenant_mixin import TenantMixin  # 注册全局 event hook
 from app.models.user import User
 from app.models.tenant_membership import TenantMembership
 from app.models.task import Task, TaskStatus, TaskType
-from app.models.webpage_analysis_task import WebpageAnalysisTask
-from app.models.csv_quality_task import CsvQualityTask
 from app.models.benchmark_task import BenchmarkTask
 from app.models.red_team_task import RedTeamTask
 from app.models.role import Role, Permission, role_permissions
@@ -17,7 +15,7 @@ __all__ = [
     "Tenant", "TenantMixin",
     "User", "TenantMembership",
     "Task", "TaskStatus", "TaskType",
-    "WebpageAnalysisTask", "CsvQualityTask", "BenchmarkTask", "RedTeamTask",
+    "BenchmarkTask", "RedTeamTask",
     "Role", "Permission", "role_permissions",
     "SystemSetting", "AuditLog",
 ]

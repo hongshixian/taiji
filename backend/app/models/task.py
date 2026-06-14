@@ -19,8 +19,6 @@ class TaskStatus(str, enum.Enum):
 class TaskType:
     """系统内置任务类型"""
 
-    WEBPAGE_ANALYSIS = "webpage_content_analysis"
-    CSV_QUALITY = "csv_quality_check"
     BENCHMARK = "benchmark"
     RED_TEAM = "red_team"
 
@@ -51,18 +49,6 @@ class Task(db.Model, TenantMixin):
     started_at = db.Column(db.DateTime)
     completed_at = db.Column(db.DateTime)
 
-    webpage_analysis = db.relationship(
-        "WebpageAnalysisTask",
-        back_populates="task",
-        uselist=False,
-        cascade="all, delete-orphan",
-    )
-    csv_quality = db.relationship(
-        "CsvQualityTask",
-        back_populates="task",
-        uselist=False,
-        cascade="all, delete-orphan",
-    )
     benchmark = db.relationship(
         "BenchmarkTask",
         back_populates="task",

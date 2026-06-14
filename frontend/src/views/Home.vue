@@ -123,17 +123,12 @@ import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '../stores/auth'
 import { listTasks } from '../api/task'
 import {
-  CSV_QUALITY_TASK_TYPE,
   TASK_TYPE_LABELS,
-  TASK_TYPE_ROUTES,
-  WEBPAGE_ANALYSIS_TASK_TYPE,
 } from '../constants/taskTypes'
 
 const authStore = useAuthStore()
 const stats = ref({ total: 0, success: 0, running: 0, failed: 0 })
 const recentTasks = ref([])
-const webpageAnalysisRoute = TASK_TYPE_ROUTES[WEBPAGE_ANALYSIS_TASK_TYPE]
-const csvQualityRoute = TASK_TYPE_ROUTES[CSV_QUALITY_TASK_TYPE]
 
 const tenantName = computed(() => authStore.currentTenant?.name || '')
 

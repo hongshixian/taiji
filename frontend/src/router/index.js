@@ -2,10 +2,8 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import {
   BENCHMARK_TASK_TYPE,
-  CSV_QUALITY_TASK_TYPE,
   RED_TEAM_TASK_TYPE,
   TASK_TYPE_ROUTES,
-  WEBPAGE_ANALYSIS_TASK_TYPE,
 } from '../constants/taskTypes'
 
 const routes = [
@@ -29,28 +27,8 @@ const routes = [
   },
   {
     path: '/tasks',
-    redirect: TASK_TYPE_ROUTES[WEBPAGE_ANALYSIS_TASK_TYPE],
+    redirect: TASK_TYPE_ROUTES[BENCHMARK_TASK_TYPE],
     meta: { requiresAuth: true, requiresPermission: 'task:read' },
-  },
-  {
-    path: TASK_TYPE_ROUTES[WEBPAGE_ANALYSIS_TASK_TYPE],
-    name: 'WebpageAnalysisTasks',
-    component: () => import('../views/TaskManagement.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresPermission: 'task:read',
-      taskType: WEBPAGE_ANALYSIS_TASK_TYPE,
-    },
-  },
-  {
-    path: TASK_TYPE_ROUTES[CSV_QUALITY_TASK_TYPE],
-    name: 'CsvQualityTasks',
-    component: () => import('../views/CsvQualityManagement.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresPermission: 'task:read',
-      taskType: CSV_QUALITY_TASK_TYPE,
-    },
   },
   {
     path: TASK_TYPE_ROUTES[BENCHMARK_TASK_TYPE],
@@ -135,7 +113,6 @@ router.beforeEach(async (to, _from, next) => {
     }
   }
 
-  // 权限守卫
   if (to.meta.requiresPermission) {
     const perms = new Set(authStore.user?.permissions ?? [])
     if (!perms.has(to.meta.requiresPermission)) {
@@ -143,7 +120,6 @@ router.beforeEach(async (to, _from, next) => {
     }
   }
 
-  // 超级管理员守卫
   if (to.meta.requiresSuperuser && !authStore.user?.is_superuser) {
     return next('/')
   }

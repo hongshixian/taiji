@@ -78,14 +78,6 @@
                 <el-icon><Tickets /></el-icon>
                 <span>任务管理</span>
               </template>
-              <el-menu-item :index="TASK_TYPE_ROUTES[WEBPAGE_ANALYSIS_TASK_TYPE]">
-                <el-icon><Document /></el-icon>
-                <template #title>网页内容分析</template>
-              </el-menu-item>
-              <el-menu-item :index="TASK_TYPE_ROUTES[CSV_QUALITY_TASK_TYPE]">
-                <el-icon><Grid /></el-icon>
-                <template #title>CSV 数据检查</template>
-              </el-menu-item>
               <el-menu-item :index="TASK_TYPE_ROUTES[BENCHMARK_TASK_TYPE]">
                 <el-icon><DataAnalysis /></el-icon>
                 <template #title>Benchmark 测评</template>
@@ -152,11 +144,9 @@ import { usePermission } from './composables/usePermission'
 import TenantSwitcher from './components/TenantSwitcher.vue'
 import { applyTheme, isDarkActive } from './utils/theme'
 import {
-  CSV_QUALITY_TASK_TYPE,
   BENCHMARK_TASK_TYPE,
   RED_TEAM_TASK_TYPE,
   TASK_TYPE_ROUTES,
-  WEBPAGE_ANALYSIS_TASK_TYPE,
 } from './constants/taskTypes'
 
 const route = useRoute()
