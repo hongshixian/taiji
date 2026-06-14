@@ -31,6 +31,7 @@ class TaskRegistry:
         """
         import app.handlers.webpage_analysis  # noqa: F401
         import app.handlers.csv_quality       # noqa: F401
+        import app.handlers.benchmark          # noqa: F401
 
 
 registry = TaskRegistry()

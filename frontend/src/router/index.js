@@ -1,6 +1,7 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import {
+  BENCHMARK_TASK_TYPE,
   CSV_QUALITY_TASK_TYPE,
   TASK_TYPE_ROUTES,
   WEBPAGE_ANALYSIS_TASK_TYPE,
@@ -48,6 +49,16 @@ const routes = [
       requiresAuth: true,
       requiresPermission: 'task:read',
       taskType: CSV_QUALITY_TASK_TYPE,
+    },
+  },
+  {
+    path: TASK_TYPE_ROUTES[BENCHMARK_TASK_TYPE],
+    name: 'BenchmarkTasks',
+    component: () => import('../views/BenchmarkManagement.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresPermission: 'task:read',
+      taskType: BENCHMARK_TASK_TYPE,
     },
   },
   {

@@ -86,6 +86,10 @@
                 <el-icon><Grid /></el-icon>
                 <template #title>CSV 数据检查</template>
               </el-menu-item>
+              <el-menu-item :index="TASK_TYPE_ROUTES[BENCHMARK_TASK_TYPE]">
+                <el-icon><DataAnalysis /></el-icon>
+                <template #title>Benchmark 测评</template>
+              </el-menu-item>
             </el-sub-menu>
             <el-menu-item index="/users" v-if="has('user:read')">
               <el-icon><User /></el-icon>
@@ -145,6 +149,7 @@ import TenantSwitcher from './components/TenantSwitcher.vue'
 import { applyTheme, isDarkActive } from './utils/theme'
 import {
   CSV_QUALITY_TASK_TYPE,
+  BENCHMARK_TASK_TYPE,
   TASK_TYPE_ROUTES,
   WEBPAGE_ANALYSIS_TASK_TYPE,
 } from './constants/taskTypes'
