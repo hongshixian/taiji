@@ -121,11 +121,11 @@ function rankedRows(sec) {
       const row = sections[sec].find(r => r.benchmark + '|' + r.metric === b.key)
       scoreMap[b.key] = row ? row.scores[model] : null
     })
-    const normalized = benches.map(b => normalizeScore(scoreMap[b.key], b.risk_direction)).filter(v => v != null)
-    const avg = normalized.length ? normalized.reduce((a, c) => a + c, 0) / normalized.length : null
+    const normalized = benches.map(b => normalizeScore(scoreMap[b.key], b.risk_direction) ?? 0)
+    const avg = normalized.reduce((a, c) => a + c, 0) / normalized.length
     return { model, scores: scoreMap, avg }
   })
-  return rows.sort((a, b) => (b.avg ?? -Infinity) - (a.avg ?? -Infinity))
+  return rows.sort((a, b) => b.avg - a.avg)
 }
 
 // 找每列（benchmark）的最佳原始分（考虑 risk_direction）
