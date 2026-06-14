@@ -22,6 +22,7 @@ class TaskType:
     WEBPAGE_ANALYSIS = "webpage_content_analysis"
     CSV_QUALITY = "csv_quality_check"
     BENCHMARK = "benchmark"
+    RED_TEAM = "red_team"
 
 
 # 由 TaskRegistry.register() 在 handler 加载时动态填充；
@@ -64,6 +65,12 @@ class Task(db.Model, TenantMixin):
     )
     benchmark = db.relationship(
         "BenchmarkTask",
+        back_populates="task",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    red_team = db.relationship(
+        "RedTeamTask",
         back_populates="task",
         uselist=False,
         cascade="all, delete-orphan",

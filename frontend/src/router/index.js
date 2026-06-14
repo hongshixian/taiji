@@ -3,6 +3,7 @@ import { useAuthStore } from '../stores/auth'
 import {
   BENCHMARK_TASK_TYPE,
   CSV_QUALITY_TASK_TYPE,
+  RED_TEAM_TASK_TYPE,
   TASK_TYPE_ROUTES,
   WEBPAGE_ANALYSIS_TASK_TYPE,
 } from '../constants/taskTypes'
@@ -59,6 +60,16 @@ const routes = [
       requiresAuth: true,
       requiresPermission: 'task:read',
       taskType: BENCHMARK_TASK_TYPE,
+    },
+  },
+  {
+    path: TASK_TYPE_ROUTES[RED_TEAM_TASK_TYPE],
+    name: 'RedTeamTasks',
+    component: () => import('../views/RedTeamManagement.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresPermission: 'task:read',
+      taskType: RED_TEAM_TASK_TYPE,
     },
   },
   {

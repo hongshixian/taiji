@@ -90,6 +90,10 @@
                 <el-icon><DataAnalysis /></el-icon>
                 <template #title>Benchmark 测评</template>
               </el-menu-item>
+              <el-menu-item :index="TASK_TYPE_ROUTES[RED_TEAM_TASK_TYPE]">
+                <el-icon><Warning /></el-icon>
+                <template #title>自动红队测评</template>
+              </el-menu-item>
             </el-sub-menu>
             <el-menu-item index="/users" v-if="has('user:read')">
               <el-icon><User /></el-icon>
@@ -150,6 +154,7 @@ import { applyTheme, isDarkActive } from './utils/theme'
 import {
   CSV_QUALITY_TASK_TYPE,
   BENCHMARK_TASK_TYPE,
+  RED_TEAM_TASK_TYPE,
   TASK_TYPE_ROUTES,
   WEBPAGE_ANALYSIS_TASK_TYPE,
 } from './constants/taskTypes'
