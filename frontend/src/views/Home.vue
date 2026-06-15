@@ -25,10 +25,10 @@
         </p>
 
         <div class="hero-actions">
-          <el-button type="primary" size="large" @click="">
+          <el-button type="primary" size="large" @click="router.push('/tasks/benchmark')">
             <el-icon><Plus /></el-icon>&nbsp;新建测评任务
           </el-button>
-          <el-button size="large" plain @click="">
+          <el-button size="large" plain @click="router.push('/leaderboard')">
             <el-icon><DataAnalysis /></el-icon>&nbsp;查看测评榜单
           </el-button>
         </div>
@@ -120,12 +120,14 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { listTasks } from '../api/task'
 import {
   TASK_TYPE_LABELS,
 } from '../constants/taskTypes'
 
+const router = useRouter()
 const authStore = useAuthStore()
 const stats = ref({ total: 0, success: 0, running: 0, failed: 0 })
 const recentTasks = ref([])

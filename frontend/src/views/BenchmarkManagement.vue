@@ -466,7 +466,11 @@ function stopPolling(taskId) {
   }
 }
 
-onMounted(() => { fetchHistoryTasks(); fetchModelPresets() })
+onMounted(() => {
+  fetchHistoryTasks()
+  fetchModelPresets()
+  if (route.query.action === 'new') showDialog.value = true
+})
 onUnmounted(() => activeTasks.value.forEach(t => {
   clearInterval(t.pollTimer)
   clearInterval(t.elapsedTimer)
