@@ -21,6 +21,11 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-in-production}
       - TASK_LOG_ROOT=/app/logs
+      # HF 镜像（国内加速）与缓存
+      - HF_ENDPOINT=${HF_ENDPOINT:-https://hf-mirror.com}
+      - HF_HOME=/app/hf_cache
+      - HF_DATASETS_CACHE=/app/hf_cache/datasets
+      - HUGGINGFACE_HUB_CACHE=/app/hf_cache/hub
       # 初始管理员（仅首次部署生效；ADMIN_PASSWORD 未设则随机生成并打印到日志）
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@taiji.local}
@@ -31,6 +36,7 @@ services:
     volumes:
       - ./app_data:/app/data
       - ./app_logs:/app/logs
+      - ./hf_cache:/app/hf_cache
     restart: unless-stopped
 
   # ─── Celery Worker ─────────────────────────────
@@ -38,6 +44,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.worker
+    command: ["celery", "-A", "celery_app", "worker", "-l", "info", "--concurrency=50"]
     environment:
       - FLASK_ENV=production
       - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
@@ -48,12 +55,20 @@ services:
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - TASK_LOG_ROOT=/app/logs
       - RUN_MIGRATIONS=false
+      # HF 镜像（国内加速）与缓存
+      - HF_ENDPOINT=${HF_ENDPOINT:-https://hf-mirror.com}
+      - HF_HOME=/app/hf_cache
+      - HF_DATASETS_CACHE=/app/hf_cache/datasets
+      - HUGGINGFACE_HUB_CACHE=/app/hf_cache/hub
+      # inspect_ai 日志级别
+      - INSPECT_LOG_LEVEL=info
     depends_on:
       redis:
         condition: service_healthy
     volumes:
       - ./app_data:/app/data
       - ./app_logs:/app/logs
+      - ./hf_cache:/app/hf_cache
     restart: unless-stopped
 
   # ─── Vue 前端 ──────────────────────────────────

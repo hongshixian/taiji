@@ -8,11 +8,22 @@ from app.utils.errors import BusinessError, ErrorCode
 
 
 DEFAULT_REGISTRATION_TENANT_KEY = "public.default_registration_tenant_slug"
+HF_TOKEN_KEY = "integrations.hf_token"
+DEFAULT_JUDGE_MODEL_ID_KEY = "benchmark.default_judge_model_id"
 
 SETTING_DEFINITIONS = {
     DEFAULT_REGISTRATION_TENANT_KEY: {
         "description": "新注册用户默认加入的租户 slug",
         "default": GUEST_TENANT_SLUG,
+    },
+    HF_TOKEN_KEY: {
+        "description": "HuggingFace 访问令牌（用于 gated 数据集）",
+        "default": "",
+        "secret": True,
+    },
+    DEFAULT_JUDGE_MODEL_ID_KEY: {
+        "description": "Benchmark 默认评委模型 ID（前端预填）",
+        "default": None,
     },
 }
 
@@ -42,7 +53,13 @@ def update_settings(data: dict) -> list[dict]:
             f"未知系统设置: {', '.join(sorted(unknown))}",
         )
 
-    before = {key: get_setting_value(key) for key in data if key in allowed}
+    def _for_audit(key):
+        val = get_setting_value(key)
+        if SETTING_DEFINITIONS.get(key, {}).get("secret"):
+            return "***" if val else ""
+        return val
+
+    before = {key: _for_audit(key) for key in data if key in allowed}
 
     if DEFAULT_REGISTRATION_TENANT_KEY in data:
         slug = (data.get(DEFAULT_REGISTRATION_TENANT_KEY) or "").strip()
@@ -56,7 +73,21 @@ def update_settings(data: dict) -> list[dict]:
             raise BusinessError(ErrorCode.AUTH_DISABLED, "默认注册租户已禁用")
         _upsert_setting(DEFAULT_REGISTRATION_TENANT_KEY, slug)
 
-    after = {key: get_setting_value(key) for key in data if key in allowed}
+    if HF_TOKEN_KEY in data:
+        token = (data.get(HF_TOKEN_KEY) or "").strip()
+        _upsert_setting(HF_TOKEN_KEY, token)
+
+    if DEFAULT_JUDGE_MODEL_ID_KEY in data:
+        raw = data.get(DEFAULT_JUDGE_MODEL_ID_KEY)
+        model_id = None
+        if raw not in (None, "", 0):
+            try:
+                model_id = int(raw)
+            except (TypeError, ValueError):
+                raise BusinessError(ErrorCode.VALIDATION_ERROR, "评委模型 ID 必须为整数")
+        _upsert_setting(DEFAULT_JUDGE_MODEL_ID_KEY, model_id)
+
+    after = {key: _for_audit(key) for key in data if key in allowed}
     if before != after:
         from app.services.audit_log_service import record_audit_log
         record_audit_log(
@@ -75,10 +106,16 @@ def update_settings(data: dict) -> list[dict]:
 def _setting_to_dict(key: str) -> dict:
     definition = SETTING_DEFINITIONS[key]
     value = get_setting_value(key)
+    # 隐藏敏感值：只返回是否已设置
+    if definition.get("secret"):
+        display_value = bool(value)
+    else:
+        display_value = value
     setting = db.session.get(SystemSetting, key)
     return {
         "key": key,
-        "value": value,
+        "value": display_value,
+        "is_secret": bool(definition.get("secret")),
         "description": definition["description"],
         "updated_at": setting.updated_at.isoformat() if setting and setting.updated_at else None,
     }

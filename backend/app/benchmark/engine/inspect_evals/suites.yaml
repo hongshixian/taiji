@@ -1,0 +1,408 @@
+# inspect_evals 引擎的 suite 定义
+# ==================================================================
+# 字段说明：
+#   key                : 平台内部唯一 key（snake_case）
+#   display_name       : 前端展示名（保持与 Leaderboard 一致）
+#   category           : capability / safety / alignment
+#   engine_ref         : inspect_ai/inspect_evals 中的 task 引用
+#   needs_judge        : 是否需要评委模型（前端条件展示"评委模型"下拉）
+#   judge_arg          : 若通过任务参数传评委（如 task_args["judge_model"]）
+#   judge_role_bindings: 若通过 --model-role 覆盖辅助 role（同一评委绑定到多个 role）
+#   needs_sandbox      : 是否需要 docker sandbox（一期禁用）
+#   default_config     : per-suite 默认配置（会合并入 execution 或 suite_config）
+#   config_schema      : 前端 dynamic form 用的字段描述
+#   disabled           : 是否禁用；一期把无法映射的、需 sandbox 的 mark disabled
+#   disabled_reason    : 禁用原因（前端 tooltip）
+#   notes              : 前端 tooltip 说明
+# ==================================================================
+
+suites:
+
+  # ---------- 能力评测 ----------
+  - key: humaneval
+    display_name: HumanEval
+    category: capability
+    engine_ref: inspect_evals/humaneval
+    needs_sandbox: true
+    disabled: true
+    disabled_reason: "需要 Docker sandbox（一期未启用）"
+
+  - key: bigcodebench
+    display_name: BigCodeBench
+    category: capability
+    engine_ref: inspect_evals/bigcodebench
+    needs_sandbox: true
+    disabled: true
+    disabled_reason: "需要 Docker sandbox（一期未启用）"
+
+  - key: medqa
+    display_name: MedQA
+    category: capability
+    engine_ref: inspect_evals/medqa
+
+  - key: lab_bench_dbqa
+    display_name: LAB-Bench DBQA
+    category: capability
+    engine_ref: inspect_evals/lab_bench_dbqa
+    notes: "数据集在 HF gated（需 HF_TOKEN 并接受条款）"
+
+  - key: lab_bench_litqa
+    display_name: LAB-Bench LitQA
+    category: capability
+    engine_ref: inspect_evals/lab_bench_litqa
+    notes: "数据集在 HF gated（需 HF_TOKEN 并接受条款）"
+
+  - key: wmdp_bio
+    display_name: WMDP Bio
+    category: capability
+    engine_ref: inspect_evals/wmdp_bio
+
+  - key: wmdp_chem
+    display_name: WMDP Chem
+    category: capability
+    engine_ref: inspect_evals/wmdp_chem
+
+  - key: wmdp_cyber
+    display_name: WMDP Cyber
+    category: capability
+    engine_ref: inspect_evals/wmdp_cyber
+
+  - key: simpleqa_verified
+    display_name: SimpleQA Verified
+    category: capability
+    engine_ref: inspect_evals/simpleqa_verified
+    needs_judge: true
+    judge_role_bindings: [grader]
+
+  # ---------- 安全评测 ----------
+  - key: air_bench
+    display_name: AIR Bench
+    category: safety
+    engine_ref: inspect_evals/air_bench
+    needs_judge: false
+    notes: "评测使用被测模型自评（inspect_evals 内建行为）"
+
+  - key: healthbench
+    display_name: HealthBench
+    category: safety
+    engine_ref: inspect_evals/healthbench
+    needs_judge: true
+    judge_arg: judge_model
+
+  - key: sosbench
+    display_name: SoSBench
+    category: safety
+    engine_ref: inspect_evals/sosbench
+    needs_judge: true
+    judge_role_bindings: [grader]
+
+  - key: strong_reject
+    display_name: StrongREJECT
+    category: safety
+    engine_ref: inspect_evals/strong_reject
+    needs_judge: true
+    judge_arg: judge_llm
+    judge_role_bindings: [grader]
+
+  - key: xstest
+    display_name: XSTest
+    category: safety
+    engine_ref: inspect_evals/xstest
+    needs_judge: true
+    judge_arg: scorer_model
+
+  - key: cyse2_prompt_injection
+    display_name: CyberSecEval2 Prompt Injection
+    category: safety
+    engine_ref: inspect_evals/cyse2_prompt_injection
+    needs_judge: true
+    judge_arg: judge_llm
+
+  - key: cyse4_mitre
+    display_name: CyberSecEval4 MITRE
+    category: safety
+    engine_ref: inspect_evals/cyse4_mitre
+    needs_judge: true
+    judge_arg: judge_llm
+    judge_role_bindings: [grader]
+    notes: "依赖较重（semgrep/pdf2image），首次构建耗时"
+
+  # ---------- 一期未收录（禁用） ----------
+  - key: beavertails
+    display_name: BeaverTails
+    category: safety
+    engine_ref: ""
+    disabled: true
+    disabled_reason: "inspect_evals 尚未收录"
+
+  - key: longsafety
+    display_name: LongSafety
+    category: safety
+    engine_ref: ""
+    disabled: true
+    disabled_reason: "inspect_evals 尚未收录"
+
+  - key: pku_saferlhf
+    display_name: PKU-SafeRLHF
+    category: safety
+    engine_ref: ""
+    disabled: true
+    disabled_reason: "inspect_evals 尚未收录"
+
+  - key: safetybench
+    display_name: SafetyBench
+    category: safety
+    engine_ref: ""
+    disabled: true
+    disabled_reason: "inspect_evals 尚未收录"
+
+  - key: safety_prompts
+    display_name: Safety-Prompts
+    category: safety
+    engine_ref: ""
+    disabled: true
+    disabled_reason: "inspect_evals 尚未收录"
+
+  # ---------- 对齐/行为评测 ----------
+  - key: coconot
+    display_name: CoCoNot
+    category: alignment
+    engine_ref: inspect_evals/coconot
+    needs_judge: true
+    judge_arg: grader
+
+  - key: sycophancy
+    display_name: Sycophancy Eval
+    category: alignment
+    engine_ref: inspect_evals/sycophancy
+    needs_judge: true
+    judge_arg: scorer_model
+
+  - key: truthfulqa
+    display_name: TruthfulQA
+    category: alignment
+    engine_ref: inspect_evals/truthfulqa
+
+  - key: stereoset
+    display_name: StereoSet
+    category: alignment
+    engine_ref: inspect_evals/stereoset
+
+  - key: agentharm
+    display_name: AgentHarm
+    category: alignment
+    engine_ref: inspect_evals/agentharm
+    needs_judge: true
+    judge_arg: refusal_judge
+    judge_arg_extra: semantic_judge
+    notes: "使用双评委（refusal + semantic），此评委将同时用于两处；数据集在 HF gated"
+
+  - key: agentharm_benign
+    display_name: AgentHarm Benign
+    category: alignment
+    engine_ref: inspect_evals/agentharm_benign
+    needs_judge: true
+    judge_arg: refusal_judge
+    judge_arg_extra: semantic_judge
+    notes: "使用双评委（refusal + semantic），此评委将同时用于两处；数据集在 HF gated"
+
+  - key: make_me_pay
+    display_name: Make Me Pay
+    category: alignment
+    engine_ref: inspect_evals/make_me_pay
+    needs_judge: true
+    judge_role_bindings: [mark]
+    notes: "被测模型扮演骗子（conartist），评委模型扮演受害者（mark）"
+
+  - key: makemesay
+    display_name: Make Me Say
+    category: alignment
+    engine_ref: inspect_evals/makemesay
+    needs_judge: true
+    judge_role_bindings: [judge, manipulatee]
+    notes: "被测模型扮演诱导者（manipulator），评委模型同时扮演被诱导者与评委"
+
+  - key: pre_flight
+    display_name: Pre-Flight
+    category: alignment
+    engine_ref: inspect_evals/pre_flight
+
+  - key: tac
+    display_name: TAC
+    category: alignment
+    engine_ref: inspect_evals/tac
+    notes: "数据集在 HF gated（sentientfutures/tac）"
+
+  - key: uccb
+    display_name: UCCB
+    category: alignment
+    engine_ref: inspect_evals/uccb
+    needs_judge: true
+    judge_arg: scorer_model
+
+  - key: agent_threat_bench_autonomy_hijack
+    display_name: AgentThreatBench - Autonomy Hijack
+    category: alignment
+    engine_ref: inspect_evals/agent_threat_bench_autonomy_hijack
+
+  - key: agent_threat_bench_data_exfil
+    display_name: AgentThreatBench - Data Exfil
+    category: alignment
+    engine_ref: inspect_evals/agent_threat_bench_data_exfil
+
+  - key: agent_threat_bench_memory_poison
+    display_name: AgentThreatBench - Memory Poison
+    category: alignment
+    engine_ref: inspect_evals/agent_threat_bench_memory_poison
+
+  - key: persistbench_beneficial_memory
+    display_name: PersistBench - Beneficial Memory
+    category: alignment
+    engine_ref: inspect_evals/persistbench_beneficial_memory
+    needs_judge: true
+    judge_role_bindings: [grader]
+
+  - key: persistbench_cross_domain
+    display_name: PersistBench - Cross Domain
+    category: alignment
+    engine_ref: inspect_evals/persistbench_cross_domain
+    needs_judge: true
+    judge_role_bindings: [grader]
+
+  - key: persistbench_sycophancy
+    display_name: PersistBench - Sycophancy
+    category: alignment
+    engine_ref: inspect_evals/persistbench_sycophancy
+    needs_judge: true
+    judge_role_bindings: [grader]
+
+  # ---------- SAD 系列（拆成 5 个独立 suite）----------
+  - key: sad_facts_llms
+    display_name: SAD - Facts LLMs
+    category: alignment
+    engine_ref: inspect_evals/sad_facts_llms
+    notes: "首次运行前需执行 sad/download_data.py 预下载数据"
+
+  - key: sad_facts_human_defaults
+    display_name: SAD - Facts Human Defaults
+    category: alignment
+    engine_ref: inspect_evals/sad_facts_human_defaults
+    notes: "首次运行前需执行 sad/download_data.py 预下载数据"
+
+  - key: sad_influence
+    display_name: SAD - Influence
+    category: alignment
+    engine_ref: inspect_evals/sad_influence
+    notes: "首次运行前需执行 sad/download_data.py 预下载数据"
+
+  - key: sad_stages_full
+    display_name: SAD - Stages Full
+    category: alignment
+    engine_ref: inspect_evals/sad_stages_full
+    notes: "首次运行前需执行 sad/download_data.py 预下载数据"
+
+  - key: sad_stages_oversight
+    display_name: SAD - Stages Oversight
+    category: alignment
+    engine_ref: inspect_evals/sad_stages_oversight
+    notes: "首次运行前需执行 sad/download_data.py 预下载数据"
+
+  # ---------- 未收录（禁用） ----------
+  - key: deceptionbench_aries
+    display_name: DeceptionBench (ARIES)
+    category: alignment
+    engine_ref: ""
+    disabled: true
+    disabled_reason: "inspect_evals 尚未收录"
+
+  - key: deceptionbench_pku
+    display_name: DeceptionBench (PKU)
+    category: alignment
+    engine_ref: ""
+    disabled: true
+    disabled_reason: "inspect_evals 尚未收录"
+
+  - key: aisafetylab
+    display_name: AISafetyLab
+    category: alignment
+    engine_ref: ""
+    disabled: true
+    disabled_reason: "inspect_evals 尚未收录"
+
+  # ---------- GDM Stealth（需 sandbox，禁用） ----------
+  - key: gdm_oversight_pattern
+    display_name: "GDM Dangerous Capabilities: Stealth - Oversight Pattern"
+    category: alignment
+    engine_ref: inspect_evals/gdm_oversight_pattern
+    needs_sandbox: true
+    disabled: true
+    disabled_reason: "需要 Docker sandbox（一期未启用）"
+
+  - key: gdm_classifier_evasion
+    display_name: "GDM Dangerous Capabilities: Stealth - Classifier Evasion"
+    category: alignment
+    engine_ref: inspect_evals/gdm_classifier_evasion
+    needs_sandbox: true
+    disabled: true
+    disabled_reason: "需要 Docker sandbox（一期未启用）"
+
+  - key: gdm_cover_your_tracks
+    display_name: "GDM Dangerous Capabilities: Stealth - Cover Your Tracks"
+    category: alignment
+    engine_ref: inspect_evals/gdm_cover_your_tracks
+    needs_sandbox: true
+    disabled: true
+    disabled_reason: "需要 Docker sandbox（一期未启用）"
+
+  - key: gdm_strategic_rule_breaking
+    display_name: "GDM Dangerous Capabilities: Stealth - Strategic Rule Breaking"
+    category: alignment
+    engine_ref: inspect_evals/gdm_strategic_rule_breaking
+    needs_sandbox: true
+    disabled: true
+    disabled_reason: "需要 Docker sandbox（一期未启用）"
+
+
+# ==================================================================
+# 平台默认 execution_config（可被 suite.default_config.execution 覆盖）
+# ==================================================================
+default_execution_config:
+  limit: 20                # 一期默认冒烟量：20 条
+  epochs: 1
+  max_connections: 10
+  timeout_minutes: 60
+
+
+# ==================================================================
+# 供前端 dynamic form 消费的 execution 字段声明
+# ==================================================================
+execution_schema:
+  fields:
+    - key: limit
+      type: preset_int
+      label: 样本数量
+      presets:
+        - {label: "快速冒烟 (20)", value: 20}
+        - {label: "标准评测 (200)", value: 200}
+        - {label: "完整评测 (全部)", value: null}
+      allow_custom: true
+      min: 1
+      max: 20000
+    - key: epochs
+      type: int
+      label: 重复次数
+      default: 1
+      min: 1
+      max: 10
+    - key: max_connections
+      type: int
+      label: 并发数
+      default: 10
+      min: 1
+      max: 100
+    - key: timeout_minutes
+      type: int
+      label: 超时（分钟）
+      default: 60
+      min: 5
+      max: 720

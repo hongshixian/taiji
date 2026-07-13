@@ -98,6 +98,7 @@ def create_app(config_obj=Config):
     from app.api.superadmin import superadmin_bp
     from app.api.audit import audit_bp
     from app.api.model_config import model_config_bp
+    from app.api.benchmark_meta import benchmark_meta_bp
 
     # 初始化 auth 蓝图独立限流器（需要在注册蓝图前完成）
     from app.api.auth import auth_limiter
@@ -109,6 +110,11 @@ def create_app(config_obj=Config):
     flask_app.register_blueprint(superadmin_bp, url_prefix=f"{API_V1}/superadmin")
     flask_app.register_blueprint(audit_bp, url_prefix=f"{API_V1}/audit-logs")
     flask_app.register_blueprint(model_config_bp, url_prefix=f"{API_V1}/models")
+    flask_app.register_blueprint(benchmark_meta_bp, url_prefix=f"{API_V1}/benchmarks")
+
+    # ── 加载评测引擎（一期只有 inspect_evals） ──
+    from app.benchmark.engine.registry import discover as _discover_engines
+    _discover_engines()
 
     # 加载所有任务处理器并注册对应蓝图
     from app.handlers.registry import registry

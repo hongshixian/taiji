@@ -19,7 +19,7 @@ from app.services.model_config_service import (
 
 model_config_bp = Blueprint("model_config", __name__)
 
-_PROTOCOLS = ("openai", "anthropic", "gemini", "ollama", "custom")
+_PROTOCOLS = ("openai", "anthropic", "gemini", "ollama", "custom", "mockllm")
 
 
 @model_config_bp.route("/", methods=["GET"])
@@ -82,6 +82,7 @@ def add_model_config():
         model_name=model_name,
         description=data.get("description", ""),
         extra_params=extra_params,
+        api_key=(data.get("api_key") or None),
     )
     return created(model_config_to_dict(m), message="模型配置已创建")
 

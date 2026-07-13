@@ -166,6 +166,43 @@
             maxlength="500"
           />
         </el-form-item>
+
+        <el-divider content-position="left">生成参数</el-divider>
+        <div class="form-hint" style="margin-bottom: 12px">
+          评测时将统一使用这里配置的采样参数，保证同一模型的结果可比。
+        </div>
+        <el-form-item label="Temperature">
+          <el-input-number
+            v-model="form.gen_temperature"
+            :min="0" :max="2" :step="0.1" :precision="2"
+            placeholder="默认由引擎决定"
+            style="width:100%"
+          />
+        </el-form-item>
+        <el-form-item label="Top-P">
+          <el-input-number
+            v-model="form.gen_top_p"
+            :min="0" :max="1" :step="0.05" :precision="2"
+            placeholder="留空使用默认"
+            style="width:100%"
+          />
+        </el-form-item>
+        <el-form-item label="Max Tokens">
+          <el-input-number
+            v-model="form.gen_max_tokens"
+            :min="1" :max="200000" :step="256"
+            placeholder="留空使用默认"
+            style="width:100%"
+          />
+        </el-form-item>
+        <el-form-item label="Stop Sequences">
+          <el-input
+            v-model="form.gen_stop_sequences"
+            placeholder="以英文逗号分隔（可选）"
+          />
+          <div class="form-hint">例：\n\nHuman:, END</div>
+        </el-form-item>
+
         <el-form-item v-if="editMode" label="状态">
           <el-switch v-model="form.is_active" active-text="启用" inactive-text="停用" />
         </el-form-item>
@@ -208,6 +245,10 @@ const form = reactive({
   api_key: '',
   description: '',
   is_active: true,
+  gen_temperature: null,
+  gen_top_p: null,
+  gen_max_tokens: null,
+  gen_stop_sequences: '',
 })
 
 function formatTime(iso) {
@@ -225,6 +266,10 @@ function resetForm() {
     api_key: '',
     description: '',
     is_active: true,
+    gen_temperature: null,
+    gen_top_p: null,
+    gen_max_tokens: null,
+    gen_stop_sequences: '',
   })
 }
 
@@ -237,6 +282,8 @@ function openEditDialog(row) {
   resetForm()
   editMode.value = true
   editId.value = row.id
+  const extra = row.extra_params || {}
+  const stops = extra.stop_sequences || extra.stop_seqs
   Object.assign(form, {
     display_name: row.display_name,
     model_name: row.model_name,
@@ -245,6 +292,10 @@ function openEditDialog(row) {
     api_key: '',   // never pre-fill — backend masks it
     description: row.description || '',
     is_active: row.is_active,
+    gen_temperature: extra.temperature ?? null,
+    gen_top_p: extra.top_p ?? null,
+    gen_max_tokens: extra.max_tokens ?? null,
+    gen_stop_sequences: Array.isArray(stops) ? stops.join(', ') : (stops || ''),
   })
   dialogVisible.value = true
 }
@@ -274,12 +325,27 @@ async function handleSubmit() {
 
   submitting.value = true
   try {
+    // 装配 extra_params
+    const extra = {}
+    if (form.gen_temperature !== null && form.gen_temperature !== undefined) {
+      extra.temperature = form.gen_temperature
+    }
+    if (form.gen_top_p !== null && form.gen_top_p !== undefined) {
+      extra.top_p = form.gen_top_p
+    }
+    if (form.gen_max_tokens !== null && form.gen_max_tokens !== undefined) {
+      extra.max_tokens = form.gen_max_tokens
+    }
+    const stops = (form.gen_stop_sequences || '').split(',').map((s) => s.trim()).filter(Boolean)
+    if (stops.length) extra.stop_sequences = stops
+
     const payload = {
       display_name: form.display_name.trim(),
       model_name: form.model_name.trim(),
       api_protocol: form.api_protocol,
       api_base_url: form.api_base_url.trim(),
       description: form.description.trim() || null,
+      extra_params: extra,
     }
     if (form.api_key.trim()) {
       payload.api_key = form.api_key.trim()

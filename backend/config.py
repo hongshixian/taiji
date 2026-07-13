@@ -61,6 +61,12 @@ class Config:
     # 任务日志根目录。Docker Compose 使用 /app/logs，本地开发默认写到项目根目录 app_logs。
     TASK_LOG_ROOT = os.getenv("TASK_LOG_ROOT", "../app_logs")
 
+    # Benchmark 引擎产物（.eval log）目录；不配置则落到 TASK_LOG_ROOT/benchmark_artifacts
+    BENCHMARK_ARTIFACT_ROOT = os.getenv("BENCHMARK_ARTIFACT_ROOT") or None
+
+    # HuggingFace 数据集缓存目录（同一份 HF_HOME 供数据集下载复用）
+    HF_CACHE_ROOT = os.getenv("HF_HOME") or os.getenv("HF_CACHE_ROOT") or None
+
 
 class TestConfig(Config):
     """测试配置"""

@@ -44,6 +44,7 @@ class Task(db.Model, TenantMixin):
     )
     error_message = db.Column(db.Text)
     log_path = db.Column(db.String(500))
+    progress = db.Column(db.JSON)  # {completed, total, current_metrics}
 
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     started_at = db.Column(db.DateTime)

@@ -14,6 +14,7 @@ def model_config_to_dict(m: ModelConfig) -> dict:
         "model_name": m.model_name,
         "description": m.description,
         "extra_params": m.extra_params or {},
+        "has_api_key": bool(m.api_key),
         "is_active": m.is_active,
         "created_at": m.created_at.isoformat() if m.created_at else None,
         "updated_at": m.updated_at.isoformat() if m.updated_at else None,
@@ -43,6 +44,7 @@ def create_model_config(
     model_name: str,
     description: str | None = None,
     extra_params: dict | None = None,
+    api_key: str | None = None,
 ) -> ModelConfig:
     exists = ModelConfig.query.filter_by(display_name=display_name).first()
     if exists:
@@ -56,6 +58,7 @@ def create_model_config(
         model_name=model_name,
         description=description,
         extra_params=extra_params or {},
+        api_key=api_key,
         is_active=True,
     )
     db.session.add(m)
@@ -75,6 +78,12 @@ def update_model_config(config_id: int, data: dict) -> ModelConfig:
     for field in ("api_base_url", "api_protocol", "model_name", "description", "extra_params", "is_active"):
         if field in data:
             setattr(m, field, data[field])
+
+    # api_key 允许更新，但空字符串视为"不修改"（前端 edit 时默认留空）
+    if "api_key" in data:
+        new_key = data.get("api_key")
+        if new_key:
+            m.api_key = new_key
 
     db.session.commit()
     return m

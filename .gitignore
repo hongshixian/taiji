@@ -20,7 +20,9 @@ env/
 
 # 数据库和数据文件
 data/
+app_data/
 app_logs/
+hf_cache/
 *.db
 *.sqlite3
 

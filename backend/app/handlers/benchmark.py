@@ -30,11 +30,12 @@ class BenchmarkHandler(BaseTaskHandler):
         return create_benchmark_task(
             user_id=user_id,
             task_name=parsed["task_name"].strip(),
-            model_name=parsed["model_name"].strip(),
-            model_endpoint=parsed.get("model_endpoint"),
-            model_api_key=parsed.get("model_api_key"),
+            notes=(parsed.get("notes") or None),
             benchmark_suite=parsed["benchmark_suite"],
-            benchmark_config=parsed.get("benchmark_config"),
+            target_model_id=parsed["target_model_id"],
+            judge_model_id=parsed.get("judge_model_id"),
+            execution_config=parsed.get("execution_config") or {},
+            suite_config=parsed.get("suite_config") or {},
         )
 
     def execute(self, task_id: int) -> None:
@@ -46,6 +47,8 @@ class BenchmarkHandler(BaseTaskHandler):
     def _clear_detail(self, task) -> None:
         if task.benchmark:
             task.benchmark.result = None
+            # 重跑前清空进度
+            task.progress = None
 
 
 _handler = BenchmarkHandler()
