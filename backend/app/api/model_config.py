@@ -16,6 +16,7 @@ from app.services.model_config_service import (
     delete_model_config,
     model_config_to_dict,
 )
+from app.services.model_test_service import test_model_config
 
 model_config_bp = Blueprint("model_config", __name__)
 
@@ -110,3 +111,14 @@ def edit_model_config(config_id):
 def remove_model_config(config_id):
     delete_model_config(config_id)
     return ok(message="已删除")
+
+
+@model_config_bp.route("/<int:config_id>/test", methods=["POST"])
+@jwt_required()
+@require_permission(Permission.MODEL_READ)
+@limiter.limit("10 per minute")
+def test_model(config_id):
+    """向对应 provider 发一次极简请求，返回连通性 + 简短样例输出。"""
+    m = get_model_config_or_404(config_id)
+    result = test_model_config(m)
+    return ok(result.to_dict(), message="测试完成")

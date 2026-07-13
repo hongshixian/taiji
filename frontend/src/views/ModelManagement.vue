@@ -55,8 +55,13 @@
             <span class="t-mono">{{ formatTime(row.created_at) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="210" fixed="right">
+        <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
+            <el-button
+              text type="primary" size="small"
+              :loading="testingId === row.id"
+              @click="handleTest(row)"
+            >测试</el-button>
             <el-button
               v-if="has('model:write')"
               text type="primary" size="small"
@@ -214,13 +219,58 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 测试结果对话框 -->
+    <el-dialog
+      v-model="testDialogVisible"
+      title="模型连通性测试"
+      width="600px"
+      :close-on-click-modal="false"
+    >
+      <div v-if="testResult" class="test-result">
+        <div class="test-result__header">
+          <span
+            class="status-pill"
+            :data-tone="testResult.ok ? 'success' : 'danger'"
+          >
+            {{ testResult.ok ? '通过' : '失败' }}
+          </span>
+          <span class="t-caption">模型：{{ testTargetName }}</span>
+        </div>
+        <div class="test-result__grid">
+          <div class="test-result__item">
+            <span class="t-eyebrow">耗时</span>
+            <span class="t-mono">{{ testResult.latency_ms }} ms</span>
+          </div>
+          <div class="test-result__item">
+            <span class="t-eyebrow">Provider</span>
+            <span class="t-mono">{{ testResult.provider }}</span>
+          </div>
+          <div class="test-result__item">
+            <span class="t-eyebrow">Model</span>
+            <span class="t-mono">{{ testResult.model }}</span>
+          </div>
+        </div>
+        <div v-if="testResult.ok" class="test-result__block">
+          <div class="t-eyebrow">样例输出</div>
+          <pre class="test-result__text">{{ testResult.sample_output || '(空)' }}</pre>
+        </div>
+        <div v-else class="test-result__block">
+          <div class="t-eyebrow">错误信息</div>
+          <pre class="test-result__text test-result__text--error">{{ testResult.error }}</pre>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="testDialogVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { listModels, createModel, updateModel, deleteModel } from '../api/model'
+import { listModels, createModel, updateModel, deleteModel, testModel } from '../api/model'
 import { usePermission } from '../composables/usePermission'
 
 const { has } = usePermission()
@@ -236,6 +286,12 @@ const dialogVisible = ref(false)
 const editMode = ref(false)
 const editId = ref(null)
 const submitting = ref(false)
+
+// 测试相关
+const testingId = ref(null)
+const testDialogVisible = ref(false)
+const testResult = ref(null)
+const testTargetName = ref('')
 
 const form = reactive({
   display_name: '',
@@ -375,6 +431,34 @@ async function toggleActive(row) {
     ElMessage.success(row.is_active ? '已启用' : '已停用')
   } catch (err) {
     ElMessage.error(err.response?.data?.message || '操作失败')
+  }
+}
+
+async function handleTest(row) {
+  testingId.value = row.id
+  testTargetName.value = row.display_name
+  try {
+    const { data } = await testModel(row.id)
+    testResult.value = data.data
+    testDialogVisible.value = true
+    if (testResult.value.ok) {
+      ElMessage.success(`测试通过（${testResult.value.latency_ms}ms）`)
+    } else {
+      ElMessage.warning('测试失败，请查看错误详情')
+    }
+  } catch (err) {
+    testResult.value = {
+      ok: false,
+      latency_ms: 0,
+      sample_output: null,
+      error: err.response?.data?.message || err.message || '请求失败',
+      provider: row.api_protocol,
+      model: row.model_name,
+    }
+    testDialogVisible.value = true
+    ElMessage.error(err.response?.data?.message || '测试请求失败')
+  } finally {
+    testingId.value = null
   }
 }
 
@@ -533,6 +617,55 @@ onMounted(fetchModels)
   max-width: 48ch;
 }
 .empty-state .el-button { margin-top: var(--space-3); }
+
+/* ─── 测试结果对话框 ─── */
+.test-result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+.test-result__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.test-result__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+.test-result__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.test-result__block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.test-result__text {
+  margin: 0;
+  padding: var(--space-4);
+  background: var(--bg-canvas);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 260px;
+  overflow: auto;
+}
+.test-result__text--error {
+  color: var(--color-danger-fg, #c94040);
+  background: var(--color-danger-bg, #fdecec);
+  border-color: var(--color-danger-border, #f5b8b8);
+}
 
 @media (max-width: 768px) {
   .page-header__row { flex-direction: column; align-items: flex-start; }
