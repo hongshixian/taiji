@@ -44,7 +44,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.worker
-    command: ["celery", "-A", "celery_app", "worker", "-l", "info", "--concurrency=50"]
+    command: ["celery", "-A", "celery_app", "worker", "-l", "info", "--concurrency=4", "--max-tasks-per-child=10", "-Ofair"]
     environment:
       - FLASK_ENV=production
       - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
