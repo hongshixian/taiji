@@ -202,10 +202,24 @@ function activeMetrics(sec) {
     .map(r => ({ ...r, key: r.benchmark + '|' + r.metric }))
 }
 
+// 从 CSS 变量读取主题色（支持暗色模式）
+function cssVar(name, fallback) {
+  if (typeof window === 'undefined') return fallback
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  return v || fallback
+}
+
 // 单指标柱状图配置
 function chartOptionForMetric(sec, metric) {
   const row = sections[sec].find(r => r.benchmark + '|' + r.metric === metric.key)
   if (!row) return {}
+
+  const cBar = cssVar('--violet-400', '#a78bfa')
+  const cBarNull = cssVar('--border-default', '#e5e7eb')
+  const cAxis = cssVar('--fg-tertiary', '#6b7280')
+  const cAxisLine = cssVar('--border-subtle', '#e5e7eb')
+  const cSplit = cssVar('--border-subtle', '#f3f4f6')
+  const cLabel = cssVar('--fg-secondary', '#374151')
 
   return {
     tooltip: {
@@ -213,7 +227,7 @@ function chartOptionForMetric(sec, metric) {
       axisPointer: { type: 'shadow' },
       formatter: params => {
         const p = params[0]
-        if (p.value == null) return `${p.name}<br/><span style="color:#9ca3af">暂无数据</span>`
+        if (p.value == null) return `${p.name}<br/><span style="color:${cAxis}">暂无数据</span>`
         return `${p.name}<br/>${metric.metric}: <b>${fmt(p.value)}</b>${metric.unit ? ' ' + metric.unit : ''}`
       }
     },
@@ -226,31 +240,31 @@ function chartOptionForMetric(sec, metric) {
         rotate: 45,
         fontSize: 10,
         interval: 0,
-        color: '#6b7280',
+        color: cAxis,
         overflow: 'truncate',
         width: 100
       },
-      axisLine: { lineStyle: { color: '#e5e7eb' } },
+      axisLine: { lineStyle: { color: cAxisLine } },
       axisTick: { show: false }
     },
     yAxis: {
       type: 'value',
-      axisLabel: { fontSize: 11, color: '#6b7280' },
-      splitLine: { lineStyle: { color: '#f3f4f6' } }
+      axisLabel: { fontSize: 11, color: cAxis },
+      splitLine: { lineStyle: { color: cSplit } }
     },
     series: [{
       type: 'bar',
       data: models.map(m => {
         const v = row.scores[m]
-        if (v == null) return { value: null, itemStyle: { color: '#e5e7eb', borderRadius: [4, 4, 0, 0] } }
+        if (v == null) return { value: null, itemStyle: { color: cBarNull, borderRadius: [4, 4, 0, 0] } }
         return {
           value: v,
-          itemStyle: { color: '#a78bfa', borderRadius: [4, 4, 0, 0] }
+          itemStyle: { color: cBar, borderRadius: [4, 4, 0, 0] }
         }
       }),
       barMaxWidth: 40,
       label: {
-        show: true, position: 'top', fontSize: 10, color: '#374151',
+        show: true, position: 'top', fontSize: 10, color: cLabel,
         formatter: p => p.value != null ? fmt(p.value) : ''
       }
     }]

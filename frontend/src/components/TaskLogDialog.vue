@@ -1,17 +1,32 @@
 <template>
   <el-dialog
-    v-model="visible"
+    :model-value="visible"
     :title="title"
     width="760px"
     class="task-log-dialog"
     :close-on-click-modal="false"
+    @update:model-value="onVisibleChange"
+    @open="onOpen"
   >
+    <div class="log-toolbar">
+      <el-radio-group v-model="levelFilter" size="small">
+        <el-radio-button value="ALL">全部</el-radio-button>
+        <el-radio-button value="INFO">信息</el-radio-button>
+        <el-radio-button value="WARN">警告</el-radio-button>
+        <el-radio-button value="ERROR">错误</el-radio-button>
+      </el-radio-group>
+      <div class="log-toolbar__right">
+        <span class="t-caption">{{ filteredEntries.length }} 条</span>
+        <el-button size="small" :loading="loading" @click="refresh">刷新</el-button>
+      </div>
+    </div>
+
     <div v-loading="loading" class="log-body">
-      <el-empty v-if="!loading && entries.length === 0" description="暂无执行日志" :image-size="80" />
+      <el-empty v-if="!loading && filteredEntries.length === 0" description="暂无执行日志" :image-size="80" />
       <div v-else class="log-list">
-        <article v-for="(entry, index) in entries" :key="index" class="log-entry">
+        <article v-for="(entry, index) in filteredEntries" :key="index" class="log-entry">
           <header class="log-meta">
-            <span class="status-pill" :data-tone="levelTone(entry.level)">{{ entry.level || 'INFO' }}</span>
+            <StatusPill :tone="levelTone(entry.level)" :label="entry.level || 'INFO'" />
             <span class="t-mono">{{ formatTime(entry.ts) }}</span>
             <span class="t-caption">{{ entry.step || '—' }}</span>
             <span class="t-caption">{{ entry.event || '—' }}</span>
@@ -26,27 +41,72 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getTaskLogs } from '../api/task'
+import StatusPill from './StatusPill.vue'
 
-const visible = ref(false)
+// 支持两种调用方式：
+//   1) v-model:visible + :task-id（BenchmarkManagement 用）
+//   2) ref + open(row)（RedTeamManagement 用，向后兼容）
+const props = defineProps({
+  visible: { type: Boolean, default: false },
+  taskId: { type: [Number, String], default: null },
+})
+const emit = defineEmits(['update:visible'])
+
 const loading = ref(false)
-const task = ref(null)
 const entries = ref([])
+const levelFilter = ref('ALL')
+const internalTaskId = ref(null)   // 兼容 open(row) 方式
 
-const title = computed(() => {
-  if (!task.value) return '任务日志'
-  return `任务日志 #${task.value.id}`
+const activeTaskId = computed(() => internalTaskId.value ?? props.taskId)
+
+const title = computed(() =>
+  activeTaskId.value ? `任务日志 #${activeTaskId.value}` : '任务日志',
+)
+
+const filteredEntries = computed(() => {
+  if (levelFilter.value === 'ALL') return entries.value
+  return entries.value.filter((e) => (e.level || 'INFO') === levelFilter.value)
 })
 
-async function open(row) {
-  task.value = row
-  visible.value = true
-  loading.value = true
+// 方式 1：监听 visible + taskId
+watch(
+  () => [props.visible, props.taskId],
+  ([vis, tid]) => {
+    if (vis && tid != null) {
+      internalTaskId.value = null
+      fetchLogs(tid)
+    }
+  },
+)
+
+// 方式 2：ref 调用
+function open(row) {
+  internalTaskId.value = row.id
   entries.value = []
+  fetchLogs(row.id)
+  // 无 v-model 时靠内部 visible；这里通过 emit 也能兼容
+  emit('update:visible', true)
+}
+
+function onVisibleChange(v) {
+  emit('update:visible', v)
+}
+
+function onOpen() {
+  if (activeTaskId.value != null) fetchLogs(activeTaskId.value)
+}
+
+async function refresh() {
+  if (activeTaskId.value != null) fetchLogs(activeTaskId.value)
+}
+
+async function fetchLogs(id) {
+  loading.value = true
   try {
-    const { data } = await getTaskLogs(row.id)
+    const { data } = await getTaskLogs(id)
     entries.value = data.data.items || []
   } catch (err) {
     ElMessage.error(err.response?.data?.message || '加载任务日志失败')
@@ -56,8 +116,8 @@ async function open(row) {
 }
 
 function levelTone(level) {
-  const map = { INFO: 'progress', WARN: 'warning', ERROR: 'danger', DEBUG: 'neutral' }
-  return map[level] ?? 'progress'
+  const map = { INFO: 'info', WARN: 'warning', ERROR: 'danger', DEBUG: 'neutral' }
+  return map[level] ?? 'info'
 }
 
 function formatTime(value) {
@@ -72,6 +132,19 @@ defineExpose({ open })
 </script>
 
 <style scoped>
+.log-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  margin-bottom: var(--space-5);
+}
+.log-toolbar__right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--fg-tertiary);
+}
 .log-body { min-height: 220px; max-height: 62vh; overflow: auto; }
 .log-list { display: flex; flex-direction: column; gap: var(--space-5); }
 .log-entry {
@@ -105,33 +178,5 @@ pre {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   line-height: var(--leading-normal);
-}
-
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px var(--space-5);
-  border-radius: var(--radius-full);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semibold);
-  background: var(--badge-bg-neutral);
-  color: var(--badge-fg-neutral);
-  border: 1px solid transparent;
-  white-space: nowrap;
-}
-.status-pill[data-tone='progress'] {
-  background: var(--color-info-bg);
-  color: var(--color-info-fg);
-  border-color: var(--color-info-border);
-}
-.status-pill[data-tone='warning'] {
-  background: var(--color-warning-bg);
-  color: var(--color-warning-fg);
-  border-color: var(--color-warning-border);
-}
-.status-pill[data-tone='danger'] {
-  background: var(--color-danger-bg);
-  color: var(--color-danger-fg);
-  border-color: var(--color-danger-border);
 }
 </style>

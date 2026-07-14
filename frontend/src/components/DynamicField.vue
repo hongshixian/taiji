@@ -8,6 +8,7 @@
       :max="field.max"
       :step="field.type === 'float' ? (field.step || 0.1) : 1"
       :precision="field.type === 'float' ? (field.precision ?? 2) : 0"
+      controls-position="right"
       @update:model-value="onUpdate"
     />
 
@@ -64,15 +65,25 @@
 </template>
 
 <script setup>
+import { computed, onMounted } from 'vue'
+
 const props = defineProps({
   field: { type: Object, required: true },
-  modelValue: null,
+  modelValue: { default: undefined },
 })
 const emit = defineEmits(['update:modelValue'])
 
-const value = props.modelValue !== undefined
-  ? props.modelValue
-  : (props.field.default ?? null)
+// 响应式：随 modelValue 或 field.default 变化
+const value = computed(() =>
+  props.modelValue !== undefined ? props.modelValue : (props.field.default ?? null),
+)
+
+// 挂载时若父级未提供值但字段有默认值，回写默认值到父 model
+onMounted(() => {
+  if (props.modelValue === undefined && props.field.default !== undefined) {
+    emit('update:modelValue', props.field.default)
+  }
+})
 
 function onUpdate(v) {
   emit('update:modelValue', v)
@@ -81,8 +92,8 @@ function onUpdate(v) {
 
 <style scoped>
 .dyn-help {
-  font-size: 12px;
-  color: var(--color-text-3, #888);
-  margin-top: 4px;
+  font-size: var(--text-xs);
+  color: var(--fg-tertiary);
+  margin-top: var(--space-2);
 }
 </style>

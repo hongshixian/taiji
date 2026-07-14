@@ -23,8 +23,8 @@
         <span class="t-mono metric-value">{{ total }}</span>
       </div>
       <div class="metric">
-        <span class="t-eyebrow">轮询超时</span>
-        <span class="t-mono metric-value">{{ MAX_POLLS * 2 }} 秒</span>
+        <span class="t-eyebrow">轮询间隔</span>
+        <span class="t-mono metric-value">2 秒</span>
       </div>
     </section>
 
@@ -90,13 +90,19 @@
               <el-button v-if="canOpenTaskLogs(task)" text type="primary" size="small" @click="openTaskLogs(task)">日志</el-button>
             </div>
           </header>
-          <el-skeleton :rows="2" animated />
+          <el-progress
+            :percentage="100"
+            :indeterminate="true"
+            :duration="3"
+            :stroke-width="6"
+            :show-text="false"
+            status="success"
+          />
           <footer class="active-card__meta">
             <span class="t-caption">已等待</span>
-            <span class="t-mono">{{ task.elapsed }}s</span>
+            <span class="t-mono">{{ formatElapsed(task.elapsed) }}</span>
             <span class="t-caption">·</span>
-            <span class="t-caption">轮询</span>
-            <span class="t-mono">{{ task.pollCount }}/{{ MAX_POLLS }}</span>
+            <span class="t-caption">后台执行中，完成后自动刷新</span>
           </footer>
         </article>
       </div>
@@ -212,7 +218,7 @@
       </el-button>
     </section>
 
-    <TaskLogDialog ref="taskLogDialogRef" />
+    <TaskLogDialog v-model:visible="logVisible" :task-id="logTaskId" />
   </div>
 </template>
 <script setup>
@@ -229,7 +235,6 @@ import { listModels } from '../api/model'
 import TaskLogDialog from '../components/TaskLogDialog.vue'
 import { usePermission } from '../composables/usePermission'
 
-const MAX_POLLS = 30
 const showDialog = ref(false)
 const submitting = ref(false)
 const activeTasks = ref([])
@@ -239,7 +244,8 @@ const page = ref(1)
 const perPage = 20
 const total = ref(0)
 const { has } = usePermission()
-const taskLogDialogRef = ref(null)
+const logVisible = ref(false)
+const logTaskId = ref(null)
 const modelPresets = ref([])
 const selectedModelId = ref(null)
 
@@ -278,7 +284,16 @@ const dbStatusTone = (s) => {
   return map[s] || 'neutral'
 }
 function formatTime(iso) { return iso ? new Date(iso).toLocaleString('zh-CN') : '' }
-function openTaskLogs(row) { taskLogDialogRef.value?.open(row) }
+function formatElapsed(sec) {
+  const s = sec || 0
+  if (s < 60) return `${s}s`
+  const m = Math.floor(s / 60)
+  const r = s % 60
+  if (m < 60) return `${m}m ${r}s`
+  const h = Math.floor(m / 60)
+  return `${h}h ${m % 60}m`
+}
+function openTaskLogs(row) { logTaskId.value = row.id; logVisible.value = true }
 function canOpenTaskLogs(task) { return !['submitting', 'submit_failed'].includes(task.frontendStatus) }
 
 function closeDialog() {
@@ -407,11 +422,7 @@ function startPolling(taskId) {
       if (err.response?.status === 404) { _updateActiveTask(taskId, { frontendStatus: 'not_found' }); stopPolling(taskId) }
       else _updateActiveTask(taskId, { frontendStatus: 'query_error' })
     }
-    const current = _getActiveTask(taskId)
-    if (current && current.pollCount >= MAX_POLLS && !['success', 'failed'].includes(current.frontendStatus)) {
-      stopPolling(taskId)
-      if (current.frontendStatus !== 'not_found') _updateActiveTask(taskId, { frontendStatus: 'timeout' })
-    }
+    // 不再做前端硬超时：任务在服务端可能长时间运行，持续轮询直到完成/失败/丢失
   }, 2000)
 }
 

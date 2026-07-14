@@ -17,12 +17,12 @@
         </p>
       </header>
 
-      <el-form label-width="140px" class="settings-form">
+      <el-form label-width="160px" class="settings-form">
         <el-form-item label="默认租户">
           <el-select
             v-model="form.defaultRegistrationTenantSlug"
             filterable
-            style="width: 320px"
+            class="settings-control"
           >
             <el-option
               v-for="tenant in activeTenants"
@@ -49,14 +49,14 @@
         </p>
       </header>
 
-      <el-form label-width="180px" class="settings-form">
+      <el-form label-width="160px" class="settings-form">
         <el-form-item label="HuggingFace Token">
           <el-input
             v-model="form.hfToken"
             type="password"
             show-password
             :placeholder="hfTokenPlaceholder"
-            style="width: 460px"
+            class="settings-control"
           />
           <div class="form-hint">留空则不修改；保存后不会再回显。</div>
         </el-form-item>
@@ -65,7 +65,7 @@
             v-model="form.defaultJudgeModelId"
             filterable
             clearable
-            style="width: 460px"
+            class="settings-control"
             placeholder="选择一个模型作为默认评委"
           >
             <el-option
@@ -341,7 +341,8 @@ onMounted(() => {
   color: var(--fg-secondary);
   max-width: 56ch;
 }
-.settings-form { max-width: 560px; }
+.settings-form { max-width: 620px; }
+.settings-control { width: 100%; max-width: 420px; }
 
 .form-hint {
   font-size: var(--text-xs);

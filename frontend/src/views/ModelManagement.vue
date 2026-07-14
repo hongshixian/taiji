@@ -13,7 +13,7 @@
       </p>
     </header>
 
-    <section class="data-section">
+    <section v-if="loading || models.length" class="data-section">
       <div class="section-toolbar">
         <label class="toolbar-switch">
           <el-switch v-model="showInactive" @change="handleFilterChange" />
@@ -21,7 +21,7 @@
         </label>
       </div>
 
-      <el-table :data="models" stripe v-loading="loading" class="data-table">
+      <el-table :data="models" stripe v-loading="loading" class="data-table" data-density="compact">
         <el-table-column prop="id" label="ID" width="60" />
         <el-table-column label="显示名称" min-width="160">
           <template #default="{ row }">
@@ -173,40 +173,44 @@
         </el-form-item>
 
         <el-divider content-position="left">生成参数</el-divider>
-        <div class="form-hint" style="margin-bottom: 12px">
-          评测时将统一使用这里配置的采样参数，保证同一模型的结果可比。
+        <p class="form-hint form-hint--block">
+          评测时将统一使用这里配置的采样参数，保证同一模型的结果可比。留空则由引擎使用默认值。
+        </p>
+        <div class="gen-grid">
+          <el-form-item label="Temperature">
+            <el-input-number
+              v-model="form.gen_temperature"
+              :min="0" :max="2" :step="0.1" :precision="2"
+              controls-position="right"
+              placeholder="可选"
+              style="width:100%"
+            />
+          </el-form-item>
+          <el-form-item label="Top-P">
+            <el-input-number
+              v-model="form.gen_top_p"
+              :min="0" :max="1" :step="0.05" :precision="2"
+              controls-position="right"
+              placeholder="可选"
+              style="width:100%"
+            />
+          </el-form-item>
+          <el-form-item label="Max Tokens">
+            <el-input-number
+              v-model="form.gen_max_tokens"
+              :min="1" :max="200000" :step="256"
+              controls-position="right"
+              placeholder="可选"
+              style="width:100%"
+            />
+          </el-form-item>
+          <el-form-item label="Stop 序列">
+            <el-input
+              v-model="form.gen_stop_sequences"
+              placeholder="逗号分隔，可选"
+            />
+          </el-form-item>
         </div>
-        <el-form-item label="Temperature">
-          <el-input-number
-            v-model="form.gen_temperature"
-            :min="0" :max="2" :step="0.1" :precision="2"
-            placeholder="默认由引擎决定"
-            style="width:100%"
-          />
-        </el-form-item>
-        <el-form-item label="Top-P">
-          <el-input-number
-            v-model="form.gen_top_p"
-            :min="0" :max="1" :step="0.05" :precision="2"
-            placeholder="留空使用默认"
-            style="width:100%"
-          />
-        </el-form-item>
-        <el-form-item label="Max Tokens">
-          <el-input-number
-            v-model="form.gen_max_tokens"
-            :min="1" :max="200000" :step="256"
-            placeholder="留空使用默认"
-            style="width:100%"
-          />
-        </el-form-item>
-        <el-form-item label="Stop Sequences">
-          <el-input
-            v-model="form.gen_stop_sequences"
-            placeholder="以英文逗号分隔（可选）"
-          />
-          <div class="form-hint">例：\n\nHuman:, END</div>
-        </el-form-item>
 
         <el-form-item v-if="editMode" label="状态">
           <el-switch v-model="form.is_active" active-text="启用" inactive-text="停用" />
@@ -580,6 +584,19 @@ onMounted(fetchModels)
   color: var(--fg-tertiary);
   margin-top: var(--space-2);
   line-height: 1.4;
+}
+.form-hint--block {
+  margin: 0 0 var(--space-5);
+}
+
+/* ─── 生成参数栅格 ─── */
+.gen-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 var(--space-6);
+}
+@media (max-width: 560px) {
+  .gen-grid { grid-template-columns: 1fr; }
 }
 
 .mono-input :deep(input),

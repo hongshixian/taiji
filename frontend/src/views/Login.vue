@@ -9,17 +9,17 @@
           构建可验证的<em class="fc-italic-word">边界</em>。
         </h1>
         <p class="brand-lede">
-          多租户、JWT 吊销、SSRF 防护、审计日志。任务驱动的全栈骨架。
+          面向大模型的安全与能力评测平台。标准化 Benchmark、自动化红队，一处提交、全程可追溯。
         </p>
 
         <dl class="brand-stats">
           <div>
-            <dt class="t-eyebrow">DELIVERY</dt>
-            <dd class="t-mono">docker compose up</dd>
+            <dt class="t-eyebrow">评测引擎</dt>
+            <dd class="t-mono">inspect_evals</dd>
           </div>
           <div>
-            <dt class="t-eyebrow">RUNTIME</dt>
-            <dd class="t-mono">Flask 3 · Vue 3 · Celery</dd>
+            <dt class="t-eyebrow">覆盖能力</dt>
+            <dd class="t-mono">能力 · 安全 · 对齐</dd>
           </div>
         </dl>
 

@@ -18,11 +18,11 @@
           </li>
           <li>
             <span class="step-num t-mono">02</span>
-            <span class="step-text">登录后提交一个网页分析任务</span>
+            <span class="step-text">配置被测模型，提交一个 Benchmark 测评</span>
           </li>
           <li>
             <span class="step-num t-mono">03</span>
-            <span class="step-text">在审计日志里查看自己的操作记录</span>
+            <span class="step-text">查看评测结果与排行榜</span>
           </li>
         </ol>
 
