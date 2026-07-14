@@ -1,5 +1,5 @@
 <template>
-  <div class="page-shell benchmark-task">
+  <div class="page-shell page-shell--wide benchmark-task">
     <header class="page-header">
       <span class="page-header__eyebrow t-eyebrow">任务 · Benchmark 测评</span>
       <div class="page-header__row">
@@ -261,28 +261,28 @@
               </div>
             </template>
           </el-table-column>
-          <el-table-column prop="task_name" label="任务" min-width="200" show-overflow-tooltip />
-          <el-table-column label="评测集" min-width="180">
+          <el-table-column prop="task_name" label="任务" min-width="180" show-overflow-tooltip />
+          <el-table-column label="评测集" min-width="160" show-overflow-tooltip>
             <template #default="{ row }">{{ suiteLabel(row.benchmark_suite) }}</template>
           </el-table-column>
-          <el-table-column label="被测模型" min-width="150">
+          <el-table-column label="被测模型" min-width="130" show-overflow-tooltip>
             <template #default="{ row }">{{ modelLabel(row.target_model) }}</template>
           </el-table-column>
-          <el-table-column label="状态" width="110">
+          <el-table-column label="状态" width="100">
             <template #default="{ row }">
               <StatusPill :tone="statusTone(row.status)" :label="statusLabel(row.status)" />
             </template>
           </el-table-column>
-          <el-table-column label="主指标" width="140">
+          <el-table-column label="主指标" width="130">
             <template #default="{ row }">
               <span v-if="primaryMetric(row)" class="t-mono">{{ primaryMetric(row) }}</span>
               <span v-else class="muted">—</span>
             </template>
           </el-table-column>
-          <el-table-column prop="created_at" label="创建时间" width="170">
+          <el-table-column prop="created_at" label="创建时间" width="160">
             <template #default="{ row }">{{ fmtTime(row.created_at) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="200" fixed="right">
+          <el-table-column label="操作" width="170" fixed="right">
             <template #default="{ row }">
               <el-button text size="small" @click="openLog(row.id)">日志</el-button>
               <el-button text type="primary" size="small" @click="onRetry(row.id)">重试</el-button>

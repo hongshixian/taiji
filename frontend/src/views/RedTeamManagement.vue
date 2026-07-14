@@ -1,5 +1,5 @@
 <template>
-  <div class="page-shell red-team-task">
+  <div class="page-shell page-shell--wide red-team-task">
     <header class="page-header">
       <span class="page-header__eyebrow t-eyebrow">任务 · 自动红队测评</span>
       <div class="page-header__row">
@@ -163,34 +163,30 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="任务名称" min-width="180">
+        <el-table-column label="任务名称" min-width="170" show-overflow-tooltip>
           <template #default="{ row }">{{ row.task_name }}</template>
         </el-table-column>
-        <el-table-column label="目标模型" min-width="160">
+        <el-table-column label="目标模型" min-width="140" show-overflow-tooltip>
           <template #default="{ row }">{{ row.target_model_name }}</template>
         </el-table-column>
-        <el-table-column label="红队方法" width="160">
+        <el-table-column label="红队方法" width="140">
           <template #default="{ row }">
             <span class="method-badge">{{ methodName(row.attack_method) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="110">
+        <el-table-column label="状态" width="100">
           <template #default="{ row }">
             <span class="status-pill" :data-tone="dbStatusTone(row.status)">{{ dbStatusLabel(row.status) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="日志" width="70">
-          <template #default="{ row }">
-            <el-button text type="primary" size="small" @click="openTaskLogs(row)">日志</el-button>
-          </template>
-        </el-table-column>
-        <el-table-column label="创建时间" width="170">
+        <el-table-column label="创建时间" width="160">
           <template #default="{ row }">
             <span class="t-mono">{{ formatTime(row.created_at) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="160">
+        <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
+            <el-button text type="primary" size="small" @click="openTaskLogs(row)">日志</el-button>
             <el-button v-if="row.status === 'failed'" text type="primary" size="small" @click="retryDbTask(row)">重试</el-button>
             <el-button v-if="has('task:delete:any')" text type="danger" size="small" @click="handleDelete(row)">删除</el-button>
           </template>

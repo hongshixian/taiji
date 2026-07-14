@@ -1,5 +1,5 @@
 <template>
-  <div class="page-shell tenant-management">
+  <div class="page-shell page-shell--wide tenant-management">
     <header class="page-header">
       <span class="page-header__eyebrow t-eyebrow">超级管理员 · 租户</span>
       <div class="page-header__row">
@@ -30,26 +30,35 @@
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="用户数" width="100" align="center">
+        <el-table-column label="用户数" width="80" align="center">
           <template #default="{ row }"><span class="t-mono">{{ row.user_count ?? '—' }}</span></template>
         </el-table-column>
-        <el-table-column label="任务数" width="100" align="center">
+        <el-table-column label="任务数" width="80" align="center">
           <template #default="{ row }"><span class="t-mono">{{ row.task_count ?? '—' }}</span></template>
         </el-table-column>
-        <el-table-column label="创建时间" width="180">
+        <el-table-column label="创建时间" width="160">
           <template #default="{ row }"><span class="t-mono">{{ formatTime(row.created_at) }}</span></template>
         </el-table-column>
-        <el-table-column label="操作" width="260" fixed="right">
+        <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <el-button text type="primary" size="small" @click="handleSwitchTo(row)"
                        :disabled="row.id === authStore.currentTenant?.id || !canSwitchTo(row)">
               切换
             </el-button>
             <el-button text type="primary" size="small" @click="openMembersDialog(row)">成员</el-button>
-            <el-button text type="primary" size="small" @click="openEditDialog(row)">编辑</el-button>
-            <el-button text type="danger" size="small" @click="handleDelete(row)" :disabled="row.is_system">
-              删除
-            </el-button>
+            <el-dropdown trigger="click">
+              <el-button text type="primary" size="small">
+                更多<el-icon><ArrowDown /></el-icon>
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item @click="openEditDialog(row)">编辑</el-dropdown-item>
+                  <el-dropdown-item :disabled="row.is_system" @click="handleDelete(row)">
+                    <span class="danger-item">删除</span>
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </template>
         </el-table-column>
       </el-table>
@@ -84,7 +93,7 @@
     <el-dialog
       v-model="membersDialogVisible"
       :title="`成员管理 — ${memberTenant?.name || ''}`"
-      width="760px"
+      width="900px"
       :close-on-click-modal="false"
     >
       <div class="member-add">
@@ -435,4 +444,5 @@ onMounted(() => {
 @media (max-width: 768px) {
   .page-header__row { flex-direction: column; align-items: flex-start; }
 }
+.danger-item { color: var(--color-danger-fg); }
 </style>

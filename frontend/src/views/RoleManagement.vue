@@ -1,5 +1,5 @@
 <template>
-  <div class="page-shell role-management">
+  <div class="page-shell page-shell--wide role-management">
     <header class="page-header">
       <span class="page-header__eyebrow t-eyebrow">权限 · 角色</span>
       <div class="page-header__row">

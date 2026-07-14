@@ -1,5 +1,5 @@
 <template>
-  <div class="page-shell audit-log-management">
+  <div class="page-shell page-shell--wide audit-log-management">
     <header class="page-header">
       <span class="page-header__eyebrow t-eyebrow">审计 · 平台日志</span>
       <div class="page-header__row">
@@ -72,25 +72,25 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column label="时间" width="180">
+        <el-table-column label="时间" width="160">
           <template #default="{ row }"><span class="t-mono">{{ formatTime(row.created_at) }}</span></template>
         </el-table-column>
-        <el-table-column label="操作者" min-width="140">
+        <el-table-column label="操作者" min-width="120" show-overflow-tooltip>
           <template #default="{ row }">
             <span>{{ row.actor_username || '—' }}</span>
             <span v-if="row.actor_is_superuser" class="status-pill status-pill--inline" data-tone="danger">超管</span>
           </template>
         </el-table-column>
-        <el-table-column label="租户" min-width="130">
+        <el-table-column label="租户" min-width="110" show-overflow-tooltip>
           <template #default="{ row }">{{ row.tenant_name || platformLabel(row) }}</template>
         </el-table-column>
-        <el-table-column prop="action" label="操作" min-width="160">
+        <el-table-column prop="action" label="操作" min-width="140" show-overflow-tooltip>
           <template #default="{ row }"><span class="t-mono">{{ row.action }}</span></template>
         </el-table-column>
-        <el-table-column prop="resource_type" label="资源" width="130">
+        <el-table-column prop="resource_type" label="资源" min-width="100" show-overflow-tooltip>
           <template #default="{ row }"><span class="t-mono">{{ row.resource_type }}</span></template>
         </el-table-column>
-        <el-table-column label="对象" min-width="160">
+        <el-table-column label="对象" min-width="130" show-overflow-tooltip>
           <template #default="{ row }">
             <span>{{ row.resource_name || row.resource_id || '—' }}</span>
           </template>
@@ -102,7 +102,7 @@
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="ip_address" label="IP" width="140">
+        <el-table-column prop="ip_address" label="IP" width="120">
           <template #default="{ row }"><span class="t-mono">{{ row.ip_address || '—' }}</span></template>
         </el-table-column>
       </el-table>

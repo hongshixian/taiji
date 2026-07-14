@@ -1,5 +1,5 @@
 <template>
-  <div class="page-shell model-management">
+  <div class="page-shell page-shell--wide model-management">
     <header class="page-header">
       <span class="page-header__eyebrow t-eyebrow">资源 · 模型库</span>
       <div class="page-header__row">
@@ -50,12 +50,12 @@
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="创建时间" width="170">
+        <el-table-column label="创建时间" min-width="160">
           <template #default="{ row }">
             <span class="t-mono">{{ formatTime(row.created_at) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="280" fixed="right">
+        <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <el-button
               text type="primary" size="small"
@@ -67,17 +67,26 @@
               text type="primary" size="small"
               @click="openEditDialog(row)"
             >编辑</el-button>
-            <el-button
-              v-if="has('model:write')"
-              text size="small"
-              :type="row.is_active ? 'warning' : 'success'"
-              @click="toggleActive(row)"
-            >{{ row.is_active ? '停用' : '启用' }}</el-button>
-            <el-button
-              v-if="has('model:delete')"
-              text type="danger" size="small"
-              @click="handleDelete(row)"
-            >删除</el-button>
+            <el-dropdown v-if="has('model:write') || has('model:delete')" trigger="click">
+              <el-button text type="primary" size="small">
+                更多<el-icon class="el-icon--right"><ArrowDown /></el-icon>
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item
+                    v-if="has('model:write')"
+                    @click="toggleActive(row)"
+                  >{{ row.is_active ? '停用' : '启用' }}</el-dropdown-item>
+                  <el-dropdown-item
+                    v-if="has('model:delete')"
+                    divided
+                    @click="handleDelete(row)"
+                  >
+                    <span class="danger-item">删除</span>
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </template>
         </el-table-column>
       </el-table>
@@ -564,6 +573,7 @@ onMounted(fetchModels)
   color: var(--fg-secondary);
   word-break: break-all;
 }
+.danger-item { color: var(--color-danger-fg); }
 
 /* ─── 协议标签 ─── */
 .proto-badge {

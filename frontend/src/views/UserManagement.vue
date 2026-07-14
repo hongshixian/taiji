@@ -1,5 +1,5 @@
 <template>
-  <div class="page-shell user-management">
+  <div class="page-shell page-shell--wide user-management">
     <header class="page-header">
       <span class="page-header__eyebrow t-eyebrow">租户 · 成员</span>
       <div class="page-header__row">

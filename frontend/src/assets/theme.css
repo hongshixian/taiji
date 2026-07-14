@@ -170,6 +170,10 @@ body {
   margin: 0 auto;
   padding: var(--space-9) var(--space-8);
 }
+/* 宽变体 — 表格类页面用，允许在大屏铺开整行 */
+.page-shell--wide {
+  max-width: 1600px;
+}
 
 .page-header {
   display: flex;
