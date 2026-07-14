@@ -1,11 +1,15 @@
 """ModelConfig / ModelSpec → inspect_ai 可用的字符串 spec + 环境变量
 
 inspect_ai 的 model 语法：<provider>/<model_name>
-  * OpenAI 系: "openai/gpt-4o-mini" (走官方 OpenAI SDK)
-  * Anthropic: "anthropic/claude-...."
-  * Gemini:    "google/gemini-..."
-  * Ollama:    "ollama/..."
-  * 自建/兼容: "openai-api/<name>"（通用 OpenAI 兼容协议，任意 base_url）
+
+为什么 openai / custom / ollama 都走 `openai-api` 而不是 `openai`：
+  * inspect_ai 的 `openai` provider 默认走 OpenAI 新的 Responses API
+    (POST /responses)，第三方 litellm/OpenAI 兼容网关通常只实现
+    /chat/completions，会 404。
+  * `openai-api/<service>/<model>` 通道强制走标准 /chat/completions，且用
+    <SERVICE>_BASE_URL / <SERVICE>_API_KEY 环境变量鉴权，专为兼容网关设计。
+  * 用 svc{id} 作为唯一 service 名，保证同一次评测里被测模型与评委模型（可能
+    base_url / key 不同）各自的环境变量不互相覆盖。
 """
 
 from __future__ import annotations
@@ -16,60 +20,69 @@ import os
 from app.benchmark.dto import ModelSpec
 
 
-# taiji 的 api_protocol 到 inspect_ai provider 前缀的映射
-_PROVIDER_MAP = {
-    "openai": "openai",
-    "anthropic": "anthropic",
-    "gemini": "google",
-    "ollama": "ollama",
-    "custom": "openai-api",  # 一律走 openai 兼容协议
-    "mockllm": "mockllm",    # 内建 mock provider（供开发/测试用）
-}
+def _service_name(spec: ModelSpec) -> str:
+    """为 openai-api 通道生成唯一 service 名（纯字母数字，避免环境变量冲突）。"""
+    return f"svc{spec.id}"
+
+
+def _service_env_names(service: str) -> tuple[str, str]:
+    up = service.upper()
+    return f"{up}_BASE_URL", f"{up}_API_KEY"
 
 
 def model_spec_to_inspect_model(spec: ModelSpec) -> str:
     """把 ModelSpec 翻译成 inspect_ai 认识的 model 字符串。"""
 
-    provider = _PROVIDER_MAP.get(spec.api_protocol, "openai-api")
-    if provider == "mockllm":
+    protocol = (spec.api_protocol or "").lower()
+    if protocol == "mockllm":
         return "mockllm/model"  # inspect_ai 只承认 mockllm/model
-    return f"{provider}/{spec.model_name}"
-
-
-def _env_prefix(spec: ModelSpec) -> tuple[str, str]:
-    """返回 (BASE_URL 环境变量名, API_KEY 环境变量名)"""
-
-    protocol = spec.api_protocol
-    if protocol == "openai":
-        return "OPENAI_BASE_URL", "OPENAI_API_KEY"
     if protocol == "anthropic":
-        return "ANTHROPIC_BASE_URL", "ANTHROPIC_API_KEY"
+        return f"anthropic/{spec.model_name}"
     if protocol == "gemini":
-        # inspect_ai 的 google provider 用 GOOGLE_API_KEY
-        return "GOOGLE_BASE_URL", "GOOGLE_API_KEY"
-    if protocol == "ollama":
-        return "OLLAMA_BASE_URL", "OLLAMA_API_KEY"
-    # openai 兼容协议 → 用统一环境变量前缀 INSPECT_EVAL_MODEL_BASE_URL / _API_KEY
-    return "OPENAI_BASE_URL", "OPENAI_API_KEY"
+        return f"google/{spec.model_name}"
+    # openai / custom / ollama / 其它 → 统一走 openai 兼容通道
+    service = _service_name(spec)
+    return f"openai-api/{service}/{spec.model_name}"
+
+
+def env_overrides_for_spec(spec: ModelSpec) -> dict[str, str]:
+    """返回该 spec 需要设置的鉴权环境变量键值对。"""
+
+    protocol = (spec.api_protocol or "").lower()
+    if protocol == "mockllm":
+        return {}
+    if protocol == "anthropic":
+        return {
+            "ANTHROPIC_BASE_URL": spec.api_base_url or "",
+            "ANTHROPIC_API_KEY": spec.api_key or "",
+        }
+    if protocol == "gemini":
+        env = {"GOOGLE_API_KEY": spec.api_key or ""}
+        if spec.api_base_url:
+            env["GOOGLE_BASE_URL"] = spec.api_base_url
+        return env
+    # openai / custom / ollama → openai-api 通道，唯一 service 前缀
+    service = _service_name(spec)
+    base_env, key_env = _service_env_names(service)
+    return {
+        base_env: spec.api_base_url or "",
+        key_env: spec.api_key or "",
+    }
 
 
 @contextmanager
 def with_model_env(specs: list[ModelSpec]):
     """在 with 块里临时设置模型鉴权环境变量，退出时恢复。
 
-    多个 spec 如果指向不同 provider，各自设置一份；如果指向同一 provider（如都是
-    openai 兼容），后写入的会覆盖前一份 —— 因此 spec 顺序：被测模型在前，评委在后
-    时评委生效。**要求调用方保证同一 provider 下的所有 spec 共用同一套鉴权**。
+    openai-api 通道用 svc{id} 唯一 service，因此多个模型的环境变量不会互相覆盖。
+    anthropic / gemini 用全局环境变量，若同一次评测里出现两个同 provider 但不同
+    base_url 的模型，后者会覆盖前者（一期评委通常与被测共用同一网关，可接受）。
     """
 
     saved: dict[str, str | None] = {}
     try:
         for spec in specs:
-            base_url_env, api_key_env = _env_prefix(spec)
-            for key, val in (
-                (base_url_env, spec.api_base_url),
-                (api_key_env, spec.api_key or ""),
-            ):
+            for key, val in env_overrides_for_spec(spec).items():
                 if key not in saved:
                     saved[key] = os.environ.get(key)
                 os.environ[key] = val or ""
