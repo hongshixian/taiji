@@ -44,10 +44,10 @@
       >
         <div class="form-section">
           <div class="form-section__title">基本信息</div>
-          <el-form-item label="任务名称" required>
+          <el-form-item label="任务名称">
             <el-input
               v-model="form.taskName"
-              placeholder="例：GPT-4o MMLU 测评"
+              placeholder="留空则自动生成：模型-评测集-时间"
               maxlength="100"
               show-word-limit
             />
@@ -495,7 +495,6 @@ function onLimitPresetChange(v) {
 }
 
 async function onSubmit() {
-  if (!form.taskName.trim()) return ElMessage.warning('请填写任务名称')
   if (!form.suiteKey) return ElMessage.warning('请选择评测集')
   if (!form.targetModelId) return ElMessage.warning('请选择被测模型')
   const needsJudge = selectedSuite.value?.needs_judge
@@ -503,10 +502,13 @@ async function onSubmit() {
     return ElMessage.warning('该评测集需要评委模型')
   }
 
+  // 任务名为空时，用 {被测模型}-{评测集}-{时间} 自动拼接
+  const taskName = form.taskName.trim() || autoTaskName()
+
   submitting.value = true
   try {
     await submitBenchmark({
-      task_name: form.taskName.trim(),
+      task_name: taskName,
       notes: form.notes.trim() || null,
       benchmark_suite: form.suiteKey,
       target_model_id: form.targetModelId,
@@ -522,6 +524,17 @@ async function onSubmit() {
   } finally {
     submitting.value = false
   }
+}
+
+function autoTaskName() {
+  const model = modelPresets.value.find((m) => m.id === form.targetModelId)
+  const modelName = model?.display_name || 'model'
+  const suiteName = selectedSuite.value?.display_name || form.suiteKey
+  const now = new Date()
+  const pad = (n) => String(n).padStart(2, '0')
+  const ts = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}`
+  const name = `${modelName}-${suiteName}-${ts}`
+  return name.slice(0, 100)
 }
 
 async function onRetry(id) {

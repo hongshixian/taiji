@@ -231,7 +231,15 @@
       width="600px"
       :close-on-click-modal="false"
     >
-      <div v-if="testResult" class="test-result">
+      <!-- 测试进行中 -->
+      <div v-if="testing" class="test-loading" v-loading="true" element-loading-text="正在向模型发送测试请求…">
+        <div class="test-loading__meta">
+          <span class="t-caption">模型：{{ testTargetName }}</span>
+        </div>
+      </div>
+
+      <!-- 测试结果 -->
+      <div v-else-if="testResult" class="test-result">
         <div class="test-result__header">
           <span
             class="status-pill"
@@ -265,6 +273,10 @@
         </div>
       </div>
       <template #footer>
+        <el-button
+          v-if="!testing && testResult"
+          @click="handleTest(currentTestRow)"
+        >重新测试</el-button>
         <el-button @click="testDialogVisible = false">关闭</el-button>
       </template>
     </el-dialog>
@@ -296,6 +308,8 @@ const testingId = ref(null)
 const testDialogVisible = ref(false)
 const testResult = ref(null)
 const testTargetName = ref('')
+const testing = ref(false)
+const currentTestRow = ref(null)
 
 const form = reactive({
   display_name: '',
@@ -439,12 +453,16 @@ async function toggleActive(row) {
 }
 
 async function handleTest(row) {
+  // 立即打开弹窗，进入测试中状态
+  currentTestRow.value = row
   testingId.value = row.id
   testTargetName.value = row.display_name
+  testResult.value = null
+  testing.value = true
+  testDialogVisible.value = true
   try {
     const { data } = await testModel(row.id)
     testResult.value = data.data
-    testDialogVisible.value = true
     if (testResult.value.ok) {
       ElMessage.success(`测试通过（${testResult.value.latency_ms}ms）`)
     } else {
@@ -459,9 +477,9 @@ async function handleTest(row) {
       provider: row.api_protocol,
       model: row.model_name,
     }
-    testDialogVisible.value = true
     ElMessage.error(err.response?.data?.message || '测试请求失败')
   } finally {
+    testing.value = false
     testingId.value = null
   }
 }
@@ -636,6 +654,16 @@ onMounted(fetchModels)
 .empty-state .el-button { margin-top: var(--space-3); }
 
 /* ─── 测试结果对话框 ─── */
+.test-loading {
+  min-height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.test-loading__meta {
+  text-align: center;
+  padding-top: var(--space-8);
+}
 .test-result {
   display: flex;
   flex-direction: column;
