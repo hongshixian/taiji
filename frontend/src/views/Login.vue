@@ -78,8 +78,8 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
 import { User, Lock } from 'lucide-vue-next'
+import { toast } from '@/lib/toast'
 import UiInput from '@/components/ui/Input.vue'
 import UiButton from '@/components/ui/Button.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -102,11 +102,11 @@ async function handleLogin() {
   loading.value = true
   try {
     await authStore.login({ username: form.username, password: form.password })
-    ElMessage.success('登录成功')
+    toast.success('登录成功')
     router.push('/')
   } catch (err: unknown) {
     const e = err as { response?: { data?: { message?: string } } }
-    ElMessage.error(e.response?.data?.message || '登录失败，请检查账号密码')
+    toast.error(e.response?.data?.message || '登录失败，请检查账号密码')
   } finally {
     loading.value = false
   }

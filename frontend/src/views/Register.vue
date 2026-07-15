@@ -1,291 +1,149 @@
 <template>
-  <div class="auth-page">
-    <aside class="brand-side fc-grain">
-      <div class="brand-content">
-        <span class="t-eyebrow brand-eyebrow">FANGCUN AI</span>
-        <h1 class="brand-title fc-display-serif">
-          注册账号，<br>
-          开始你的<em class="fc-italic-word">第一次</em>提交。
+  <div class="flex min-h-screen bg-canvas">
+    <!-- 品牌区 — 暗色 marketing tier -->
+    <aside class="relative hidden flex-[1.1] items-center overflow-hidden bg-[#0a0a14] px-16 py-20 text-fg-inverse lg:flex">
+      <div
+        class="pointer-events-none absolute inset-0 z-0"
+        style="background: radial-gradient(circle at 75% 30%, rgba(143,114,208,0.22) 0%, transparent 55%)"
+      />
+      <div class="relative z-10 flex max-w-[520px] flex-col gap-8">
+        <span class="text-2xs font-bold uppercase tracking-[0.22em] text-white/55">FANGCUN AI</span>
+        <h1 class="m-0 text-5xl font-black leading-[1.05] tracking-tight text-[#f5f0ff]">
+          注册账号，<br />
+          开始你的<em class="font-normal italic text-[#c9b37e]">第一次</em>提交。
         </h1>
-        <p class="brand-lede">
+        <p class="m-0 max-w-[44ch] text-lg leading-relaxed text-white/70">
           注册后默认进入访客租户。任何时候都可以由超管把你加进其他租户。
         </p>
 
-        <ol class="brand-steps">
-          <li>
-            <span class="step-num t-mono">01</span>
-            <span class="step-text">填写用户名 / 邮箱 / 密码</span>
+        <ol class="mt-4 flex list-none flex-col gap-5 border-t border-white/10 pt-6">
+          <li class="flex items-baseline gap-6">
+            <span class="shrink-0 font-mono text-lg tracking-wide text-[#c9b37e]">01</span>
+            <span class="text-sm leading-relaxed text-white/75">填写用户名 / 邮箱 / 密码</span>
           </li>
-          <li>
-            <span class="step-num t-mono">02</span>
-            <span class="step-text">配置被测模型，提交一个 Benchmark 测评</span>
+          <li class="flex items-baseline gap-6">
+            <span class="shrink-0 font-mono text-lg tracking-wide text-[#c9b37e]">02</span>
+            <span class="text-sm leading-relaxed text-white/75">配置被测模型，提交一个 Benchmark 测评</span>
           </li>
-          <li>
-            <span class="step-num t-mono">03</span>
-            <span class="step-text">查看评测结果与排行榜</span>
+          <li class="flex items-baseline gap-6">
+            <span class="shrink-0 font-mono text-lg tracking-wide text-[#c9b37e]">03</span>
+            <span class="text-sm leading-relaxed text-white/75">查看评测结果与排行榜</span>
           </li>
         </ol>
 
-        <span class="brand-divider" aria-hidden="true"></span>
+        <span class="mt-3 h-px w-12 bg-[#c9b37e]" />
       </div>
     </aside>
 
-    <main class="form-side">
-      <div class="form-shell">
-        <header class="form-header">
-          <span class="t-eyebrow">注册</span>
-          <h2 class="form-title">创建账号</h2>
-          <p class="form-lede">用户名长度 3 至 80 字符，密码至少 6 位。</p>
+    <!-- 表单区 — 亮色产品 UI -->
+    <main class="flex flex-1 items-center justify-center bg-surface px-8 py-16">
+      <div class="flex w-full max-w-[380px] flex-col gap-8">
+        <header class="flex flex-col gap-2">
+          <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">注册</span>
+          <h2 class="m-0 text-3xl font-bold tracking-tight text-fg">创建账号</h2>
+          <p class="m-0 text-sm text-fg-secondary">用户名长度 3 至 80 字符，密码至少 6 位。</p>
         </header>
 
-        <el-form
-          ref="formRef"
-          :model="form"
-          :rules="rules"
-          label-width="0"
-          size="large"
-          @submit.prevent="handleRegister"
-        >
-          <el-form-item prop="username">
-            <el-input
+        <form class="flex flex-col gap-4" @submit.prevent="handleRegister">
+          <div class="flex flex-col gap-1.5">
+            <UiInput
               v-model="form.username"
               placeholder="用户名"
               autocomplete="username"
+              @enter="handleRegister"
             >
-              <template #prefix><el-icon><User /></el-icon></template>
-            </el-input>
-          </el-form-item>
-          <el-form-item prop="email">
-            <el-input
+              <template #prefix><User class="size-4" /></template>
+            </UiInput>
+            <p v-if="errors.username" class="text-xs text-danger">{{ errors.username }}</p>
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <UiInput
               v-model="form.email"
               placeholder="邮箱"
               autocomplete="email"
+              @enter="handleRegister"
             >
-              <template #prefix><el-icon><Message /></el-icon></template>
-            </el-input>
-          </el-form-item>
-          <el-form-item prop="password">
-            <el-input
+              <template #prefix><Mail class="size-4" /></template>
+            </UiInput>
+            <p v-if="errors.email" class="text-xs text-danger">{{ errors.email }}</p>
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <UiInput
               v-model="form.password"
               type="password"
               placeholder="密码"
-              show-password
               autocomplete="new-password"
+              @enter="handleRegister"
             >
-              <template #prefix><el-icon><Lock /></el-icon></template>
-            </el-input>
-          </el-form-item>
-          <el-form-item>
-            <el-button
-              type="primary"
-              native-type="submit"
-              :loading="loading"
-              class="auth-btn"
-            >
-              注册
-            </el-button>
-          </el-form-item>
-        </el-form>
+              <template #prefix><Lock class="size-4" /></template>
+            </UiInput>
+            <p v-if="errors.password" class="text-xs text-danger">{{ errors.password }}</p>
+          </div>
+          <UiButton native-type="submit" :loading="loading" block size="lg" class="mt-2 tracking-wide">
+            注册
+          </UiButton>
+        </form>
 
-        <p class="form-footer">
-          已有账号？<router-link to="/login">返回登录</router-link>
+        <p class="m-0 text-center text-sm text-fg-secondary">
+          已有账号？<router-link to="/login" class="ml-1 font-semibold text-brand hover:underline">返回登录</router-link>
         </p>
       </div>
     </main>
   </div>
 </template>
 
-<script setup>
-import { ref, reactive } from 'vue'
+<script setup lang="ts">
+import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
-import { useAuthStore } from '../stores/auth'
+import { User, Mail, Lock } from 'lucide-vue-next'
+import UiInput from '@/components/ui/Input.vue'
+import UiButton from '@/components/ui/Button.vue'
+import { toast } from '@/lib/toast'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const formRef = ref(null)
 const loading = ref(false)
 
-const form = reactive({
+const form = reactive({ username: '', email: '', password: '' })
+const errors = reactive<{ username: string; email: string; password: string }>({
   username: '',
   email: '',
   password: '',
 })
 
-const rules = {
-  username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 80, message: '用户名长度 3 至 80 字符', trigger: 'blur' },
-  ],
-  email: [
-    { required: true, message: '请输入邮箱', trigger: 'blur' },
-    { type: 'email', message: '邮箱格式不正确', trigger: 'blur' },
-  ],
-  password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码至少 6 位', trigger: 'blur' },
-  ],
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+function validate(): boolean {
+  const name = form.username.trim()
+  if (!name) errors.username = '请输入用户名'
+  else if (name.length < 3 || name.length > 80) errors.username = '用户名长度 3 至 80 字符'
+  else errors.username = ''
+
+  if (!form.email.trim()) errors.email = '请输入邮箱'
+  else if (!EMAIL_RE.test(form.email.trim())) errors.email = '邮箱格式不正确'
+  else errors.email = ''
+
+  if (!form.password) errors.password = '请输入密码'
+  else if (form.password.length < 6) errors.password = '密码至少 6 位'
+  else errors.password = ''
+
+  return !errors.username && !errors.email && !errors.password
 }
 
 async function handleRegister() {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
+  if (!validate()) return
 
   loading.value = true
   try {
     await authStore.register(form.username, form.email, form.password)
-    ElMessage.success('注册成功，请登录')
+    toast.success('注册成功，请登录')
     router.push('/login')
-  } catch (err) {
-    const msg = err.response?.data?.message || '注册失败，请稍后重试'
-    ElMessage.error(msg)
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { message?: string } } }
+    toast.error(e.response?.data?.message || '注册失败，请稍后重试')
   } finally {
     loading.value = false
   }
 }
 </script>
-
-<style scoped>
-.auth-page {
-  display: flex;
-  min-height: 100vh;
-  background: var(--bg-canvas);
-}
-
-/* ─── 品牌区 — 暗色 hero ─── */
-.brand-side {
-  flex: 1.1;
-  position: relative;
-  background: var(--ink-950);
-  color: var(--fg-inverse);
-  display: flex;
-  align-items: center;
-  padding: var(--space-13) var(--space-12);
-  overflow: hidden;
-}
-.brand-side::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 75% 30%, rgba(143, 114, 208, 0.22) 0%, transparent 55%);
-  z-index: 0;
-}
-.brand-content {
-  position: relative;
-  z-index: 2;
-  max-width: 520px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-7);
-}
-.brand-eyebrow {
-  color: rgba(245, 240, 255, 0.55);
-  letter-spacing: 0.22em;
-}
-.brand-title {
-  font-size: clamp(40px, 5vw, 64px);
-  line-height: 1.05;
-  margin: 0;
-  color: #f5f0ff;
-  letter-spacing: -0.01em;
-}
-.brand-title em {
-  color: #c9b37e;
-  font-style: italic;
-  font-weight: 400;
-}
-.brand-lede {
-  font-size: var(--text-lg);
-  line-height: var(--leading-relaxed);
-  color: rgba(245, 240, 255, 0.72);
-  margin: 0;
-  max-width: 44ch;
-}
-.brand-steps {
-  list-style: none;
-  margin: var(--space-7) 0 0;
-  padding: var(--space-7) 0 0;
-  border-top: 1px solid rgba(245, 240, 255, 0.12);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-}
-.brand-steps li {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-6);
-}
-.step-num {
-  color: #c9b37e;
-  font-size: var(--text-lg);
-  letter-spacing: 0.04em;
-  flex-shrink: 0;
-}
-.step-text {
-  color: rgba(245, 240, 255, 0.78);
-  font-size: var(--text-md);
-  line-height: var(--leading-relaxed);
-}
-.brand-divider {
-  width: 48px;
-  height: 1px;
-  background: #c9b37e;
-  margin-top: var(--space-5);
-}
-
-/* ─── 表单区 — 亮色 ─── */
-.form-side {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-11) var(--space-9);
-  background: var(--bg-surface);
-}
-.form-shell {
-  width: 100%;
-  max-width: 380px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-}
-.form-header {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-.form-title {
-  font-size: var(--text-3xl);
-  font-weight: var(--weight-bold);
-  letter-spacing: -0.01em;
-  margin: 0;
-  color: var(--fg-primary);
-}
-.form-lede {
-  margin: 0;
-  font-size: var(--text-md);
-  color: var(--fg-secondary);
-}
-.auth-btn {
-  width: 100%;
-  font-weight: var(--weight-semibold);
-  letter-spacing: 0.04em;
-}
-.form-footer {
-  font-size: var(--text-sm);
-  color: var(--fg-secondary);
-  text-align: center;
-  margin: 0;
-}
-.form-footer a {
-  color: var(--violet-600);
-  text-decoration: none;
-  font-weight: var(--weight-semibold);
-  margin-left: 4px;
-}
-.form-footer a:hover { text-decoration: underline; }
-
-@media (max-width: 900px) {
-  .brand-side { display: none; }
-}
-</style>

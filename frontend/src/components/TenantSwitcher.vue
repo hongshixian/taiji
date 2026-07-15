@@ -1,89 +1,54 @@
 <template>
-  <el-select
+  <UiSelect
+    v-if="activeMemberships.length > 0"
     :model-value="currentId"
+    :options="options"
     :disabled="activeMemberships.length <= 1"
-    class="tenant-select"
-    size="small"
-    fit-input-width
-    @change="handleSwitch"
-  >
-    <template #prefix>
-      <el-icon class="tenant-icon"><OfficeBuilding /></el-icon>
-    </template>
-    <el-option
-      v-for="m in activeMemberships"
-      :key="m.id"
-      :label="m.tenant_name"
-      :value="m.tenant_id"
-    >
-      <div class="tenant-option">
-        <span class="ti-name">{{ m.tenant_name }}</span>
-        <span class="ti-slug">{{ m.tenant_slug }}</span>
-        <el-tag size="small" effect="plain">{{ m.role_name || m.role }}</el-tag>
-      </div>
-    </el-option>
-  </el-select>
+    class="w-[200px]"
+    @update:model-value="handleSwitch"
+  />
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
-import { ElMessage } from 'element-plus'
-import { useAuthStore } from '../stores/auth'
+import { toast } from '@/lib/toast'
+import { useAuthStore } from '@/stores/auth'
+import UiSelect, { type SelectOption } from '@/components/ui/Select.vue'
 
 const authStore = useAuthStore()
 
-const activeMemberships = computed(() => {
-  return (authStore.user?.memberships || []).filter((m) => m.is_active)
-})
-const currentId = computed(() => authStore.currentTenant?.id)
+interface Membership {
+  id: number
+  tenant_id: number
+  tenant_name: string
+  tenant_slug: string
+  role_name?: string
+  role?: string
+  is_active?: boolean
+}
 
-async function handleSwitch(tenantId) {
-  if (tenantId === currentId.value) return
+const activeMemberships = computed<Membership[]>(() =>
+  ((authStore.user?.memberships as Membership[] | undefined) || []).filter((m) => m.is_active),
+)
+const currentId = computed(() => authStore.currentTenant?.id ?? null)
+
+const options = computed<SelectOption[]>(() =>
+  activeMemberships.value.map((m) => ({
+    label: m.tenant_name,
+    value: m.tenant_id,
+    badge: m.tenant_slug,
+  })),
+)
+
+async function handleSwitch(tenantId: string | number | null) {
+  if (tenantId == null || tenantId === currentId.value) return
   try {
-    await authStore.switchTenant(tenantId)
-    ElMessage.success(`已切换到租户「${authStore.currentTenant?.name}」`)
+    await authStore.switchTenant(tenantId as number)
+    toast.success(`已切换到租户「${authStore.currentTenant?.name}」`)
     setTimeout(() => window.location.reload(), 300)
-  } catch (err) {
-    ElMessage.error(err.response?.data?.message || '切换失败')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { message?: string } } }
+    toast.error(e.response?.data?.message || '切换失败')
   }
 }
 </script>
-
-<style scoped>
-.tenant-select {
-  width: 200px;
-}
-.tenant-select :deep(.el-select__wrapper) {
-  min-height: 36px;
-  border-radius: var(--radius-md);
-  background: var(--bg-surface-sunken);
-  box-shadow: 0 0 0 1px var(--border-subtle) inset;
-}
-.tenant-select :deep(.el-select__wrapper:hover) {
-  box-shadow: 0 0 0 1px var(--border-default) inset;
-}
-.tenant-icon {
-  font-size: 15px;
-  color: var(--violet-600);
-}
-[data-theme="dark"] .tenant-icon,
-html.dark .tenant-icon { color: var(--violet-300); }
-.tenant-option {
-  display: flex;
-  align-items: center;
-  gap: var(--space-5);
-  min-width: 240px;
-}
-.ti-name {
-  font-weight: var(--weight-medium);
-  flex: 1;
-}
-.ti-slug {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--fg-tertiary);
-}
-@media (max-width: 768px) {
-  .tenant-select { width: 140px; }
-}
-</style>

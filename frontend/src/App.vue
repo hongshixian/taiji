@@ -1,140 +1,126 @@
 <template>
   <div id="app">
-    <el-container v-if="isLoggedIn" class="app-layout">
+    <div v-if="isLoggedIn" class="flex h-screen flex-col">
       <!-- 顶栏 -->
-      <el-header class="app-header">
-        <div class="header-left">
+      <header class="relative z-10 flex h-16 shrink-0 items-center justify-between border-b border-line bg-surface px-6">
+        <div class="flex items-center gap-5">
           <button
             type="button"
-            class="collapse-btn fc-focus"
+            class="flex size-9 items-center justify-center rounded-md text-fg-secondary transition-colors hover:bg-surface-sunken hover:text-fg"
             :aria-label="collapsed ? '展开侧边栏' : '收起侧边栏'"
             @click="collapsed = !collapsed"
           >
-            <el-icon><component :is="collapsed ? 'Expand' : 'Fold'" /></el-icon>
+            <PanelLeft v-if="collapsed" class="size-5" />
+            <PanelLeftClose v-else class="size-5" />
           </button>
-          <router-link to="/" class="brand fc-focus" aria-label="返回主页">
-            <img src="./assets/brand/logo-mark-purple.svg" alt="" class="brand-logo" />
-            <span class="brand-stack">
-              <span class="brand-mark">方寸AI测评平台</span>
-              <span class="brand-sub">Fangcun AI Evaluation Platform</span>
+          <router-link to="/" class="flex items-center gap-3" aria-label="返回主页">
+            <img src="./assets/brand/logo-mark-purple.svg" alt="" class="size-9 rounded-md" />
+            <span class="flex flex-col leading-tight">
+              <span class="text-lg font-bold tracking-wide text-fg">方寸AI测评平台</span>
+              <span class="font-mono text-[10px] uppercase tracking-[0.18em] text-fg-tertiary">Fangcun AI Evaluation Platform</span>
             </span>
           </router-link>
         </div>
 
-        <div class="header-right">
+        <div class="flex items-center gap-3">
           <TenantSwitcher />
 
-          <el-tooltip :content="isDark ? '切换为浅色' : '切换为深色'" placement="bottom">
-            <button
-              type="button"
-              class="header-icon fc-focus"
-              :aria-label="isDark ? '切换为浅色' : '切换为深色'"
-              @click="toggleTheme"
-            >
-              <el-icon><component :is="isDark ? 'Sunny' : 'Moon'" /></el-icon>
-            </button>
-          </el-tooltip>
-
-          <el-dropdown trigger="click" @command="handleCommand">
-            <button type="button" class="user-trigger fc-focus">
-              <el-avatar :size="32" class="user-avatar" :class="{ 'is-superuser': authStore.isSuperuser }">
-                {{ avatarInitial }}
-              </el-avatar>
-              <span class="user-meta">
-                <span class="username">{{ authStore.user?.username }}</span>
-                <span class="user-role">{{ roleLabel }}</span>
-              </span>
-              <el-icon class="caret"><ArrowDown /></el-icon>
-            </button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="settings">
-                  <el-icon><Setting /></el-icon> 个人设置
-                </el-dropdown-item>
-                <el-dropdown-item divided command="logout">
-                  <el-icon><SwitchButton /></el-icon> 退出登录
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-        </div>
-      </el-header>
-
-      <el-container>
-        <el-aside :width="collapsed ? '64px' : '224px'" class="app-aside">
-          <el-menu
-            :default-active="currentRoute"
-            :default-openeds="defaultOpeneds"
-            :collapse="collapsed"
-            router
-            class="side-menu"
+          <button
+            type="button"
+            class="flex size-9 items-center justify-center rounded-md text-fg-secondary transition-colors hover:bg-surface-sunken hover:text-fg"
+            :aria-label="isDark ? '切换为浅色' : '切换为深色'"
+            :title="isDark ? '切换为浅色' : '切换为深色'"
+            @click="toggleTheme"
           >
-            <el-menu-item index="/">
-              <el-icon><HomeFilled /></el-icon>
-              <template #title>主页</template>
-            </el-menu-item>
-            <el-menu-item index="/leaderboard">
-              <el-icon><TrophyBase /></el-icon>
-              <template #title>测评榜单</template>
-            </el-menu-item>
-            <el-sub-menu index="/tasks" v-if="has('task:read')">
-              <template #title>
-                <el-icon><Tickets /></el-icon>
-                <span>任务管理</span>
-              </template>
-              <el-menu-item :index="TASK_TYPE_ROUTES[BENCHMARK_TASK_TYPE]">
-                <el-icon><DataAnalysis /></el-icon>
-                <template #title>Benchmark 测评</template>
-              </el-menu-item>
-              <el-menu-item :index="TASK_TYPE_ROUTES[RED_TEAM_TASK_TYPE]">
-                <el-icon><Warning /></el-icon>
-                <template #title>自动红队测评</template>
-              </el-menu-item>
-            </el-sub-menu>
-            <el-menu-item index="/models" v-if="has('model:read')">
-              <el-icon><Cpu /></el-icon>
-              <template #title>模型管理</template>
-            </el-menu-item>
-            <el-menu-item index="/users" v-if="has('user:read')">
-              <el-icon><User /></el-icon>
-              <template #title>用户管理</template>
-            </el-menu-item>
-            <el-menu-item index="/roles" v-if="has('role:read')">
-              <el-icon><Key /></el-icon>
-              <template #title>角色管理</template>
-            </el-menu-item>
-            <el-menu-item index="/audit-logs" v-if="has('system:audit')">
-              <el-icon><Tickets /></el-icon>
-              <template #title>审计日志</template>
-            </el-menu-item>
-            <el-menu-item index="/settings">
-              <el-icon><Tools /></el-icon>
-              <template #title>通用设置</template>
-            </el-menu-item>
-            <el-menu-item index="/tenants" v-if="authStore.isSuperuser">
-              <el-icon><OfficeBuilding /></el-icon>
-              <template #title>租户管理</template>
-            </el-menu-item>
-            <el-menu-item index="/system-settings" v-if="authStore.isSuperuser">
-              <el-icon><Operation /></el-icon>
-              <template #title>系统设置</template>
-            </el-menu-item>
-          </el-menu>
-          <div v-if="!collapsed" class="aside-footer">
-            <span class="t-eyebrow">Fangcun AI</span>
-            <span class="aside-version">v0.1</span>
-          </div>
-        </el-aside>
+            <Sun v-if="isDark" class="size-5" />
+            <Moon v-else class="size-5" />
+          </button>
 
-        <el-main class="app-main">
+          <UiDropdown>
+            <template #trigger>
+              <button type="button" class="flex items-center gap-2 rounded-full border border-transparent p-1 pr-3 transition-colors hover:border-line hover:bg-surface-sunken">
+                <span
+                  class="flex size-8 items-center justify-center rounded-full text-sm font-semibold text-brand-fg"
+                  :class="authStore.isSuperuser ? 'bg-gradient-to-br from-violet-700 to-violet-300 ring-2 ring-brand/25' : 'bg-violet-600'"
+                >
+                  {{ avatarInitial }}
+                </span>
+                <span class="hidden flex-col leading-tight sm:flex">
+                  <span class="text-sm font-semibold text-fg">{{ authStore.user?.username }}</span>
+                  <span class="text-xs text-fg-tertiary">{{ roleLabel }}</span>
+                </span>
+                <ChevronDown class="size-3 text-fg-tertiary" />
+              </button>
+            </template>
+            <template #default="{ close }">
+              <UiDropdownItem @select="close(); router.push('/settings')">
+                <Settings class="size-4" /> 个人设置
+              </UiDropdownItem>
+              <div class="my-1 border-t border-line" />
+              <UiDropdownItem @select="close(); authStore.logout()">
+                <LogOut class="size-4" /> 退出登录
+              </UiDropdownItem>
+            </template>
+          </UiDropdown>
+        </div>
+      </header>
+
+      <div class="flex min-h-0 flex-1">
+        <!-- 侧边栏 -->
+        <aside
+          class="flex shrink-0 flex-col justify-between overflow-hidden border-r border-line bg-surface transition-[width] duration-300"
+          :class="collapsed ? 'w-16' : 'w-56'"
+        >
+          <nav class="flex-1 space-y-1 p-3">
+            <template v-for="item in menu" :key="item.key">
+              <!-- 分组（任务管理） -->
+              <div v-if="item.children">
+                <button
+                  type="button"
+                  class="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-fg-secondary transition-colors hover:bg-surface-sunken hover:text-fg"
+                  @click="toggleGroup(item.key)"
+                >
+                  <component :is="item.icon" class="size-[18px] shrink-0" />
+                  <template v-if="!collapsed">
+                    <span class="flex-1 text-left">{{ item.label }}</span>
+                    <ChevronDown :class="cn('size-4 transition-transform', openGroups.includes(item.key) && 'rotate-180')" />
+                  </template>
+                </button>
+                <div v-if="!collapsed && openGroups.includes(item.key)" class="mt-1 space-y-1 pl-4">
+                  <router-link
+                    v-for="child in item.children"
+                    :key="child.to"
+                    :to="child.to"
+                    :class="navClass(isActive(child.to))"
+                  >
+                    <component :is="child.icon" class="size-[18px] shrink-0" />
+                    <span>{{ child.label }}</span>
+                  </router-link>
+                </div>
+              </div>
+              <!-- 普通项 -->
+              <router-link v-else :to="item.to!" :class="navClass(isActive(item.to!))" :title="collapsed ? item.label : undefined">
+                <component :is="item.icon" class="size-[18px] shrink-0" />
+                <span v-if="!collapsed">{{ item.label }}</span>
+              </router-link>
+            </template>
+          </nav>
+          <div v-if="!collapsed" class="flex flex-col gap-1 border-t border-line px-5 py-4">
+            <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">Fangcun AI</span>
+            <span class="font-mono text-xs text-fg-tertiary">v0.1</span>
+          </div>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main class="min-w-0 flex-1 overflow-y-auto bg-canvas p-8">
           <router-view v-slot="{ Component }">
             <transition name="fade-slide" mode="out-in">
               <component :is="Component" />
             </transition>
           </router-view>
-        </el-main>
-      </el-container>
-    </el-container>
+        </main>
+      </div>
+    </div>
 
     <router-view v-else v-slot="{ Component }">
       <transition name="fade-slide" mode="out-in">
@@ -147,20 +133,28 @@
   </div>
 </template>
 
-<script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+<script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import {
+  PanelLeft, PanelLeftClose, Sun, Moon, ChevronDown, Settings, LogOut,
+  Home, Trophy, ListChecks, BarChart3, ShieldAlert, Cpu, Users, KeyRound,
+  ScrollText, Wrench, Building2, SlidersHorizontal,
+} from 'lucide-vue-next'
 import { useAuthStore } from './stores/auth'
 import { usePermission } from './composables/usePermission'
 import TenantSwitcher from './components/TenantSwitcher.vue'
 import Toaster from './components/ui/Toaster.vue'
 import ConfirmHost from './components/ui/ConfirmHost.vue'
+import UiDropdown from './components/ui/Dropdown.vue'
+import UiDropdownItem from './components/ui/DropdownItem.vue'
 import { applyTheme, isDarkActive } from './utils/theme'
 import {
   BENCHMARK_TASK_TYPE,
   RED_TEAM_TASK_TYPE,
   TASK_TYPE_ROUTES,
 } from './constants/taskTypes'
+import { cn } from '@/lib/utils'
 
 const route = useRoute()
 const router = useRouter()
@@ -169,252 +163,71 @@ const { has } = usePermission()
 
 const collapsed = ref(window.innerWidth < 900)
 const isDark = ref(isDarkActive())
+const openGroups = ref<string[]>(route.path.startsWith('/tasks') ? ['tasks'] : [])
+
+interface MenuChild { to: string; label: string; icon: Component }
+interface MenuItem { key: string; label: string; icon: Component; to?: string; children?: MenuChild[]; show?: boolean }
+
+const menu = computed<MenuItem[]>(() =>
+  ([
+    { key: 'home', label: '主页', icon: Home, to: '/', show: true },
+    { key: 'leaderboard', label: '测评榜单', icon: Trophy, to: '/leaderboard', show: true },
+    {
+      key: 'tasks', label: '任务管理', icon: ListChecks, show: has('task:read'),
+      children: [
+        { to: TASK_TYPE_ROUTES[BENCHMARK_TASK_TYPE], label: 'Benchmark 测评', icon: BarChart3 },
+        { to: TASK_TYPE_ROUTES[RED_TEAM_TASK_TYPE], label: '自动红队测评', icon: ShieldAlert },
+      ],
+    },
+    { key: 'models', label: '模型管理', icon: Cpu, to: '/models', show: has('model:read') },
+    { key: 'users', label: '用户管理', icon: Users, to: '/users', show: has('user:read') },
+    { key: 'roles', label: '角色管理', icon: KeyRound, to: '/roles', show: has('role:read') },
+    { key: 'audit', label: '审计日志', icon: ScrollText, to: '/audit-logs', show: has('system:audit') },
+    { key: 'settings', label: '通用设置', icon: Wrench, to: '/settings', show: true },
+    { key: 'tenants', label: '租户管理', icon: Building2, to: '/tenants', show: authStore.isSuperuser },
+    { key: 'sys', label: '系统设置', icon: SlidersHorizontal, to: '/system-settings', show: authStore.isSuperuser },
+  ] as MenuItem[]).filter((m) => m.show !== false),
+)
 
 const isLoggedIn = computed(() => authStore.isLoggedIn)
-const currentRoute = computed(() => route.path)
-const defaultOpeneds = computed(() => (
-  route.path.startsWith('/tasks') ? ['/tasks'] : []
-))
-const avatarInitial = computed(() => {
-  const name = authStore.user?.username || '?'
-  return name.charAt(0).toUpperCase()
-})
-
+const avatarInitial = computed(() => (authStore.user?.username || '?').charAt(0).toUpperCase())
 const roleLabel = computed(() => {
   const u = authStore.user
   if (!u) return ''
   if (u.is_superuser) return '超级管理员'
-  return u.role_name || u.role || '普通用户'
+  return (u as { role_name?: string }).role_name || u.role || '普通用户'
 })
 
+function isActive(path: string) {
+  return path === '/' ? route.path === '/' : route.path.startsWith(path)
+}
+function navClass(active: boolean) {
+  return cn(
+    'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+    active ? 'bg-brand-soft text-brand' : 'text-fg-secondary hover:bg-surface-sunken hover:text-fg',
+  )
+}
+function toggleGroup(key: string) {
+  openGroups.value = openGroups.value.includes(key)
+    ? openGroups.value.filter((k) => k !== key)
+    : [...openGroups.value, key]
+}
 function toggleTheme() {
   isDark.value = !isDark.value
   applyTheme(isDark.value)
 }
-
-function handleCommand(cmd) {
-  if (cmd === 'logout') {
-    authStore.logout()
-  } else if (cmd === 'settings') {
-    router.push('/settings')
-  }
-}
-
 function handleResize() {
-  if (window.innerWidth < 900) {
-    collapsed.value = true
-  }
+  if (window.innerWidth < 900) collapsed.value = true
 }
 onMounted(() => window.addEventListener('resize', handleResize))
 onUnmounted(() => window.removeEventListener('resize', handleResize))
 </script>
 
 <style>
-.app-layout { height: 100vh; }
-
-/* ─── 顶栏 ───────────────────────────────── */
-.app-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--bg-surface);
-  border-bottom: 1px solid var(--border-subtle);
-  padding: 0 var(--space-8);
-  height: 64px;
-  z-index: 10;
-  position: relative;
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
 }
-.header-left { display: flex; align-items: center; gap: var(--space-7); }
-
-.collapse-btn {
-  width: 36px; height: 36px;
-  display: inline-flex; align-items: center; justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  color: var(--fg-secondary);
-  font-size: 18px;
-  transition: background var(--dur-base) var(--ease-out),
-              color var(--dur-base) var(--ease-out);
-}
-.collapse-btn:hover {
-  background: var(--state-hover);
-  color: var(--fg-primary);
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: var(--space-5);
-  text-decoration: none;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
-}
-.brand-logo { width: 36px; height: 36px; border-radius: var(--radius-md); }
-.brand-stack { display: flex; flex-direction: column; line-height: 1.1; }
-.brand-mark {
-  font-size: var(--text-lg);
-  font-weight: var(--weight-bold);
-  letter-spacing: 0.04em;
-  color: var(--fg-primary);
-}
-.brand-sub {
-  font-family: var(--font-mono);
-  font-size: var(--text-3xs);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--fg-tertiary);
-  margin-top: 2px;
-}
-
-.header-right { display: flex; align-items: center; gap: var(--space-5); }
-
-.header-icon {
-  width: 36px; height: 36px;
-  display: inline-flex; align-items: center; justify-content: center;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-size: 18px;
-  color: var(--fg-secondary);
-  transition: background var(--dur-base) var(--ease-out),
-              color var(--dur-base) var(--ease-out);
-}
-.header-icon:hover {
-  background: var(--state-hover);
-  color: var(--fg-primary);
-}
-
-.user-trigger {
-  display: flex;
-  align-items: center;
-  gap: var(--space-5);
-  cursor: pointer;
-  padding: var(--space-2) var(--space-5) var(--space-2) var(--space-2);
-  border: 1px solid transparent;
-  border-radius: var(--radius-full);
-  background: transparent;
-  transition: background var(--dur-base) var(--ease-out),
-              border-color var(--dur-base) var(--ease-out);
-}
-.user-trigger:hover {
-  background: var(--state-hover);
-  border-color: var(--border-subtle);
-}
-.user-avatar {
-  background: var(--violet-600);
-  color: var(--fg-on-brand);
-  font-weight: var(--weight-semibold);
-}
-.user-avatar.is-superuser {
-  background: var(--brand-gradient);
-  box-shadow: 0 0 0 2px rgba(109, 79, 186, 0.25);
-}
-.user-meta { display: flex; flex-direction: column; line-height: 1.2; }
-.username {
-  color: var(--fg-primary);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
-}
-.user-role {
-  color: var(--fg-tertiary);
-  font-size: var(--text-xs);
-  margin-top: 2px;
-}
-.caret { font-size: 12px; color: var(--fg-tertiary); }
-
-/* ─── 侧边栏 ─────────────────────────────── */
-.app-aside {
-  background: var(--bg-surface);
-  border-right: 1px solid var(--border-subtle);
-  transition: width var(--dur-slow) var(--ease-out);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-.side-menu {
-  border-right: none !important;
-  flex: 1;
-  background: transparent;
-  padding: var(--space-5) var(--space-4);
-}
-.side-menu .el-menu-item,
-.side-menu .el-sub-menu__title {
-  height: 40px;
-  line-height: 40px;
-  margin: var(--space-2) 0;
-  border-radius: var(--radius-md);
-  color: var(--fg-secondary);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-medium);
-}
-.side-menu .el-menu-item:hover,
-.side-menu .el-sub-menu__title:hover {
-  background: var(--state-hover) !important;
-  color: var(--fg-primary) !important;
-}
-.side-menu .el-sub-menu .el-menu-item {
-  margin-left: var(--space-5);
-  min-width: 0;
-}
-.side-menu .el-menu-item.is-active {
-  background: var(--state-selected) !important;
-  color: var(--violet-600);
-  font-weight: var(--weight-semibold);
-  position: relative;
-}
-[data-theme="dark"] .side-menu .el-menu-item.is-active,
-html.dark .side-menu .el-menu-item.is-active {
-  color: var(--violet-300);
-}
-.side-menu .el-menu-item.is-active::before {
-  content: '';
-  position: absolute;
-  left: -4px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 60%;
-  background: var(--violet-600);
-  border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
-}
-[data-theme="dark"] .side-menu .el-menu-item.is-active::before,
-html.dark .side-menu .el-menu-item.is-active::before {
-  background: var(--violet-300);
-}
-.side-menu .el-menu-item .el-icon,
-.side-menu .el-sub-menu__title .el-icon {
-  color: inherit;
-}
-.aside-footer {
-  padding: var(--space-6) var(--space-7);
-  border-top: 1px solid var(--border-subtle);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.aside-version {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--fg-tertiary);
-}
-
-/* ─── 主内容区 ───────────────────────────── */
-.app-main {
-  background: var(--bg-canvas);
-  min-height: calc(100vh - 64px);
-  padding: var(--space-9) var(--space-9);
-  overflow-y: auto;
-}
-
-/* ─── 响应式 ─────────────────────────────── */
-@media (max-width: 768px) {
-  .app-header { padding: 0 var(--space-5); }
-  .user-meta { display: none; }
-  .header-right { gap: var(--space-3); }
-  .app-main { padding: var(--space-6); }
-}
+.fade-slide-enter-from { opacity: 0; transform: translateY(8px); }
+.fade-slide-leave-to { opacity: 0; transform: translateY(-8px); }
 </style>

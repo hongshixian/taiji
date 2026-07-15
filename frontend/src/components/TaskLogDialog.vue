@@ -1,182 +1,109 @@
 <template>
-  <el-dialog
+  <UiDialog
     :model-value="visible"
-    :title="title"
+    title="任务日志"
     width="760px"
-    class="task-log-dialog"
-    :close-on-click-modal="false"
-    @update:model-value="onVisibleChange"
-    @open="onOpen"
+    @update:model-value="$emit('update:visible', $event)"
   >
-    <div class="log-toolbar">
-      <el-radio-group v-model="levelFilter" size="small">
-        <el-radio-button value="ALL">全部</el-radio-button>
-        <el-radio-button value="INFO">信息</el-radio-button>
-        <el-radio-button value="WARN">警告</el-radio-button>
-        <el-radio-button value="ERROR">错误</el-radio-button>
-      </el-radio-group>
-      <div class="log-toolbar__right">
-        <span class="t-caption">{{ filteredEntries.length }} 条</span>
-        <el-button size="small" :loading="loading" @click="refresh">刷新</el-button>
+    <div class="mb-4 flex items-center justify-between gap-4">
+      <UiSegmented v-model="levelFilter" :options="levelOptions" />
+      <div class="flex items-center gap-3 text-fg-tertiary">
+        <span class="text-xs">{{ filteredEntries.length }} 条</span>
+        <UiButton variant="secondary" size="sm" :loading="loading" @click="refresh">刷新</UiButton>
       </div>
     </div>
 
-    <div v-loading="loading" class="log-body">
-      <el-empty v-if="!loading && filteredEntries.length === 0" description="暂无执行日志" :image-size="80" />
-      <div v-else class="log-list">
-        <article v-for="(entry, index) in filteredEntries" :key="index" class="log-entry">
-          <header class="log-meta">
-            <StatusPill :tone="levelTone(entry.level)" :label="entry.level || 'INFO'" />
-            <span class="t-mono">{{ formatTime(entry.ts) }}</span>
-            <span class="t-caption">{{ entry.step || '—' }}</span>
-            <span class="t-caption">{{ entry.event || '—' }}</span>
-            <span class="t-mono">{{ entry.elapsed_ms ?? 0 }}ms</span>
+    <div class="min-h-[220px]">
+      <UiEmpty v-if="!loading && filteredEntries.length === 0" description="暂无执行日志" />
+      <div v-else class="flex flex-col gap-3">
+        <article
+          v-for="(entry, index) in filteredEntries"
+          :key="index"
+          class="rounded-md border border-line bg-surface-sunken p-4"
+        >
+          <header class="mb-2 flex flex-wrap items-center gap-4 text-fg-secondary">
+            <UiBadge :tone="levelTone(entry.level)">{{ entry.level || 'INFO' }}</UiBadge>
+            <span class="font-mono text-xs">{{ formatTime(entry.ts) }}</span>
+            <span class="text-xs">{{ entry.step || '—' }}</span>
+            <span class="text-xs">{{ entry.event || '—' }}</span>
+            <span class="font-mono text-xs">{{ entry.elapsed_ms ?? 0 }}ms</span>
           </header>
-          <div class="log-msg">{{ entry.msg || '—' }}</div>
-          <pre v-if="entry.data && Object.keys(entry.data).length">{{ formatJson(entry.data) }}</pre>
+          <div class="text-sm leading-relaxed text-fg">{{ entry.msg || '—' }}</div>
+          <pre
+            v-if="entry.data && Object.keys(entry.data).length"
+            class="mt-2 max-h-44 overflow-auto rounded-sm border border-line bg-surface p-4 font-mono text-xs text-fg"
+          >{{ formatJson(entry.data) }}</pre>
         </article>
       </div>
     </div>
-  </el-dialog>
+  </UiDialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
-import { getTaskLogs } from '../api/task'
-import StatusPill from './StatusPill.vue'
+import { toast } from '@/lib/toast'
+import { getTaskLogs } from '@/api/task'
+import type { TaskLogEntry } from '@/api/types'
+import UiDialog from './ui/Dialog.vue'
+import UiButton from './ui/Button.vue'
+import UiBadge from './ui/Badge.vue'
+import UiEmpty from './ui/Empty.vue'
+import UiSegmented from './ui/SegmentedControl.vue'
 
-// 支持两种调用方式：
-//   1) v-model:visible + :task-id（BenchmarkManagement 用）
-//   2) ref + open(row)（RedTeamManagement 用，向后兼容）
-const props = defineProps({
-  visible: { type: Boolean, default: false },
-  taskId: { type: [Number, String], default: null },
-})
-const emit = defineEmits(['update:visible'])
+const props = defineProps<{
+  visible: boolean
+  taskId?: number | string | null
+}>()
+defineEmits<{ 'update:visible': [value: boolean] }>()
 
 const loading = ref(false)
-const entries = ref([])
-const levelFilter = ref('ALL')
-const internalTaskId = ref(null)   // 兼容 open(row) 方式
+const entries = ref<TaskLogEntry[]>([])
+const levelFilter = ref<string | number | null>('ALL')
 
-const activeTaskId = computed(() => internalTaskId.value ?? props.taskId)
+const levelOptions = [
+  { label: '全部', value: 'ALL' },
+  { label: '信息', value: 'INFO' },
+  { label: '警告', value: 'WARN' },
+  { label: '错误', value: 'ERROR' },
+]
 
-const title = computed(() =>
-  activeTaskId.value ? `任务日志 #${activeTaskId.value}` : '任务日志',
+const filteredEntries = computed(() =>
+  levelFilter.value === 'ALL'
+    ? entries.value
+    : entries.value.filter((e) => (e.level || 'INFO') === levelFilter.value),
 )
 
-const filteredEntries = computed(() => {
-  if (levelFilter.value === 'ALL') return entries.value
-  return entries.value.filter((e) => (e.level || 'INFO') === levelFilter.value)
-})
-
-// 方式 1：监听 visible + taskId
 watch(
-  () => [props.visible, props.taskId],
+  () => [props.visible, props.taskId] as const,
   ([vis, tid]) => {
-    if (vis && tid != null) {
-      internalTaskId.value = null
-      fetchLogs(tid)
-    }
+    if (vis && tid != null) fetchLogs(tid)
   },
 )
 
-// 方式 2：ref 调用
-function open(row) {
-  internalTaskId.value = row.id
-  entries.value = []
-  fetchLogs(row.id)
-  // 无 v-model 时靠内部 visible；这里通过 emit 也能兼容
-  emit('update:visible', true)
-}
-
-function onVisibleChange(v) {
-  emit('update:visible', v)
-}
-
-function onOpen() {
-  if (activeTaskId.value != null) fetchLogs(activeTaskId.value)
-}
-
 async function refresh() {
-  if (activeTaskId.value != null) fetchLogs(activeTaskId.value)
+  if (props.taskId != null) fetchLogs(props.taskId)
 }
 
-async function fetchLogs(id) {
+async function fetchLogs(id: number | string) {
   loading.value = true
   try {
     const { data } = await getTaskLogs(id)
     entries.value = data.data.items || []
-  } catch (err) {
-    ElMessage.error(err.response?.data?.message || '加载任务日志失败')
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { message?: string } } }
+    toast.error(e.response?.data?.message || '加载任务日志失败')
   } finally {
     loading.value = false
   }
 }
 
-function levelTone(level) {
-  const map = { INFO: 'info', WARN: 'warning', ERROR: 'danger', DEBUG: 'neutral' }
-  return map[level] ?? 'info'
+function levelTone(level: string): 'info' | 'warning' | 'danger' | 'neutral' {
+  return { INFO: 'info', WARN: 'warning', ERROR: 'danger', DEBUG: 'neutral' }[level] as never ?? 'info'
 }
-
-function formatTime(value) {
+function formatTime(value: string | null) {
   return value ? new Date(value).toLocaleString('zh-CN') : '—'
 }
-
-function formatJson(value) {
+function formatJson(value: unknown) {
   return JSON.stringify(value, null, 2)
 }
-
-defineExpose({ open })
 </script>
-
-<style scoped>
-.log-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-5);
-  margin-bottom: var(--space-5);
-}
-.log-toolbar__right {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  color: var(--fg-tertiary);
-}
-.log-body { min-height: 220px; max-height: 62vh; overflow: auto; }
-.log-list { display: flex; flex-direction: column; gap: var(--space-5); }
-.log-entry {
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: var(--space-5) var(--space-6);
-  background: var(--bg-surface-sunken);
-}
-.log-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-5);
-  align-items: center;
-  color: var(--fg-secondary);
-  margin-bottom: var(--space-3);
-}
-.log-msg {
-  color: var(--fg-primary);
-  font-size: var(--text-sm);
-  line-height: var(--leading-relaxed);
-}
-pre {
-  margin: var(--space-3) 0 0;
-  max-height: 180px;
-  overflow: auto;
-  padding: var(--space-5);
-  border-radius: var(--radius-sm);
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  color: var(--fg-primary);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  line-height: var(--leading-normal);
-}
-</style>

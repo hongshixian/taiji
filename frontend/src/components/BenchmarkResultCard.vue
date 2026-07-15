@@ -1,270 +1,130 @@
 <template>
-  <div class="benchmark-result">
-    <!-- 失败且无结果：突出错误 -->
-    <el-alert
+  <div class="flex flex-col gap-6 py-2">
+    <!-- 失败且有错误 -->
+    <UiAlert
       v-if="task.status === 'failed' && task.error_message"
-      type="error"
-      :closable="false"
-      show-icon
+      type="danger"
       title="评测执行失败"
-      class="result-error-alert"
     >
-      <pre class="result-error-text">{{ task.error_message }}</pre>
-    </el-alert>
+      <pre class="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-xs">{{ task.error_message }}</pre>
+    </UiAlert>
 
-    <!-- 无任何结果 -->
-    <div v-if="!hasResult" class="result-empty--large">
-      <el-icon :size="28"><DataAnalysis /></el-icon>
+    <!-- 无结果 -->
+    <div v-if="!hasResult" class="flex flex-col items-center gap-4 py-10 text-center text-fg-tertiary">
+      <BarChart3 class="size-7" />
       <span>{{ task.status === 'failed' ? '任务失败，未产出结果' : '任务尚未产出结果' }}</span>
     </div>
 
     <template v-else>
-      <!-- 概览卡片组 -->
-      <div class="result-cards">
-        <div class="result-card">
-          <div class="result-card__title">主要指标</div>
-          <div v-if="metricEntries.length" class="result-card__body">
-            <div v-for="[k, v] in metricEntries" :key="k" class="metric-row">
-              <span class="metric-name t-mono">{{ k }}</span>
-              <span class="metric-value t-mono">{{ formatMetric(v) }}</span>
+      <!-- 概览卡片 -->
+      <div class="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-5">
+        <div class="rounded-md border border-line bg-surface-sunken p-6">
+          <div class="mb-5 font-semibold text-fg">主要指标</div>
+          <div v-if="metricEntries.length" class="flex flex-col gap-3">
+            <div v-for="[k, v] in metricEntries" :key="k" class="flex items-center justify-between gap-4">
+              <span class="font-mono text-sm text-fg-secondary">{{ k }}</span>
+              <span class="font-mono font-semibold text-fg">{{ formatMetric(v) }}</span>
             </div>
           </div>
-          <div v-else class="result-empty">暂无指标</div>
+          <div v-else class="text-sm text-fg-tertiary">暂无指标</div>
         </div>
 
-        <div class="result-card">
-          <div class="result-card__title">样本统计</div>
-          <div class="result-card__body">
-            <div class="metric-row">
-              <span class="metric-name">总数</span>
-              <span class="metric-value t-mono">{{ result.total_samples ?? '—' }}</span>
-            </div>
-            <div class="metric-row">
-              <span class="metric-name">已完成</span>
-              <span class="metric-value t-mono">{{ result.completed_samples ?? '—' }}</span>
-            </div>
-            <div class="metric-row">
-              <span class="metric-name">失败</span>
-              <span class="metric-value t-mono" :class="{ 'text-danger': result.failed_samples }">
-                {{ result.failed_samples ?? 0 }}
-              </span>
-            </div>
-            <div class="metric-row">
-              <span class="metric-name">状态</span>
-              <StatusPill :tone="statusTone(result.status || task.status)" :label="statusLabel(result.status || task.status)" />
-            </div>
+        <div class="rounded-md border border-line bg-surface-sunken p-6">
+          <div class="mb-5 font-semibold text-fg">样本统计</div>
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">总数</span><span class="font-mono font-semibold text-fg">{{ result.total_samples ?? '—' }}</span></div>
+            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">已完成</span><span class="font-mono font-semibold text-fg">{{ result.completed_samples ?? '—' }}</span></div>
+            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">失败</span><span class="font-mono font-semibold" :class="result.failed_samples ? 'text-danger' : 'text-fg'">{{ result.failed_samples ?? 0 }}</span></div>
+            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">状态</span><StatusPill :tone="statusTone(result.status || task.status)" :label="statusLabel(result.status || task.status)" /></div>
           </div>
         </div>
 
-        <div class="result-card">
-          <div class="result-card__title">Token 消耗</div>
-          <div class="result-card__body">
-            <div class="metric-row">
-              <span class="metric-name">输入</span>
-              <span class="metric-value t-mono">{{ fmtNum(result.model_usage?.input_tokens) }}</span>
-            </div>
-            <div class="metric-row">
-              <span class="metric-name">输出</span>
-              <span class="metric-value t-mono">{{ fmtNum(result.model_usage?.output_tokens) }}</span>
-            </div>
-            <div class="metric-row">
-              <span class="metric-name">合计</span>
-              <span class="metric-value t-mono">{{ fmtNum(result.model_usage?.total_tokens) }}</span>
-            </div>
-            <div class="metric-row">
-              <span class="metric-name">引擎</span>
-              <span class="metric-value t-mono">{{ result.engine || '—' }}</span>
-            </div>
+        <div class="rounded-md border border-line bg-surface-sunken p-6">
+          <div class="mb-5 font-semibold text-fg">Token 消耗</div>
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">输入</span><span class="font-mono font-semibold text-fg">{{ fmtNum(result.model_usage?.input_tokens) }}</span></div>
+            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">输出</span><span class="font-mono font-semibold text-fg">{{ fmtNum(result.model_usage?.output_tokens) }}</span></div>
+            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">合计</span><span class="font-mono font-semibold text-fg">{{ fmtNum(result.model_usage?.total_tokens) }}</span></div>
+            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">引擎</span><span class="font-mono font-semibold text-fg">{{ result.engine || '—' }}</span></div>
           </div>
         </div>
       </div>
 
-      <!-- 任务元信息 -->
-      <div class="result-meta">
-        <div class="meta-row"><span class="meta-label">Suite</span><span class="t-mono">{{ task.benchmark_suite }}</span></div>
-        <div class="meta-row"><span class="meta-label">被测</span><span>{{ task.target_model?.display_name || '—' }}</span></div>
-        <div class="meta-row"><span class="meta-label">评委</span><span>{{ task.judge_model?.display_name || '（无）' }}</span></div>
+      <!-- 元信息 -->
+      <div class="flex flex-wrap gap-x-8 gap-y-4 rounded-md border border-line bg-surface px-6 py-4">
+        <div class="flex items-center gap-3 text-sm"><span class="text-fg-tertiary">Suite</span><span class="font-mono">{{ task.benchmark_suite }}</span></div>
+        <div class="flex items-center gap-3 text-sm"><span class="text-fg-tertiary">被测</span><span>{{ task.target_model?.display_name || '—' }}</span></div>
+        <div class="flex items-center gap-3 text-sm"><span class="text-fg-tertiary">评委</span><span>{{ task.judge_model?.display_name || '（无）' }}</span></div>
       </div>
 
       <!-- 样本预览 -->
-      <div v-if="result.samples_preview?.length" class="samples-preview">
-        <div class="samples-preview__header">
-          <span class="result-card__title">样本预览（前 {{ result.samples_preview.length }} 条）</span>
-          <el-button size="small" text @click="$emit('view-log')">查看完整日志</el-button>
+      <div v-if="result.samples_preview?.length" class="rounded-md border border-line bg-surface p-6">
+        <div class="mb-3 flex items-center justify-between">
+          <span class="font-semibold text-fg">样本预览（前 {{ result.samples_preview.length }} 条）</span>
+          <UiButton variant="text" size="sm" @click="$emit('view-log')">查看完整日志</UiButton>
         </div>
-        <el-collapse>
-          <el-collapse-item
-            v-for="s in result.samples_preview"
-            :key="s.id"
-            :name="String(s.id)"
-          >
-            <template #title>
-              <span class="sample-id t-mono">#{{ s.id }}</span>
+        <div class="flex flex-col gap-2">
+          <details v-for="s in result.samples_preview" :key="s.id" class="rounded-sm border border-line">
+            <summary class="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm">
+              <span class="font-mono text-fg-secondary">#{{ s.id }}</span>
               <StatusPill :tone="sampleTone(s.score)" :label="String(s.score || '—')" />
-            </template>
-            <div class="sample-body">
-              <div class="sample-block">
-                <div class="sample-label">Input</div>
-                <div class="sample-text">{{ s.input || '—' }}</div>
-              </div>
-              <div class="sample-block">
-                <div class="sample-label">Target</div>
-                <div class="sample-text">{{ s.target || '—' }}</div>
-              </div>
-              <div class="sample-block">
-                <div class="sample-label">Output</div>
-                <div class="sample-text">{{ s.output || '—' }}</div>
-              </div>
-              <div v-if="s.explanation" class="sample-block">
-                <div class="sample-label">Explanation</div>
-                <div class="sample-text">{{ s.explanation }}</div>
-              </div>
-              <div v-if="s.error" class="sample-block sample-block--error">
-                <div class="sample-label">Error</div>
-                <div class="sample-text">{{ s.error }}</div>
+            </summary>
+            <div class="flex flex-col gap-4 px-3 py-3">
+              <div v-for="blk in sampleBlocks(s)" :key="blk.label" :class="blk.error && 'text-danger'">
+                <div class="text-xs uppercase tracking-wide text-fg-tertiary">{{ blk.label }}</div>
+                <div class="mt-1 whitespace-pre-wrap break-words rounded-sm bg-surface-sunken p-4 font-mono text-xs" :class="blk.error && 'bg-danger-soft'">{{ blk.value }}</div>
               </div>
             </div>
-          </el-collapse-item>
-        </el-collapse>
+          </details>
+        </div>
       </div>
     </template>
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from 'vue'
-import { DataAnalysis } from '@element-plus/icons-vue'
+import { BarChart3 } from 'lucide-vue-next'
 import StatusPill from './StatusPill.vue'
-import { taskStatusTone as statusTone, taskStatusLabel as statusLabel } from '../composables/taskStatus'
+import UiAlert from './ui/Alert.vue'
+import UiButton from './ui/Button.vue'
+import { taskStatusTone as statusTone, taskStatusLabel as statusLabel } from '@/composables/taskStatus'
+import type { BenchmarkTask, BenchmarkResult } from '@/api/types'
 
-const props = defineProps({
-  task: { type: Object, required: true },
-})
-defineEmits(['view-log'])
+const props = defineProps<{ task: BenchmarkTask }>()
+defineEmits<{ 'view-log': [] }>()
 
-const result = computed(() => props.task.result || {})
+const result = computed<Partial<BenchmarkResult>>(() => props.task.result || {})
 const metricEntries = computed(() => Object.entries(result.value.metrics || {}))
 const hasResult = computed(() => {
   const r = result.value
   return !!(r.metrics && Object.keys(r.metrics).length) ||
-         !!(r.samples_preview && r.samples_preview.length) ||
-         r.total_samples > 0
+    !!(r.samples_preview && r.samples_preview.length) ||
+    (r.total_samples ?? 0) > 0
 })
 
-function formatMetric(v) {
-  if (typeof v === 'number') {
-    return Number.isInteger(v) ? v.toString() : v.toFixed(4)
-  }
+function formatMetric(v: number | string) {
+  if (typeof v === 'number') return Number.isInteger(v) ? v.toString() : v.toFixed(4)
   return v
 }
-
-function fmtNum(v) {
+function fmtNum(v: number | undefined) {
   if (v == null) return '—'
   return typeof v === 'number' ? v.toLocaleString() : v
 }
-
-function sampleTone(score) {
+function sampleTone(score: string): 'success' | 'danger' | 'neutral' {
   const s = String(score || '').toUpperCase()
-  if (s === 'C' || s === 'CORRECT' || s === '1' || s === 'TRUE') return 'success'
-  if (s === 'I' || s === 'INCORRECT' || s === '0' || s === 'FALSE') return 'danger'
+  if (['C', 'CORRECT', '1', 'TRUE'].includes(s)) return 'success'
+  if (['I', 'INCORRECT', '0', 'FALSE'].includes(s)) return 'danger'
   return 'neutral'
 }
+function sampleBlocks(s: NonNullable<BenchmarkResult['samples_preview']>[number]) {
+  const blocks = [
+    { label: 'Input', value: s.input || '—', error: false },
+    { label: 'Target', value: s.target || '—', error: false },
+    { label: 'Output', value: s.output || '—', error: false },
+  ]
+  if (s.explanation) blocks.push({ label: 'Explanation', value: s.explanation, error: false })
+  if (s.error) blocks.push({ label: 'Error', value: s.error, error: true })
+  return blocks
+}
 </script>
-
-<style scoped>
-.benchmark-result {
-  padding: var(--space-2) 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-}
-.result-error-alert { align-items: flex-start; }
-.result-error-text {
-  margin: var(--space-2) 0 0;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  white-space: pre-wrap;
-  word-break: break-word;
-  max-height: 160px;
-  overflow: auto;
-}
-.result-empty--large {
-  padding: var(--space-10);
-  text-align: center;
-  color: var(--fg-tertiary);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-4);
-}
-.result-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: var(--space-5);
-}
-.result-card {
-  background: var(--bg-surface-sunken);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: var(--space-6);
-}
-.result-card__title {
-  font-weight: var(--weight-semibold);
-  margin-bottom: var(--space-5);
-  color: var(--fg-primary);
-}
-.result-card__body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-.metric-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-4);
-}
-.metric-name { color: var(--fg-secondary); font-size: var(--text-sm); }
-.metric-value { font-weight: var(--weight-semibold); color: var(--fg-primary); }
-.text-danger { color: var(--color-danger-fg); }
-.result-empty { color: var(--fg-tertiary); font-size: var(--text-sm); }
-
-.result-meta {
-  background: var(--bg-surface);
-  padding: var(--space-4) var(--space-6);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-subtle);
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-4) var(--space-8);
-}
-.meta-row { display: flex; gap: var(--space-3); align-items: center; font-size: var(--text-sm); }
-.meta-label { color: var(--fg-tertiary); }
-
-.samples-preview {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: var(--space-6);
-}
-.samples-preview__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-3);
-}
-.sample-id { margin-right: var(--space-4); color: var(--fg-secondary); }
-.sample-body { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-3) 0; }
-.sample-block { display: flex; flex-direction: column; gap: var(--space-2); }
-.sample-block--error .sample-text { color: var(--color-danger-fg); background: var(--color-danger-bg); }
-.sample-label { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-tertiary); }
-.sample-text {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  white-space: pre-wrap;
-  word-break: break-word;
-  background: var(--bg-surface-sunken);
-  padding: var(--space-4);
-  border-radius: var(--radius-sm);
-}
-</style>

@@ -1,14 +1,14 @@
 <template>
-  <span class="status-pill" :data-tone="tone">
-    <span v-if="dot" class="status-pill__dot" />
+  <UiBadge :tone="tone" :dot="dot">
     <slot>{{ label }}</slot>
-  </span>
+  </UiBadge>
 </template>
 
-<script setup>
-defineProps({
-  tone: { type: String, default: 'neutral' },  // success | danger | warning | info | neutral
-  label: { type: String, default: '' },
-  dot: { type: Boolean, default: false },
-})
+<script setup lang="ts">
+import UiBadge from './ui/Badge.vue'
+defineProps<{
+  tone?: 'success' | 'danger' | 'warning' | 'info' | 'neutral' | 'brand'
+  label?: string
+  dot?: boolean
+}>()
 </script>

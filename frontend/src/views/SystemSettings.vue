@@ -1,5 +1,5 @@
 <template>
-  <div class="page-shell system-settings">
+  <div class="page-shell flex max-w-[960px] flex-col gap-8">
     <header class="page-header">
       <span class="page-header__eyebrow t-eyebrow">超级管理员 · 平台配置</span>
       <h1 class="page-header__title">系统设置</h1>
@@ -8,144 +8,130 @@
       </p>
     </header>
 
-    <section class="settings-card" v-loading="loading">
-      <header class="settings-card__header">
+    <!-- 注册策略 -->
+    <section class="relative flex flex-col gap-7 rounded-lg border border-line bg-surface p-8 shadow-xs">
+      <div
+        v-if="loading"
+        class="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-surface/60 backdrop-blur-[1px]"
+      >
+        <UiSpinner :size="28" />
+      </div>
+      <header class="flex flex-col gap-3">
         <span class="t-eyebrow">注册策略</span>
-        <h2 class="settings-card__title">默认注册租户</h2>
-        <p class="t-body-sm settings-card__lede">
+        <h2 class="m-0 text-2xl font-bold tracking-tight text-fg">默认注册租户</h2>
+        <p class="m-0 max-w-[56ch] text-sm text-fg-secondary">
           新公开注册的用户会自动加入这里选择的租户。
         </p>
       </header>
 
-      <el-form label-width="160px" class="settings-form">
-        <el-form-item label="默认租户">
-          <el-select
-            v-model="form.defaultRegistrationTenantSlug"
-            filterable
-            class="settings-control"
-          >
-            <el-option
-              v-for="tenant in activeTenants"
-              :key="tenant.id"
-              :label="`${tenant.name} (${tenant.slug})`"
-              :value="tenant.slug"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" :loading="saving" @click="saveSettings">
-            保存
-          </el-button>
-        </el-form-item>
-      </el-form>
+      <div class="flex max-w-[620px] flex-col gap-5">
+        <UiFormItem label="默认租户">
+          <div class="max-w-[420px]">
+            <UiSelect v-model="form.defaultRegistrationTenantSlug" :options="tenantOptions" filterable />
+          </div>
+        </UiFormItem>
+        <div>
+          <UiButton :loading="saving" @click="saveSettings">保存</UiButton>
+        </div>
+      </div>
     </section>
 
-    <section class="settings-card" v-loading="loading">
-      <header class="settings-card__header">
+    <!-- Benchmark 集成 -->
+    <section class="relative flex flex-col gap-7 rounded-lg border border-line bg-surface p-8 shadow-xs">
+      <div
+        v-if="loading"
+        class="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-surface/60 backdrop-blur-[1px]"
+      >
+        <UiSpinner :size="28" />
+      </div>
+      <header class="flex flex-col gap-3">
         <span class="t-eyebrow">评测集成</span>
-        <h2 class="settings-card__title">Benchmark 集成设置</h2>
-        <p class="t-body-sm settings-card__lede">
+        <h2 class="m-0 text-2xl font-bold tracking-tight text-fg">Benchmark 集成设置</h2>
+        <p class="m-0 max-w-[56ch] text-sm text-fg-secondary">
           HuggingFace 访问令牌用于加载 gated 数据集；默认评委模型会在需要评委的评测集里预填。
         </p>
       </header>
 
-      <el-form label-width="160px" class="settings-form">
-        <el-form-item label="HuggingFace Token">
-          <el-input
-            v-model="form.hfToken"
-            type="password"
-            show-password
-            :placeholder="hfTokenPlaceholder"
-            class="settings-control"
-          />
-          <div class="form-hint">留空则不修改；保存后不会再回显。</div>
-        </el-form-item>
-        <el-form-item label="默认评委模型">
-          <el-select
-            v-model="form.defaultJudgeModelId"
-            filterable
-            clearable
-            class="settings-control"
-            placeholder="选择一个模型作为默认评委"
-          >
-            <el-option
-              v-for="m in judgeModelCandidates"
-              :key="m.id"
-              :label="m.display_name"
-              :value="m.id"
+      <div class="flex max-w-[620px] flex-col gap-5">
+        <UiFormItem label="HuggingFace Token" hint="留空则不修改；保存后不会再回显。">
+          <div class="max-w-[420px]">
+            <UiInput v-model="form.hfToken" type="password" :placeholder="hfTokenPlaceholder" />
+          </div>
+        </UiFormItem>
+        <UiFormItem label="默认评委模型">
+          <div class="max-w-[420px]">
+            <UiSelect
+              v-model="form.defaultJudgeModelId"
+              :options="judgeModelOptions"
+              filterable
+              clearable
+              placeholder="选择一个模型作为默认评委"
             />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" :loading="savingBenchmark" @click="saveBenchmarkSettings">
-            保存
-          </el-button>
-        </el-form-item>
-      </el-form>
+          </div>
+        </UiFormItem>
+        <div>
+          <UiButton :loading="savingBenchmark" @click="saveBenchmarkSettings">保存</UiButton>
+        </div>
+      </div>
     </section>
 
-    <section class="settings-card">
-      <header class="settings-card__header settings-card__header--row">
-        <div>
+    <!-- 超级管理员 -->
+    <section class="flex flex-col gap-7 rounded-lg border border-line bg-surface p-8 shadow-xs">
+      <header class="flex flex-col gap-7 sm:flex-row sm:items-end sm:justify-between">
+        <div class="flex flex-col gap-3">
           <span class="t-eyebrow">权限</span>
-          <h2 class="settings-card__title">超级管理员</h2>
-          <p class="t-body-sm settings-card__lede">
+          <h2 class="m-0 text-2xl font-bold tracking-tight text-fg">超级管理员</h2>
+          <p class="m-0 max-w-[56ch] text-sm text-fg-secondary">
             可绕过权限校验的平台运营账号。无法移除自己的超管身份。
           </p>
         </div>
-        <div class="add-superuser">
-          <el-input
-            v-model="superuserIdentifier"
-            clearable
-            placeholder="用户名或邮箱"
-            style="width: 220px"
-            @keyup.enter="handleAddSuperuser"
-          />
-          <el-button type="primary" :loading="addingSuperuser" @click="handleAddSuperuser">
-            添加
-          </el-button>
+        <div class="flex items-center gap-3 sm:shrink-0">
+          <div class="w-[220px]">
+            <UiInput
+              v-model="superuserIdentifier"
+              placeholder="用户名或邮箱"
+              @enter="handleAddSuperuser"
+            />
+          </div>
+          <UiButton :loading="addingSuperuser" @click="handleAddSuperuser">添加</UiButton>
         </div>
       </header>
 
-      <el-table :data="superusers" stripe v-loading="superusersLoading" data-density="compact">
-        <el-table-column prop="username" label="用户名" min-width="140" />
-        <el-table-column prop="email" label="邮箱" min-width="200">
-          <template #default="{ row }"><span class="t-mono">{{ row.email }}</span></template>
-        </el-table-column>
-        <el-table-column label="加入租户" min-width="240">
-          <template #default="{ row }">
-            <span
-              v-for="m in row.memberships"
+      <UiTable
+        :columns="superuserColumns"
+        :data="superusers"
+        row-key="id"
+        stripe
+        :loading="superusersLoading"
+      >
+        <template #cell-email="{ value }">
+          <span class="t-mono">{{ value }}</span>
+        </template>
+        <template #cell-memberships="{ row }">
+          <div class="flex flex-wrap gap-2">
+            <UiBadge
+              v-for="m in (row as Superuser).memberships"
               :key="m.id"
-              class="status-pill status-pill--inline"
-              data-tone="neutral"
-            >
-              {{ m.tenant_name }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="110" fixed="right">
-          <template #default="{ row }">
-            <el-button
-              text
-              type="danger"
-              size="small"
-              :disabled="row.id === authStore.user?.id"
-              @click="handleRemoveSuperuser(row)"
-            >
-              移除
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+              tone="neutral"
+            >{{ m.tenant_name }}</UiBadge>
+          </div>
+        </template>
+        <template #cell-actions="{ row }">
+          <UiButton
+            variant="danger-text"
+            size="sm"
+            :disabled="(row as Superuser).id === authStore.user?.id"
+            @click="handleRemoveSuperuser(row as Superuser)"
+          >移除</UiButton>
+        </template>
+      </UiTable>
     </section>
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { useAuthStore } from '../stores/auth'
+import { useAuthStore } from '@/stores/auth'
 import {
   addSuperuser,
   listSuperusers,
@@ -153,33 +139,86 @@ import {
   listSystemSettings,
   removeSuperuser,
   updateSystemSettings,
-} from '../api/superadmin'
-import { listModels } from '../api/model'
+} from '@/api/superadmin'
+import { listModels } from '@/api/model'
+import { toast } from '@/lib/toast'
+import { confirm } from '@/lib/confirm'
+import UiButton from '@/components/ui/Button.vue'
+import UiBadge from '@/components/ui/Badge.vue'
+import UiInput from '@/components/ui/Input.vue'
+import UiSelect from '@/components/ui/Select.vue'
+import UiFormItem from '@/components/ui/FormItem.vue'
+import UiSpinner from '@/components/ui/Spinner.vue'
+import UiTable, { type TableColumn } from '@/components/ui/Table.vue'
 
 const DEFAULT_REGISTRATION_TENANT_KEY = 'public.default_registration_tenant_slug'
 const HF_TOKEN_KEY = 'integrations.hf_token'
 const DEFAULT_JUDGE_MODEL_ID_KEY = 'benchmark.default_judge_model_id'
 
+interface Tenant {
+  id: number
+  name: string
+  slug: string
+  is_active: boolean
+}
+interface JudgeModel {
+  id: number
+  display_name: string
+}
+interface Membership {
+  id: number
+  tenant_name: string
+}
+interface Superuser {
+  id: number
+  username: string
+  email: string
+  memberships: Membership[]
+  [key: string]: unknown
+}
+interface SystemSetting {
+  key: string
+  value: string | null
+}
+type ApiError = { response?: { data?: { message?: string } }; message?: string }
+
 const authStore = useAuthStore()
 const loading = ref(false)
 const saving = ref(false)
 const savingBenchmark = ref(false)
-const tenants = ref([])
-const superusers = ref([])
+const tenants = ref<Tenant[]>([])
+const superusers = ref<Superuser[]>([])
 const superusersLoading = ref(false)
 const addingSuperuser = ref(false)
 const superuserIdentifier = ref('')
-const judgeModelCandidates = ref([])
+const judgeModelCandidates = ref<JudgeModel[]>([])
 const hfTokenAlreadySet = ref(false)
-const form = reactive({
+const form = reactive<{
+  defaultRegistrationTenantSlug: string
+  hfToken: string
+  defaultJudgeModelId: string | number | null
+}>({
   defaultRegistrationTenantSlug: '',
   hfToken: '',
   defaultJudgeModelId: null,
 })
 
+const superuserColumns: TableColumn[] = [
+  { key: 'username', label: '用户名', minWidth: 140 },
+  { key: 'email', label: '邮箱', minWidth: 200 },
+  { key: 'memberships', label: '加入租户', minWidth: 240 },
+  { key: 'actions', label: '操作', width: 110, fixed: 'right' },
+]
+
 const activeTenants = computed(() => tenants.value.filter((t) => t.is_active))
+const tenantOptions = computed(() =>
+  activeTenants.value.map((t) => ({ label: `${t.name} (${t.slug})`, value: t.slug })),
+)
+const judgeModelOptions = computed(() =>
+  judgeModelCandidates.value.map((m) => ({ label: m.display_name, value: m.id })),
+)
 const hfTokenPlaceholder = computed(() =>
-  hfTokenAlreadySet.value ? '已保存（不回显；留空保持不变）' : '例：hf_xxxxxxxx（可选）'
+  hfTokenAlreadySet.value ? '已保存（不回显；留空保持不变）' : '例：hf_xxxxxxxx（可选）',
 )
 
 async function fetchData() {
@@ -192,7 +231,7 @@ async function fetchData() {
     ])
     tenants.value = tenantsResp.data.data || []
     judgeModelCandidates.value = modelsResp.data.data.items || []
-    const settings = settingsResp.data.data || []
+    const settings: SystemSetting[] = settingsResp.data.data || []
     const defaultTenant = settings.find((s) => s.key === DEFAULT_REGISTRATION_TENANT_KEY)
     form.defaultRegistrationTenantSlug = defaultTenant?.value || 'guest'
 
@@ -202,8 +241,9 @@ async function fetchData() {
 
     const judgeSetting = settings.find((s) => s.key === DEFAULT_JUDGE_MODEL_ID_KEY)
     form.defaultJudgeModelId = judgeSetting?.value ?? null
-  } catch (err) {
-    ElMessage.error(err.response?.data?.message || '加载失败')
+  } catch (err: unknown) {
+    const e = err as ApiError
+    toast.error(e.response?.data?.message || '加载失败')
   } finally {
     loading.value = false
   }
@@ -211,7 +251,7 @@ async function fetchData() {
 
 async function saveSettings() {
   if (!form.defaultRegistrationTenantSlug) {
-    ElMessage.warning('请选择默认注册租户')
+    toast.warning('请选择默认注册租户')
     return
   }
   saving.value = true
@@ -219,16 +259,17 @@ async function saveSettings() {
     await updateSystemSettings({
       [DEFAULT_REGISTRATION_TENANT_KEY]: form.defaultRegistrationTenantSlug,
     })
-    ElMessage.success('已保存')
-  } catch (err) {
-    ElMessage.error(err.response?.data?.message || '保存失败')
+    toast.success('已保存')
+  } catch (err: unknown) {
+    const e = err as ApiError
+    toast.error(e.response?.data?.message || '保存失败')
   } finally {
     saving.value = false
   }
 }
 
 async function saveBenchmarkSettings() {
-  const payload = {
+  const payload: Record<string, unknown> = {
     [DEFAULT_JUDGE_MODEL_ID_KEY]: form.defaultJudgeModelId ?? null,
   }
   if (form.hfToken.trim()) {
@@ -237,11 +278,12 @@ async function saveBenchmarkSettings() {
   savingBenchmark.value = true
   try {
     await updateSystemSettings(payload)
-    ElMessage.success('已保存')
+    toast.success('已保存')
     form.hfToken = ''
     fetchData()
-  } catch (err) {
-    ElMessage.error(err.response?.data?.message || '保存失败')
+  } catch (err: unknown) {
+    const e = err as ApiError
+    toast.error(e.response?.data?.message || '保存失败')
   } finally {
     savingBenchmark.value = false
   }
@@ -252,8 +294,9 @@ async function fetchSuperusers() {
   try {
     const { data } = await listSuperusers()
     superusers.value = data.data || []
-  } catch (err) {
-    ElMessage.error(err.response?.data?.message || '加载超级管理员失败')
+  } catch (err: unknown) {
+    const e = err as ApiError
+    toast.error(e.response?.data?.message || '加载超级管理员失败')
   } finally {
     superusersLoading.value = false
   }
@@ -262,35 +305,38 @@ async function fetchSuperusers() {
 async function handleAddSuperuser() {
   const identifier = superuserIdentifier.value.trim()
   if (!identifier) {
-    ElMessage.warning('请输入用户名或邮箱')
+    toast.warning('请输入用户名或邮箱')
     return
   }
   addingSuperuser.value = true
   try {
     await addSuperuser(identifier)
     superuserIdentifier.value = ''
-    ElMessage.success('已添加')
+    toast.success('已添加')
     fetchSuperusers()
-  } catch (err) {
-    ElMessage.error(err.response?.data?.message || '添加失败')
+  } catch (err: unknown) {
+    const e = err as ApiError
+    toast.error(e.response?.data?.message || '添加失败')
   } finally {
     addingSuperuser.value = false
   }
 }
 
-async function handleRemoveSuperuser(row) {
+async function handleRemoveSuperuser(row: Superuser) {
+  const ok = await confirm({
+    message: `确定移除「${row.username}」的超级管理员权限吗？`,
+    title: '移除超级管理员',
+    confirmText: '移除',
+    tone: 'danger',
+  })
+  if (!ok) return
   try {
-    await ElMessageBox.confirm(
-      `确定移除「${row.username}」的超级管理员权限吗？`,
-      '移除超级管理员',
-      { type: 'warning', confirmButtonText: '移除', cancelButtonText: '取消' },
-    )
     await removeSuperuser(row.id)
-    ElMessage.success('已移除')
+    toast.success('已移除')
     fetchSuperusers()
-  } catch (err) {
-    if (err === 'cancel') return
-    ElMessage.error(err.response?.data?.message || '移除失败')
+  } catch (err: unknown) {
+    const e = err as ApiError
+    toast.error(e.response?.data?.message || '移除失败')
   }
 }
 
@@ -299,87 +345,3 @@ onMounted(() => {
   fetchSuperusers()
 })
 </script>
-
-<style scoped>
-.system-settings {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-9);
-  max-width: 960px;
-}
-
-.settings-card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  padding: var(--space-8);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-7);
-  box-shadow: var(--shadow-xs);
-}
-.settings-card__header {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-.settings-card__header--row {
-  flex-direction: row;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--space-7);
-}
-.settings-card__title {
-  margin: 0;
-  font-size: var(--text-2xl);
-  font-weight: var(--weight-bold);
-  color: var(--fg-primary);
-  letter-spacing: -0.01em;
-}
-.settings-card__lede {
-  margin: 0;
-  color: var(--fg-secondary);
-  max-width: 56ch;
-}
-.settings-form { max-width: 620px; }
-.settings-control { width: 100%; max-width: 420px; }
-
-.form-hint {
-  font-size: var(--text-xs);
-  color: var(--fg-tertiary);
-  margin-top: var(--space-2);
-}
-
-.add-superuser {
-  display: flex;
-  align-items: center;
-  gap: var(--space-5);
-  flex-shrink: 0;
-}
-
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px var(--space-5);
-  border-radius: var(--radius-full);
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semibold);
-  background: var(--badge-bg-neutral);
-  color: var(--badge-fg-neutral);
-  border: 1px solid transparent;
-  white-space: nowrap;
-}
-.status-pill--inline {
-  margin-right: var(--space-3);
-  margin-bottom: var(--space-2);
-}
-
-@media (max-width: 768px) {
-  .settings-card__header--row {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .add-superuser { width: 100%; }
-  .add-superuser .el-input { flex: 1; }
-}
-</style>

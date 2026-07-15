@@ -1,99 +1,77 @@
 <template>
-  <el-form-item :label="field.label || field.key">
+  <UiFormItem :label="field.label || field.key" :hint="field.help">
     <!-- int / float -->
-    <el-input-number
+    <UiInputNumber
       v-if="field.type === 'int' || field.type === 'float'"
-      :model-value="value"
+      :model-value="(value as number | null)"
       :min="field.min"
       :max="field.max"
       :step="field.type === 'float' ? (field.step || 0.1) : 1"
       :precision="field.type === 'float' ? (field.precision ?? 2) : 0"
-      controls-position="right"
+      block
       @update:model-value="onUpdate"
     />
 
     <!-- bool -->
-    <el-switch
+    <UiSwitch
       v-else-if="field.type === 'bool'"
       :model-value="!!value"
       @update:model-value="onUpdate"
     />
 
-    <!-- select -->
-    <el-select
+    <!-- enum / select -->
+    <UiSelect
       v-else-if="field.type === 'enum' || field.type === 'select'"
-      :model-value="value"
-      style="width:100%"
-      @update:model-value="onUpdate"
-    >
-      <el-option
-        v-for="o in (field.options || [])"
-        :key="typeof o === 'object' ? o.value : o"
-        :label="typeof o === 'object' ? o.label : o"
-        :value="typeof o === 'object' ? o.value : o"
-      />
-    </el-select>
-
-    <!-- multi_select -->
-    <el-select
-      v-else-if="field.type === 'multi_select'"
-      :model-value="value || []"
-      multiple
-      collapse-tags
-      collapse-tags-tooltip
-      style="width:100%"
-      @update:model-value="onUpdate"
-    >
-      <el-option
-        v-for="o in (field.options || [])"
-        :key="typeof o === 'object' ? o.value : o"
-        :label="typeof o === 'object' ? o.label : o"
-        :value="typeof o === 'object' ? o.value : o"
-      />
-    </el-select>
-
-    <!-- string (default) -->
-    <el-input
-      v-else
-      :model-value="value ?? ''"
-      :placeholder="field.placeholder || ''"
+      :model-value="(value as string | number | null)"
+      :options="selectOptions"
+      filterable
       @update:model-value="onUpdate"
     />
 
-    <div v-if="field.help" class="dyn-help">{{ field.help }}</div>
-  </el-form-item>
+    <!-- string (default) -->
+    <UiInput
+      v-else
+      :model-value="(value as string) ?? ''"
+      :placeholder="field.placeholder || ''"
+      @update:model-value="onUpdate"
+    />
+  </UiFormItem>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onMounted } from 'vue'
+import type { SuiteConfigField } from '@/api/types'
+import UiFormItem from './ui/FormItem.vue'
+import UiInput from './ui/Input.vue'
+import UiInputNumber from './ui/InputNumber.vue'
+import UiSwitch from './ui/Switch.vue'
+import UiSelect, { type SelectOption } from './ui/Select.vue'
 
-const props = defineProps({
-  field: { type: Object, required: true },
-  modelValue: { default: undefined },
-})
-const emit = defineEmits(['update:modelValue'])
+const props = defineProps<{
+  field: SuiteConfigField
+  modelValue?: unknown
+}>()
+const emit = defineEmits<{ 'update:modelValue': [value: unknown] }>()
 
-// 响应式：随 modelValue 或 field.default 变化
 const value = computed(() =>
   props.modelValue !== undefined ? props.modelValue : (props.field.default ?? null),
 )
 
-// 挂载时若父级未提供值但字段有默认值，回写默认值到父 model
+const selectOptions = computed<SelectOption[]>(() =>
+  (props.field.options || []).map((o) =>
+    typeof o === 'object'
+      ? { label: String((o as { label: string }).label), value: (o as { value: unknown }).value as string | number }
+      : { label: String(o), value: o as string | number },
+  ),
+)
+
 onMounted(() => {
   if (props.modelValue === undefined && props.field.default !== undefined) {
     emit('update:modelValue', props.field.default)
   }
 })
 
-function onUpdate(v) {
+function onUpdate(v: unknown) {
   emit('update:modelValue', v)
 }
 </script>
-
-<style scoped>
-.dyn-help {
-  font-size: var(--text-xs);
-  color: var(--fg-tertiary);
-  margin-top: var(--space-2);
-}
-</style>
