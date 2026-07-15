@@ -3,26 +3,26 @@
     <div v-if="isLoggedIn" class="flex h-screen flex-col">
       <!-- 顶栏 -->
       <header class="relative z-10 flex h-16 shrink-0 items-center justify-between border-b border-line bg-surface px-6">
-        <div class="flex items-center gap-5">
+        <div class="flex min-w-0 items-center gap-5">
           <button
             type="button"
-            class="flex size-9 items-center justify-center rounded-md text-fg-secondary transition-colors hover:bg-surface-sunken hover:text-fg"
+            class="flex size-9 shrink-0 items-center justify-center rounded-md text-fg-secondary transition-colors hover:bg-surface-sunken hover:text-fg"
             :aria-label="collapsed ? '展开侧边栏' : '收起侧边栏'"
             @click="collapsed = !collapsed"
           >
             <PanelLeft v-if="collapsed" class="size-5" />
             <PanelLeftClose v-else class="size-5" />
           </button>
-          <router-link to="/" class="flex items-center gap-3" aria-label="返回主页">
-            <img src="./assets/brand/logo-mark-purple.svg" alt="" class="size-9 rounded-md" />
-            <span class="flex flex-col leading-tight">
-              <span class="text-lg font-bold tracking-wide text-fg">{{ t('nav.brand') }}</span>
-              <span class="font-mono text-[10px] uppercase tracking-[0.18em] text-fg-tertiary">{{ t('nav.brandSub') }}</span>
+          <router-link to="/" class="flex min-w-0 items-center gap-3" aria-label="返回主页">
+            <img src="./assets/brand/logo-mark-purple.svg" alt="" class="size-9 shrink-0 rounded-md" />
+            <span class="flex min-w-0 flex-col leading-tight">
+              <span class="truncate text-lg font-bold tracking-wide text-fg">{{ t('nav.brand') }}</span>
+              <span class="truncate font-mono text-[10px] uppercase tracking-[0.18em] text-fg-tertiary">{{ t('nav.brandSub') }}</span>
             </span>
           </router-link>
         </div>
 
-        <div class="flex items-center gap-3">
+        <div class="flex shrink-0 items-center gap-3 pl-4">
           <TenantSwitcher />
 
           <button
@@ -56,10 +56,10 @@
                   {{ avatarInitial }}
                 </span>
                 <span class="hidden flex-col leading-tight sm:flex">
-                  <span class="text-sm font-semibold text-fg">{{ authStore.user?.username }}</span>
-                  <span class="text-xs text-fg-tertiary">{{ roleLabel }}</span>
+                  <span class="whitespace-nowrap text-sm font-semibold text-fg">{{ authStore.user?.username }}</span>
+                  <span class="whitespace-nowrap text-xs text-fg-tertiary">{{ roleLabel }}</span>
                 </span>
-                <ChevronDown class="size-3 text-fg-tertiary" />
+                <ChevronDown class="size-3 shrink-0 text-fg-tertiary" />
               </button>
             </template>
             <template #default="{ close }">

@@ -10,4 +10,6 @@ RUN npm run build
 FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+# 确保静态资源对 nginx 用户可读（public/ 源文件可能带受限权限）
+RUN chmod -R a+rX /usr/share/nginx/html
 EXPOSE 80

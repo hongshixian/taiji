@@ -2,6 +2,7 @@
   <button
     :type="nativeType"
     :disabled="disabled || loading"
+    v-bind="rest"
     :class="cn(buttonVariants({ variant, size }), block && 'w-full', $attrs.class as string)"
   >
     <LoaderCircle v-if="loading" class="size-4 animate-spin" />
@@ -11,11 +12,19 @@
 </template>
 
 <script setup lang="ts">
+import { computed, useAttrs } from 'vue'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { LoaderCircle } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
 
 defineOptions({ inheritAttrs: false })
+
+// class 单独在模板里合并，其余 attrs（@click / title / aria-* 等）透传到 button
+const attrs = useAttrs()
+const rest = computed(() => {
+  const { class: _c, ...others } = attrs
+  return others
+})
 
 const buttonVariants = cva(
   'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md font-medium transition-colors ' +
