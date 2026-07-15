@@ -82,11 +82,23 @@ def mark_failed(task: Task, message: str) -> None:
     db.session.commit()
 
 
+def mark_stopped(task: Task) -> None:
+    task.status = TaskStatus.STOPPED.value
+    task.completed_at = datetime.now(timezone.utc)
+    db.session.commit()
+
+
+def set_celery_task_id(task: Task, celery_id: str) -> None:
+    task.celery_task_id = celery_id
+    db.session.commit()
+
+
 def reset_task(task: Task) -> None:
     task.status = TaskStatus.PENDING.value
     task.error_message = None
     task.started_at = None
     task.completed_at = None
+    task.progress = None
     db.session.commit()
 
 

@@ -55,6 +55,11 @@ export default {
 
   // 历史
   history: '历史记录',
+  taskList: '任务列表',
+  emptyTasks: '还没有创建任何评测任务',
+  stop: '停止',
+  stopSuccess: '任务已停止',
+  stopFailed: '停止失败',
   emptyHistory: '还没有已完成的评测任务',
 
   // 表格列
@@ -62,6 +67,7 @@ export default {
   colSuite: '评测集',
   colTargetModel: '被测模型',
   colMetric: '主指标',
+  colProgress: '进度',
 
   // 操作
   log: '日志',
@@ -96,7 +102,7 @@ export default {
   engine: '引擎',
   metaTarget: '被测',
   metaJudge: '评委',
-  sampleDistribution: '样本分布（{n} 条）',
+  sampleDistribution: '样本状态（{n} 条）',
   sampleSuccess: '执行成功',
   sampleError: '执行失败',
   sampleNone: '未执行',

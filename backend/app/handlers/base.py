@@ -16,10 +16,13 @@ from app.services.task_service import (
     delete_task_record,
     get_task_or_404,
     list_tasks,
+    mark_stopped,
     reset_task,
+    set_celery_task_id,
     task_base_to_dict,
 )
 from app.utils.decorators import require_permission
+from app.utils.errors import BusinessError, ErrorCode
 from app.utils.response import created, ok, paginated
 from app.utils.validation import validate_schema
 
@@ -69,7 +72,21 @@ class BaseTaskHandler(ABC):
         task = self.get(task_id)
         self._clear_detail(task)
         reset_task(task)
-        self._celery_task.delay(task.id, task.tenant_id)
+        result = self._celery_task.delay(task.id, task.tenant_id)
+        set_celery_task_id(task, result.id)
+        return task
+
+    def stop(self, task_id: int):
+        """停止任务：pending → 从队列撤销；running → 终止执行进程。"""
+        from celery_app import celery
+
+        task = self.get(task_id)
+        if task.status not in ("pending", "running"):
+            raise BusinessError(ErrorCode.VALIDATION_ERROR, "仅进行中或等待中的任务可停止")
+        if task.celery_task_id:
+            terminate = task.status == "running"
+            celery.control.revoke(task.celery_task_id, terminate=terminate, signal="SIGTERM")
+        mark_stopped(task)
         return task
 
     def delete(self, task_id: int) -> None:
@@ -94,7 +111,8 @@ class BaseTaskHandler(ABC):
         def _submit():
             user_id = int(get_jwt_identity())
             task = handler.submit(user_id)
-            handler._celery_task.delay(task.id, g.tenant_id)
+            result = handler._celery_task.delay(task.id, g.tenant_id)
+            set_celery_task_id(task, result.id)
             return created(handler.to_dict(task), message="任务已提交")
 
         @bp.route("/<int:task_id>", methods=["GET"])
@@ -123,6 +141,12 @@ class BaseTaskHandler(ABC):
         @require_permission(Permission.TASK_CREATE)
         def _retry(task_id):
             return ok(handler.to_dict(handler.retry(task_id)), message="任务已重新提交")
+
+        @bp.route("/<int:task_id>/stop", methods=["POST"])
+        @jwt_required()
+        @require_permission(Permission.TASK_CREATE)
+        def _stop(task_id):
+            return ok(handler.to_dict(handler.stop(task_id)), message="任务已停止")
 
         @bp.route("/<int:task_id>", methods=["DELETE"])
         @jwt_required()

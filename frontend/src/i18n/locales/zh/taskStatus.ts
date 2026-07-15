@@ -3,6 +3,7 @@ export default {
   running: '执行中',
   success: '成功',
   failed: '失败',
+  stopped: '已停止',
   timeout: '仍在执行',
   // 前端红队轮询态
   submitting: '提交中',

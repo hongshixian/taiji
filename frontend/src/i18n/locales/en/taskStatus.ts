@@ -3,6 +3,7 @@ export default {
   running: 'Running',
   success: 'Success',
   failed: 'Failed',
+  stopped: 'Stopped',
   timeout: 'Still running',
   submitting: 'Submitting',
   submit_failed: 'Submit failed',

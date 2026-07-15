@@ -55,6 +55,11 @@ export default {
 
   // History
   history: 'History',
+  taskList: 'Task List',
+  emptyTasks: 'No evaluation tasks yet',
+  stop: 'Stop',
+  stopSuccess: 'Task stopped',
+  stopFailed: 'Failed to stop',
   emptyHistory: 'No completed evaluation tasks yet',
 
   // Table columns
@@ -62,6 +67,7 @@ export default {
   colSuite: 'Suite',
   colTargetModel: 'Target Model',
   colMetric: 'Primary Metric',
+  colProgress: 'Progress',
 
   // Actions
   log: 'Logs',
@@ -96,7 +102,7 @@ export default {
   engine: 'Engine',
   metaTarget: 'Target',
   metaJudge: 'Judge',
-  sampleDistribution: 'Sample Distribution ({n})',
+  sampleDistribution: 'Sample Status ({n})',
   sampleSuccess: 'Succeeded',
   sampleError: 'Failed',
   sampleNone: 'Not run',

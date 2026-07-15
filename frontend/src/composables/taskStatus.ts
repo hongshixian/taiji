@@ -8,6 +8,7 @@ const TONE: Record<string, StatusTone> = {
   running: 'info',
   success: 'success',
   failed: 'danger',
+  stopped: 'neutral',
   timeout: 'warning',
 }
 

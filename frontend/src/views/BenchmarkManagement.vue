@@ -110,46 +110,21 @@
       </template>
     </UiDialog>
 
-    <!-- 进行中 -->
-    <section v-if="activeTasks.length" class="mb-8">
-      <h2 class="mb-5 text-lg font-semibold text-fg">{{ t('benchmark.inProgress') }}</h2>
-      <div class="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-5">
-        <div v-for="task in activeTasks" :key="task.id" class="flex flex-col gap-4 rounded-lg border border-line bg-surface p-6 shadow-xs">
-          <div class="flex items-center justify-between gap-4">
-            <span class="font-semibold text-fg">{{ task.task_name || t('benchmark.unnamed') }}</span>
-            <StatusPill :tone="statusTone(task.status)" :label="statusLabel(task.status)" dot />
-          </div>
-          <div class="flex gap-5 text-xs text-fg-tertiary">
-            <span>{{ suiteLabel(task.benchmark_suite) }}</span>
-            <span>{{ modelLabel(task.target_model) }}</span>
-          </div>
-          <UiProgress
-            v-if="task.progress && task.progress.total"
-            :percentage="Math.round((task.progress.completed / task.progress.total) * 100)"
-            :stroke-width="8"
-          />
-          <div v-else class="text-xs text-fg-tertiary">
-            {{ task.status === 'pending' ? t('benchmark.waitingWorker') : t('benchmark.preparing') }}
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- 历史 -->
+    <!-- 任务列表（全部状态） -->
     <section class="rounded-lg border border-line bg-surface p-6">
       <div class="mb-6 flex items-center justify-between">
-        <h2 class="text-lg font-semibold text-fg">{{ t('benchmark.history') }}</h2>
+        <h2 class="text-lg font-semibold text-fg">{{ t('benchmark.taskList') }}</h2>
         <UiButton variant="secondary" size="sm" :loading="loading" @click="loadTasks">{{ t('common.refresh') }}</UiButton>
       </div>
 
-      <UiEmpty v-if="!loading && !historyTasks.length" :description="t('benchmark.emptyHistory')">
+      <UiEmpty v-if="!loading && !tasks.length" :description="t('benchmark.emptyTasks')">
         <UiButton @click="openCreateDialog">{{ t('benchmark.newTask') }}</UiButton>
       </UiEmpty>
 
       <template v-else>
         <UiTable
           :columns="columns"
-          :data="historyTasks"
+          :data="tasks"
           row-key="id"
           expandable
           :expanded-keys="expandedKeys"
@@ -161,6 +136,12 @@
           <template #cell-status="{ row }">
             <StatusPill :tone="statusTone(row.status)" :label="statusLabel(row.status)" />
           </template>
+          <template #cell-progress="{ row }">
+            <span v-if="row.progress && row.progress.total" class="font-mono text-xs text-fg-secondary">
+              {{ row.progress.completed }}/{{ row.progress.total }}
+            </span>
+            <span v-else class="text-fg-tertiary">—</span>
+          </template>
           <template #cell-metric="{ row }">
             <span v-if="primaryMetric(row)" class="font-mono">{{ primaryMetric(row) }}</span>
             <span v-else class="text-fg-tertiary">—</span>
@@ -169,7 +150,19 @@
           <template #cell-actions="{ row }">
             <div class="flex items-center gap-1">
               <UiButton variant="text" size="sm" @click="openLog(row.id)">{{ t('benchmark.log') }}</UiButton>
-              <UiButton variant="text" size="sm" @click="onRetry(row.id)">{{ t('common.retry') }}</UiButton>
+              <!-- 进行中/等待中：停止（等待中不可点） -->
+              <UiButton
+                v-if="row.status === 'running' || row.status === 'pending'"
+                variant="text" size="sm"
+                :disabled="row.status === 'pending'"
+                @click="onStop(row.id)"
+              >{{ t('benchmark.stop') }}</UiButton>
+              <!-- 失败/已停止：可重试 -->
+              <UiButton
+                v-if="row.status === 'failed' || row.status === 'stopped'"
+                variant="text" size="sm"
+                @click="onRetry(row.id)"
+              >{{ t('common.retry') }}</UiButton>
               <UiButton v-if="canDelete" variant="danger-text" size="sm" @click="onDelete(row.id)">{{ t('common.delete') }}</UiButton>
             </div>
           </template>
@@ -199,6 +192,7 @@ import {
   listBenchmarks,
   retryBenchmark,
   deleteBenchmark,
+  stopBenchmark,
   listBenchmarkSuites,
 } from '@/api/benchmark'
 import { listModels } from '@/api/model'
@@ -264,15 +258,16 @@ const columns = computed<TableColumn[]>(() => [
   { key: 'benchmark_suite', label: t('benchmark.colSuite'), minWidth: 160, tooltip: true },
   { key: 'target_model', label: t('benchmark.colTargetModel'), minWidth: 130, tooltip: true },
   { key: 'status', label: t('common.status'), width: 100 },
-  { key: 'metric', label: t('benchmark.colMetric'), width: 130 },
+  { key: 'progress', label: t('benchmark.colProgress'), width: 90 },
+  { key: 'metric', label: t('benchmark.colMetric'), width: 120 },
   { key: 'created_at', label: t('common.createdAt'), width: 160 },
-  { key: 'actions', label: t('common.actions'), width: 170, fixed: 'right' },
+  { key: 'actions', label: t('common.actions'), width: 200, fixed: 'right' },
 ])
 
 const enabledSuites = computed(() => suites.value.filter((s) => !s.disabled))
 const selectedSuite = computed(() => suites.value.find((s) => s.key === form.suiteKey) || null)
+// 当前页里未终结的任务（用于轮询刷新进度/状态）
 const activeTasks = computed(() => tasks.value.filter((t) => t.status === 'pending' || t.status === 'running'))
-const historyTasks = computed(() => tasks.value.filter((t) => t.status === 'success' || t.status === 'failed'))
 
 const modelOptions = computed<SelectOption[]>(() =>
   modelPresets.value.map((m) => ({ label: m.display_name, value: m.id, badge: m.api_protocol })),
@@ -427,6 +422,16 @@ async function onRetry(id: number) {
     loadTasks()
   } catch (err: unknown) {
     toast.error(errMsg(err) || t('benchmark.retryFailed'))
+  }
+}
+
+async function onStop(id: number) {
+  try {
+    await stopBenchmark(id)
+    toast.success(t('benchmark.stopSuccess'))
+    loadTasks()
+  } catch (err: unknown) {
+    toast.error(errMsg(err) || t('benchmark.stopFailed'))
   }
 }
 

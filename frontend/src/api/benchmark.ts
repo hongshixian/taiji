@@ -10,3 +10,5 @@ export const deleteBenchmark = (id: number) => request.delete(`/tasks/benchmark/
 // 引擎无关的元数据（前端 dynamic form 用）
 export const listBenchmarkSuites = () => request.get('/benchmarks/suites')
 export const getExecutionSchema = () => request.get('/benchmarks/execution-schema')
+
+export const stopBenchmark = (id: number) => request.post(`/tasks/benchmark/${id}/stop`)

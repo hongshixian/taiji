@@ -14,6 +14,7 @@ class TaskStatus(str, enum.Enum):
     RUNNING = "running"
     SUCCESS = "success"
     FAILED = "failed"
+    STOPPED = "stopped"
 
 
 class TaskType:
@@ -45,6 +46,7 @@ class Task(db.Model, TenantMixin):
     error_message = db.Column(db.Text)
     log_path = db.Column(db.String(500))
     progress = db.Column(db.JSON)  # {completed, total, current_metrics}
+    celery_task_id = db.Column(db.String(64))  # Celery AsyncResult id，用于停止/撤销
 
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     started_at = db.Column(db.DateTime)
