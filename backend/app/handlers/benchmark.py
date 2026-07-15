@@ -1,17 +1,22 @@
 """Benchmark 测评任务处理器"""
 
-from flask import request
+from flask import Blueprint, request
 
 from app.handlers.base import BaseTaskHandler
 from app.handlers.registry import registry
+from app.permissions import Permission
 from app.schemas.benchmark_schema import BenchmarkSubmitSchema
 from app.services.benchmark_service import (
     benchmark_task_to_dict,
     create_benchmark_task,
     execute_benchmark,
+    get_sample_preview,
 )
+from app.utils.decorators import require_permission
 from app.utils.errors import BusinessError, ErrorCode
+from app.utils.response import ok
 from app.utils.validation import validate_schema
+from flask_jwt_extended import jwt_required
 
 
 class BenchmarkHandler(BaseTaskHandler):
@@ -49,6 +54,22 @@ class BenchmarkHandler(BaseTaskHandler):
             task.benchmark.result = None
             # 重跑前清空进度
             task.progress = None
+
+    def extra_routes(self, bp: Blueprint) -> None:
+        """样本预览懒加载端点：点击方块时按 sample_id 拉取单条预览。"""
+
+        @bp.route("/<int:task_id>/samples/<sample_id>", methods=["GET"])
+        @jwt_required()
+        @require_permission(Permission.TASK_READ)
+        def _sample_preview(task_id: int, sample_id: str):
+            task = self.get(task_id)
+            preview = get_sample_preview(task, sample_id)
+            if preview is None:
+                raise BusinessError(
+                    ErrorCode.NOT_FOUND,
+                    "该样本暂无预览数据（可能超出预览范围，请查看完整日志）",
+                )
+            return ok(preview)
 
 
 _handler = BenchmarkHandler()

@@ -96,7 +96,8 @@
           <StatusPill :tone="cellTone(activeSample.status)" :label="statusText(activeSample.status)" />
           <span class="font-mono text-sm text-fg-tertiary">#{{ activeSample.id }}</span>
         </div>
-        <template v-if="activeSample.detail">
+        <div v-if="sampleLoading" class="rounded-sm bg-surface-sunken p-4 text-sm text-fg-secondary">{{ t('common.loading') }}</div>
+        <template v-else-if="activeSample.detail">
           <div v-for="blk in sampleBlocks(activeSample.detail)" :key="blk.label" :class="blk.error && 'text-danger'">
             <div class="text-xs uppercase tracking-wide text-fg-tertiary">{{ blk.label }}</div>
             <div class="mt-1 max-h-52 overflow-auto whitespace-pre-wrap break-words rounded-sm bg-surface-sunken p-4 font-mono text-xs" :class="blk.error && 'bg-danger-soft'">{{ blk.value }}</div>
@@ -120,6 +121,7 @@ import UiAlert from './ui/Alert.vue'
 import UiButton from './ui/Button.vue'
 import UiDialog from './ui/Dialog.vue'
 import { cn } from '@/lib/utils'
+import { getSamplePreview } from '@/api/benchmark'
 import { taskStatusTone as statusTone, taskStatusLabel as statusLabel } from '@/composables/taskStatus'
 import type { BenchmarkTask, BenchmarkResult } from '@/api/types'
 
@@ -128,7 +130,6 @@ type SampleDetail = NonNullable<BenchmarkResult['samples_preview']>[number]
 interface GridCell {
   id: string | number
   status: SampleStatus
-  detail?: SampleDetail
 }
 
 const props = defineProps<{ task: BenchmarkTask }>()
@@ -140,37 +141,22 @@ const metricEntries = computed(() => Object.entries(result.value.metrics || {}))
 const hasResult = computed(() => {
   const r = result.value
   return !!(r.metrics && Object.keys(r.metrics).length) ||
-    !!(r.samples_preview && r.samples_preview.length) ||
     !!(r.sample_grid && r.sample_grid.length) ||
     (r.total_samples ?? 0) > 0
 })
 
-// 详情映射（前 N 条带完整文本）
-const detailMap = computed(() => {
-  const m = new Map<string, SampleDetail>()
-  for (const s of result.value.samples_preview || []) m.set(String(s.id), s)
-  return m
-})
-const detailCount = computed(() => (result.value.samples_preview || []).length)
+// 已存储的预览条数（前 N 条）；后端默认不回传预览文本，点击方块时按需拉取
+const detailCount = computed(() => result.value.samples_preview_count ?? 0)
 
-// 网格单元：优先用 sample_grid（全部样本）；旧数据无 grid 时回退到 samples_preview
+// 网格单元：全部样本的 {id, status}（预览文本不随列表/详情返回）
 const gridCells = computed<GridCell[]>(() => {
   const grid = result.value.sample_grid
-  if (grid && grid.length) {
-    return grid.map((g) => ({
-      id: g.id,
-      status: g.status,
-      detail: detailMap.value.get(String(g.id)),
-    }))
-  }
-  return (result.value.samples_preview || []).map((s) => ({
-    id: s.id,
-    status: detailStatus(s),
-    detail: s,
-  }))
+  if (grid && grid.length) return grid.map((g) => ({ id: g.id, status: g.status }))
+  return []
 })
 
-const hasDetailForAll = computed(() => gridCells.value.every((c) => c.detail))
+// 是否所有方块都有预览（前 N 条之外无预览，点击时回退到“查看完整日志”）
+const hasDetailForAll = computed(() => gridCells.value.length > 0 && detailCount.value >= gridCells.value.length)
 
 const counts = computed(() => {
   let success = 0, error = 0, none = 0
@@ -183,17 +169,23 @@ const counts = computed(() => {
 })
 
 const sampleDialogOpen = ref(false)
-const activeSample = ref<GridCell | null>(null)
-function openSample(cell: GridCell) {
-  activeSample.value = cell
-  sampleDialogOpen.value = true
-}
+const sampleLoading = ref(false)
+const activeSample = ref<{ id: string | number; status: SampleStatus; detail?: SampleDetail } | null>(null)
 
-// 只看是否拿到结果，不看答对答错
-function detailStatus(s: SampleDetail): SampleStatus {
-  if (s.error) return 'error'
-  if (s.score || s.output) return 'success'
-  return 'none'
+// 点击方块：懒加载单条样本预览（samples_preview 不随列表返回）
+async function openSample(cell: GridCell) {
+  activeSample.value = { id: cell.id, status: cell.status }
+  sampleDialogOpen.value = true
+  sampleLoading.value = true
+  try {
+    const { data } = await getSamplePreview(props.task.id, cell.id)
+    if (activeSample.value) activeSample.value.detail = data.data as SampleDetail
+  } catch {
+    // 超出预览范围或无结果 -> detail 保持 undefined，弹窗内提示查看完整日志
+    if (activeSample.value) activeSample.value.detail = undefined
+  } finally {
+    sampleLoading.value = false
+  }
 }
 
 // 执行成功=绿，执行失败(报错)=红，未执行=黄

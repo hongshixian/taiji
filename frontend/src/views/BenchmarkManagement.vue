@@ -17,11 +17,11 @@
     <section class="mb-8 grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-5">
       <div class="flex flex-col gap-2 rounded-lg border border-line bg-surface-sunken p-6">
         <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">{{ t('benchmark.metricActive') }}</span>
-        <span class="font-mono text-3xl font-bold text-fg">{{ activeTasks.length }}</span>
+        <span class="font-mono text-3xl font-bold text-fg">{{ stats.active }}</span>
       </div>
       <div class="flex flex-col gap-2 rounded-lg border border-line bg-surface-sunken p-6">
         <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">{{ t('benchmark.metricTotal') }}</span>
-        <span class="font-mono text-3xl font-bold text-fg">{{ total }}</span>
+        <span class="font-mono text-3xl font-bold text-fg">{{ stats.total }}</span>
       </div>
       <div class="flex flex-col gap-2 rounded-lg border border-line bg-surface-sunken p-6">
         <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">{{ t('benchmark.metricSuites') }}</span>
@@ -190,13 +190,14 @@ import {
   submitBenchmark,
   getBenchmark,
   listBenchmarks,
+  getBenchmarkStats,
   retryBenchmark,
   deleteBenchmark,
   stopBenchmark,
   listBenchmarkSuites,
 } from '@/api/benchmark'
 import { listModels } from '@/api/model'
-import type { BenchmarkTask, SuiteDescriptor, ModelConfig } from '@/api/types'
+import type { BenchmarkTask, BenchmarkStats, SuiteDescriptor, ModelConfig } from '@/api/types'
 import TaskLogDialog from '@/components/TaskLogDialog.vue'
 import BenchmarkResultCard from '@/components/BenchmarkResultCard.vue'
 import DynamicField from '@/components/DynamicField.vue'
@@ -231,6 +232,8 @@ const suites = ref<SuiteDescriptor[]>([])
 const page = ref(1)
 const perPage = ref(10)
 const total = ref(0)
+// 顶部指标（全局口径，由 /stats 驱动，不依赖当前分页）
+const stats = ref<BenchmarkStats>({ pending: 0, running: 0, success: 0, failed: 0, stopped: 0, active: 0, total: 0 })
 const logDialogVisible = ref(false)
 const logTaskId = ref<number | null>(null)
 const expandedKeys = ref<(string | number)[]>([])
@@ -292,8 +295,9 @@ const suiteSelectGroups = computed<SelectGroupDef[]>(() => {
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 onMounted(async () => {
-  await Promise.all([loadTasks(), loadModels(), loadSuites()])
-  pollTimer = setInterval(pollActive, 2000)
+  await Promise.all([loadTasks(), loadModels(), loadSuites(), loadStats()])
+  // 每 2s 统一刷新：全局指标(stats) + 当前页进行中任务的进度/状态
+  pollTimer = setInterval(tick, 2000)
 })
 onBeforeUnmount(() => {
   if (pollTimer) clearInterval(pollTimer)
@@ -310,6 +314,13 @@ async function loadTasks() {
   } finally {
     loading.value = false
   }
+}
+
+async function loadStats() {
+  try {
+    const { data } = await getBenchmarkStats()
+    stats.value = data.data
+  } catch { /* silent */ }
 }
 
 function mergeById(incoming: BenchmarkTask[]) {
@@ -340,6 +351,11 @@ async function loadSuites() {
   }
 }
 
+// 单次轮询：刷新全局指标 + 当前页进行中任务；有任务终结则重载当前页
+async function tick() {
+  await Promise.all([loadStats(), pollActive()])
+}
+
 async function pollActive() {
   const active = activeTasks.value
   if (!active.length) return
@@ -348,7 +364,7 @@ async function pollActive() {
     try {
       const { data } = await getBenchmark(t.id)
       Object.assign(t, data.data)
-      if (t.status === 'success' || t.status === 'failed') anySettled = true
+      if (t.status === 'success' || t.status === 'failed' || t.status === 'stopped') anySettled = true
     } catch { /* silent */ }
   }
   if (anySettled) loadTasks()
@@ -397,7 +413,7 @@ async function onSubmit() {
     })
     toast.success(t('benchmark.submitSuccess'))
     showDialog.value = false
-    await loadTasks()
+    await Promise.all([loadTasks(), loadStats()])
   } catch (err: unknown) {
     toast.error(errMsg(err) || t('benchmark.submitFailed'))
   } finally {
@@ -419,7 +435,7 @@ async function onRetry(id: number) {
   try {
     await retryBenchmark(id)
     toast.success(t('benchmark.retrySuccess'))
-    loadTasks()
+    await Promise.all([loadTasks(), loadStats()])
   } catch (err: unknown) {
     toast.error(errMsg(err) || t('benchmark.retryFailed'))
   }
@@ -429,7 +445,7 @@ async function onStop(id: number) {
   try {
     await stopBenchmark(id)
     toast.success(t('benchmark.stopSuccess'))
-    loadTasks()
+    await Promise.all([loadTasks(), loadStats()])
   } catch (err: unknown) {
     toast.error(errMsg(err) || t('benchmark.stopFailed'))
   }
@@ -442,7 +458,7 @@ async function onDelete(id: number) {
     await deleteBenchmark(id)
     expandedKeys.value = expandedKeys.value.filter((k) => k !== id)
     toast.success(t('common.deleteSuccess'))
-    loadTasks()
+    await Promise.all([loadTasks(), loadStats()])
   } catch (err: unknown) {
     toast.error(errMsg(err) || t('benchmark.deleteFailed'))
   }

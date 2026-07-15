@@ -182,11 +182,19 @@ def execute_benchmark(task_id: int) -> None:
 # 序列化
 # ---------------------------------------------------------------------------
 
-def benchmark_task_to_dict(task: Task) -> dict:
+def benchmark_task_to_dict(task: Task, *, include_samples_preview: bool = False) -> dict:
     base = task_base_to_dict(task)
     detail: BenchmarkTask | None = task.benchmark
     if not detail:
         return base
+
+    result = detail.result
+    # 列表 / 详情查询默认只返回样本状态网格（sample_grid），
+    # 不携带样本预览文本（samples_preview）—— 点击方块时按需拉取，
+    # 避免列表接口每个任务都回传大段样本文本。
+    if result and not include_samples_preview:
+        preview = result.get("samples_preview") or []
+        result = {**result, "samples_preview": [], "samples_preview_count": len(preview)}
 
     return {
         **base,
@@ -199,9 +207,24 @@ def benchmark_task_to_dict(task: Task) -> dict:
         "target_model": _safe_model_dict(detail.target_model),
         "judge_model": _safe_model_dict(detail.judge_model),
         "benchmark_config": detail.benchmark_config,
-        "result": detail.result,
+        "result": result,
         "progress": task.progress,
     }
+
+
+def get_sample_preview(task: Task, sample_id: str) -> dict | None:
+    """从已存储的 result.samples_preview 中取单条样本预览。
+
+    samples_preview 仅包含前 N 条样本（见 log_parser._SAMPLES_PREVIEW_LIMIT），
+    超出范围的样本返回 None，前端据此提示“查看完整日志”。
+    """
+    detail: BenchmarkTask | None = task.benchmark
+    if not detail or not detail.result:
+        return None
+    for s in detail.result.get("samples_preview") or []:
+        if str(s.get("id")) == str(sample_id):
+            return s
+    return None
 
 
 # ---------------------------------------------------------------------------

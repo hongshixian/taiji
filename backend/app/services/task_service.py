@@ -3,6 +3,7 @@
 from datetime import datetime, timezone
 
 from flask import g
+from sqlalchemy import func
 
 from app import db
 from app.models.task import Task, TaskStatus
@@ -58,6 +59,26 @@ def list_tasks(page: int = 1, per_page: int = 20, task_type: str | None = None):
         .order_by(Task.created_at.desc())
         .paginate(page=page, per_page=per_page, error_out=False)
     )
+
+
+def count_tasks_by_status(task_type: str | None = None) -> dict:
+    """按状态统计当前租户任务数量（供页面顶部指标用）。
+
+    返回各状态计数 + 派生的 active(pending+running) 与 total。
+    依赖 TenantMixin 的全局查询拦截，自动限定在当前租户内。
+    """
+
+    query = Task.query.with_entities(Task.status, func.count(Task.id))
+    if task_type:
+        query = query.filter(Task.task_type == task_type)
+    rows = query.group_by(Task.status).all()
+    counts = {status: cnt for status, cnt in rows}
+
+    statuses = [s.value for s in TaskStatus]
+    result = {s: counts.get(s, 0) for s in statuses}
+    result["active"] = result["pending"] + result["running"]
+    result["total"] = sum(result[s] for s in statuses)
+    return result
 
 
 def mark_running(task: Task) -> None:

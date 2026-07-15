@@ -13,6 +13,7 @@ from app import limiter
 from app.permissions import Permission
 from app.schemas.task_schema import TaskQuerySchema
 from app.services.task_service import (
+    count_tasks_by_status,
     delete_task_record,
     get_task_or_404,
     list_tasks,
@@ -68,6 +69,10 @@ class BaseTaskHandler(ABC):
     def list(self, page: int, per_page: int):
         return list_tasks(page=page, per_page=per_page, task_type=self.task_type)
 
+    def stats(self) -> dict:
+        """按状态统计当前任务类型的数量（供页面顶部指标）。"""
+        return count_tasks_by_status(task_type=self.task_type)
+
     def retry(self, task_id: int):
         task = self.get(task_id)
         self._clear_detail(task)
@@ -115,6 +120,12 @@ class BaseTaskHandler(ABC):
             set_celery_task_id(task, result.id)
             return created(handler.to_dict(task), message="任务已提交")
 
+        @bp.route("/stats", methods=["GET"])
+        @jwt_required()
+        @require_permission(Permission.TASK_READ)
+        def _stats():
+            return ok(handler.stats())
+
         @bp.route("/<int:task_id>", methods=["GET"])
         @jwt_required()
         @require_permission(Permission.TASK_READ)
@@ -155,7 +166,14 @@ class BaseTaskHandler(ABC):
             handler.delete(task_id)
             return ok(message="任务已删除")
 
+        # 子类按需注册任务类型特有的额外路由
+        handler.extra_routes(bp)
+
         return bp
+
+    def extra_routes(self, bp: Blueprint) -> None:
+        """子类按需覆盖：在该任务类型的蓝图上注册额外路由。"""
+        return None
 
     # ── 框架自动生成 Celery task ──────────────────────────────────────────────
 
