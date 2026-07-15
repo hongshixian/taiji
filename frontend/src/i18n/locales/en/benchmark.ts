@@ -103,6 +103,7 @@ export default {
   metaTarget: 'Target',
   metaJudge: 'Judge',
   sampleDistribution: 'Sample Status ({n})',
+  sampleDistributionRunning: 'Sample Status · Running {done}/{total}',
   sampleSuccess: 'Succeeded',
   sampleError: 'Failed',
   sampleNone: 'Not run',

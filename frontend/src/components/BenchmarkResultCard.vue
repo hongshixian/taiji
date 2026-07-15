@@ -9,14 +9,14 @@
       <pre class="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-xs">{{ task.error_message }}</pre>
     </UiAlert>
 
-    <!-- 无结果 -->
-    <div v-if="!hasResult" class="flex flex-col items-center gap-4 py-10 text-center text-fg-tertiary">
+    <!-- 无结果且无实时网格 -->
+    <div v-if="!hasResult && !gridCells.length" class="flex flex-col items-center gap-4 py-10 text-center text-fg-tertiary">
       <BarChart3 class="size-7" />
       <span>{{ task.status === 'failed' ? t('benchmark.noResultFailed') : t('benchmark.noResultYet') }}</span>
     </div>
 
-    <template v-else>
-      <!-- 概览卡片 -->
+    <!-- 完成后概览 -->
+    <template v-if="hasResult">
       <div class="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-5">
         <div class="rounded-md border border-line bg-surface-sunken p-6">
           <div class="mb-5 font-semibold text-fg">{{ t('benchmark.mainMetrics') }}</div>
@@ -32,8 +32,8 @@
         <div class="rounded-md border border-line bg-surface-sunken p-6">
           <div class="mb-5 font-semibold text-fg">{{ t('benchmark.sampleStats') }}</div>
           <div class="flex flex-col gap-3">
-            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('benchmark.sampleTotal') }}</span><span class="font-mono font-semibold text-fg">{{ result.total_samples ?? '—' }}</span></div>
-            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('benchmark.sampleCompleted') }}</span><span class="font-mono font-semibold text-fg">{{ result.completed_samples ?? '—' }}</span></div>
+            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('benchmark.sampleTotal') }}</span><span class="font-mono font-semibold text-fg">{{ result.total_samples ?? '-' }}</span></div>
+            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('benchmark.sampleCompleted') }}</span><span class="font-mono font-semibold text-fg">{{ result.completed_samples ?? '-' }}</span></div>
             <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('benchmark.sampleFailed') }}</span><span class="font-mono font-semibold" :class="result.failed_samples ? 'text-danger' : 'text-fg'">{{ result.failed_samples ?? 0 }}</span></div>
             <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('common.status') }}</span><StatusPill :tone="statusTone(result.status || task.status)" :label="statusLabel(result.status || task.status)" /></div>
           </div>
@@ -45,7 +45,7 @@
             <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('benchmark.tokenInput') }}</span><span class="font-mono font-semibold text-fg">{{ fmtNum(result.model_usage?.input_tokens) }}</span></div>
             <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('benchmark.tokenOutput') }}</span><span class="font-mono font-semibold text-fg">{{ fmtNum(result.model_usage?.output_tokens) }}</span></div>
             <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('benchmark.tokenTotal') }}</span><span class="font-mono font-semibold text-fg">{{ fmtNum(result.model_usage?.total_tokens) }}</span></div>
-            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('benchmark.engine') }}</span><span class="font-mono font-semibold text-fg">{{ result.engine || '—' }}</span></div>
+            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('benchmark.engine') }}</span><span class="font-mono font-semibold text-fg">{{ result.engine || '-' }}</span></div>
           </div>
         </div>
       </div>
@@ -53,41 +53,45 @@
       <!-- 元信息 -->
       <div class="flex flex-wrap gap-x-8 gap-y-4 rounded-md border border-line bg-surface px-6 py-4">
         <div class="flex items-center gap-3 text-sm"><span class="text-fg-tertiary">Suite</span><span class="font-mono">{{ task.benchmark_suite }}</span></div>
-        <div class="flex items-center gap-3 text-sm"><span class="text-fg-tertiary">{{ t('benchmark.metaTarget') }}</span><span>{{ task.target_model?.display_name || '—' }}</span></div>
+        <div class="flex items-center gap-3 text-sm"><span class="text-fg-tertiary">{{ t('benchmark.metaTarget') }}</span><span>{{ task.target_model?.display_name || '-' }}</span></div>
         <div class="flex items-center gap-3 text-sm"><span class="text-fg-tertiary">{{ t('benchmark.metaJudge') }}</span><span>{{ task.judge_model?.display_name || t('common.none') }}</span></div>
       </div>
-
-      <!-- 样本网格（contribution-graph 风格） -->
-      <div v-if="gridCells.length" class="rounded-md border border-line bg-surface p-6">
-        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <span class="font-semibold text-fg">{{ t('benchmark.sampleDistribution', { n: gridCells.length }) }}</span>
-          <div class="flex items-center gap-4">
-            <div class="flex items-center gap-4 text-xs text-fg-secondary">
-              <span class="flex items-center gap-1.5"><i class="size-3 rounded-[3px]" style="background:var(--color-success-fg)" />{{ t('benchmark.sampleSuccess') }} {{ counts.success }}</span>
-              <span class="flex items-center gap-1.5"><i class="size-3 rounded-[3px]" style="background:var(--color-danger-fg)" />{{ t('benchmark.sampleError') }} {{ counts.error }}</span>
-              <span class="flex items-center gap-1.5"><i class="size-3 rounded-[3px]" style="background:var(--color-warning-fg)" />{{ t('benchmark.sampleNone') }} {{ counts.none }}</span>
-            </div>
-            <UiButton variant="text" size="sm" @click="$emit('view-log')">{{ t('benchmark.viewFullLog') }}</UiButton>
-          </div>
-        </div>
-        <div class="flex flex-wrap gap-[3px]">
-          <button
-            v-for="(cell, i) in gridCells"
-            :key="cell.id ?? i"
-            type="button"
-            :class="cn(
-              'size-3.5 rounded-[3px] transition-transform hover:scale-125 hover:ring-2 hover:ring-brand/40 focus:outline-none',
-              cellClass(cell.status),
-            )"
-            :title="`#${cell.id} · ${statusText(cell.status)}`"
-            @click="openSample(cell)"
-          />
-        </div>
-        <p v-if="!hasDetailForAll" class="mt-3 text-xs text-fg-tertiary">
-          {{ t('benchmark.sampleLimitHint', { n: detailCount }) }}
-        </p>
-      </div>
     </template>
+
+    <!-- 样本网格（contribution-graph 风格；执行中显示实时累积，完成后显示最终结果） -->
+    <div v-if="gridCells.length" class="rounded-md border border-line bg-surface p-6">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <span class="font-semibold text-fg">
+          <template v-if="isRunning">{{ t('benchmark.sampleDistributionRunning', { done: liveCompleted, total: liveTotal }) }}</template>
+          <template v-else>{{ t('benchmark.sampleDistribution', { n: gridCells.length }) }}</template>
+        </span>
+        <div class="flex items-center gap-4">
+          <div class="flex items-center gap-4 text-xs text-fg-secondary">
+            <span class="flex items-center gap-1.5"><i class="size-3 rounded-[3px]" style="background:var(--color-success-fg)" />{{ t('benchmark.sampleSuccess') }} {{ counts.success }}</span>
+            <span class="flex items-center gap-1.5"><i class="size-3 rounded-[3px]" style="background:var(--color-danger-fg)" />{{ t('benchmark.sampleError') }} {{ counts.error }}</span>
+            <span class="flex items-center gap-1.5"><i class="size-3 rounded-[3px]" style="background:var(--color-warning-fg)" />{{ t('benchmark.sampleNone') }} {{ counts.none }}</span>
+          </div>
+          <UiButton variant="text" size="sm" @click="$emit('view-log')">{{ t('benchmark.viewFullLog') }}</UiButton>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-[3px]">
+        <button
+          v-for="(cell, i) in gridCells"
+          :key="cell.id ?? i"
+          type="button"
+          :class="cn(
+            'size-3.5 rounded-[3px] transition-transform focus:outline-none',
+            isRunning ? 'cursor-default' : 'hover:scale-125 hover:ring-2 hover:ring-brand/40',
+            cellClass(cell.status),
+          )"
+          :title="`#${cell.id} · ${statusText(cell.status)}`"
+          @click="openSample(cell)"
+        />
+      </div>
+      <p v-if="!isRunning && !hasDetailForAll" class="mt-3 text-xs text-fg-tertiary">
+        {{ t('benchmark.sampleLimitHint', { n: detailCount }) }}
+      </p>
+    </div>
 
     <!-- 样本详情弹窗 -->
     <UiDialog v-model="sampleDialogOpen" :title="t('benchmark.sampleDialogTitle', { id: activeSample?.id ?? '' })" width="640px">
@@ -145,13 +149,19 @@ const hasResult = computed(() => {
     (r.total_samples ?? 0) > 0
 })
 
+const isRunning = computed(() => props.task.status === 'running' || props.task.status === 'pending')
+const liveCompleted = computed(() => props.task.progress?.completed ?? 0)
+const liveTotal = computed(() => props.task.progress?.total ?? 0)
+
 // 已存储的预览条数（前 N 条）；后端默认不回传预览文本，点击方块时按需拉取
 const detailCount = computed(() => result.value.samples_preview_count ?? 0)
 
-// 网格单元：全部样本的 {id, status}（预览文本不随列表/详情返回）
+// 网格单元：完成后用 result.sample_grid；执行中回退到 progress.sample_grid 实时累积网格
 const gridCells = computed<GridCell[]>(() => {
   const grid = result.value.sample_grid
   if (grid && grid.length) return grid.map((g) => ({ id: g.id, status: g.status }))
+  const live = props.task.progress?.sample_grid
+  if (live && live.length) return live.map((g) => ({ id: g.id, status: g.status }))
   return []
 })
 
@@ -172,8 +182,9 @@ const sampleDialogOpen = ref(false)
 const sampleLoading = ref(false)
 const activeSample = ref<{ id: string | number; status: SampleStatus; detail?: SampleDetail } | null>(null)
 
-// 点击方块：懒加载单条样本预览（samples_preview 不随列表返回）
+// 点击方块：懒加载单条样本预览（执行中尚无预览，忽略点击）
 async function openSample(cell: GridCell) {
+  if (isRunning.value) return
   activeSample.value = { id: cell.id, status: cell.status }
   sampleDialogOpen.value = true
   sampleLoading.value = true
@@ -208,14 +219,14 @@ function formatMetric(v: number | string) {
   return v
 }
 function fmtNum(v: number | undefined) {
-  if (v == null) return '—'
+  if (v == null) return '-'
   return typeof v === 'number' ? v.toLocaleString() : v
 }
 function sampleBlocks(s: SampleDetail) {
   const blocks = [
-    { label: 'Input', value: s.input || '—', error: false },
-    { label: 'Target', value: s.target || '—', error: false },
-    { label: 'Output', value: s.output || '—', error: false },
+    { label: 'Input', value: s.input || '-', error: false },
+    { label: 'Target', value: s.target || '-', error: false },
+    { label: 'Output', value: s.output || '-', error: false },
   ]
   if (s.score) blocks.push({ label: 'Score', value: String(s.score), error: false })
   if (s.explanation) blocks.push({ label: 'Explanation', value: s.explanation, error: false })

@@ -20,6 +20,7 @@ class ProgressReporter(Protocol):
         total: int,
         current_metrics: dict | None = None,
         current_sample: str | None = None,
+        sample_grid: list[dict] | None = None,
     ) -> None: ...
 
 
@@ -56,17 +57,25 @@ class TaskExecutionContext:
 class _DbProgressReporter:
     """默认实现：把进度更新到 Task.progress + 日志。"""
 
-    def __init__(self, task_id: int, task_logger, min_interval_ms: int = 500):
+    def __init__(self, task_id: int, task_logger, min_interval_ms: int = 1000):
         self._task_id = task_id
         self._logger = task_logger
         self._min_interval_ms = min_interval_ms
         self._last_completed = -1
+        self._last_ts = 0.0
 
-    def report(self, *, completed, total, current_metrics=None, current_sample=None):
+    def report(self, *, completed, total, current_metrics=None, current_sample=None, sample_grid=None):
         # 只有推进才写库/日志，避免刷屏
         if completed == self._last_completed:
             return
+        # 时间节流：非最终上报至少间隔 min_interval_ms，防止大 N 时逐样本刷库
+        import time
+        now = time.monotonic()
+        is_final = bool(total) and completed >= total
+        if not is_final and (now - self._last_ts) * 1000 < self._min_interval_ms:
+            return
         self._last_completed = completed
+        self._last_ts = now
 
         from app import db
         from app.models.task import Task
@@ -78,6 +87,7 @@ class _DbProgressReporter:
             "completed": completed,
             "total": total,
             "current_metrics": current_metrics or {},
+            "sample_grid": sample_grid or [],
         }
         db.session.commit()
 

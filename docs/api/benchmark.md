@@ -226,7 +226,7 @@
   "target_model": { /* ModelConfig，已剔除 api_key */ },
   "judge_model": null,
   "benchmark_config": { "execution_config": {}, "suite_config": {} },
-  "progress": { "completed": 20, "total": 20, "current_metrics": {} },  // 进行中才有
+  "progress": { "completed": 20, "total": 20, "current_metrics": {}, "sample_grid": [{ "id": 1, "status": "success" }] },  // 进行中才有；sample_grid 为执行中逐样本累积的实时状态网格，result 生成后由 result.sample_grid 接管
   "result": { /* BenchmarkResult，见 §4.2；未完成时为 null */ }
 }
 ```
@@ -278,4 +278,5 @@
 
 | 日期       | 变更                                                                 |
 |------------|----------------------------------------------------------------------|
+| 2026-07-15 | 执行中实时样本网格：`progress.sample_grid` 由 `on_sample_end` hook 逐样本累积（reporter 1s 节流），前端执行中回退渲染该网格，完成后切换到 `result.sample_grid`。 |
 | 2026-07-15 | 新增 `GET /stats`（全局状态计数）；新增 `GET /<id>/samples/<sample_id>`（样本预览懒加载）；列表/详情默认剥离 `samples_preview`，改回传 `samples_preview_count`。 |

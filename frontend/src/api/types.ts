@@ -141,7 +141,13 @@ export interface BenchmarkTask {
   judge_model?: ModelConfig | null
   benchmark_config?: { execution_config?: Record<string, unknown>; suite_config?: Record<string, unknown> }
   result?: BenchmarkResult | null
-  progress?: { completed: number; total: number; current_metrics?: Record<string, unknown> } | null
+  progress?: {
+    completed: number
+    total: number
+    current_metrics?: Record<string, unknown>
+    // 执行中逐样本累积的实时状态网格（result 生成前的过渡展示）
+    sample_grid?: Array<{ id: string | number; status: 'success' | 'error' | 'none' }>
+  } | null
   created_at?: string
   started_at?: string | null
   completed_at?: string | null

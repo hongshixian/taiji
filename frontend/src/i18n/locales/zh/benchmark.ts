@@ -103,6 +103,7 @@ export default {
   metaTarget: '被测',
   metaJudge: '评委',
   sampleDistribution: '样本状态（{n} 条）',
+  sampleDistributionRunning: '样本状态 · 执行中 {done}/{total}',
   sampleSuccess: '执行成功',
   sampleError: '执行失败',
   sampleNone: '未执行',

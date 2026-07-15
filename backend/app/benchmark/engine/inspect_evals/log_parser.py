@@ -100,7 +100,7 @@ def parse_eval_log_file(path: Path, engine: str) -> dict:
             })
         # 网格状态（全部样本，仅 id + status，紧凑；供 contribution-graph 式方块展示）
         for s in samples:
-            st = _sample_status(s)
+            st = sample_status(s)
             sample_grid.append({"id": getattr(s, "id", None), "status": st})
             if st == "error":
                 failed += 1
@@ -130,7 +130,7 @@ def parse_eval_log_file(path: Path, engine: str) -> dict:
     }
 
 
-def _sample_status(s) -> str:
+def sample_status(s) -> str:
     """判定单个样本的执行状态（只看是否拿到结果，不看答对答错）：
       error   —— 执行报错，未拿到结果
       success —— 执行成功，拿到了结果（有分数或有输出，不论对错/分值）

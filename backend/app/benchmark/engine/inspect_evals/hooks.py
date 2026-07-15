@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import threading
 
+from app.benchmark.engine.inspect_evals.log_parser import sample_status
+
 
 _state = threading.local()
 
@@ -19,6 +21,7 @@ class _ProgressState:
         self.progress = progress
         self.total = total_hint
         self.completed = 0
+        self.sample_grid: list[dict] = []   # 执行中逐样本累积的实时状态网格
         self.logger = logger
 
 
@@ -79,6 +82,13 @@ def _try_register() -> bool:
                 return
             state.completed += 1
             try:
+                # 累积实时样本状态（与最终 log 解析同一套判定逻辑）
+                sample = getattr(data, "sample", None)
+                status = sample_status(sample) if sample is not None else "none"
+                state.sample_grid.append({
+                    "id": getattr(sample, "id", None) if sample is not None else getattr(data, "sample_id", None),
+                    "status": status,
+                })
                 if state.total <= 0:
                     total = getattr(data, "total_samples", None) or state.completed
                 else:
@@ -86,6 +96,7 @@ def _try_register() -> bool:
                 state.progress.report(
                     completed=state.completed,
                     total=total,
+                    sample_grid=state.sample_grid,
                 )
             except Exception:  # 不能让 hook 抛异常打断评测
                 pass
@@ -98,7 +109,7 @@ def _try_register() -> bool:
                 total = getattr(data, "total_samples", None)
                 if total:
                     state.total = int(total)
-                    state.progress.report(completed=0, total=state.total)
+                    state.progress.report(completed=0, total=state.total, sample_grid=state.sample_grid)
             except Exception:
                 pass
 
@@ -110,6 +121,7 @@ def _try_register() -> bool:
                 state.progress.report(
                     completed=state.completed,
                     total=state.total or state.completed,
+                    sample_grid=state.sample_grid,
                 )
             except Exception:
                 pass
