@@ -340,11 +340,11 @@ function startPolling(taskId: number) {
   }, 1000)
 
   task.pollTimer = setInterval(async () => {
-    const t = _getActiveTask(taskId)
-    if (!t) { stopPolling(taskId); return }
-    _updateActiveTask(taskId, { pollCount: t.pollCount + 1 })
+    const at = _getActiveTask(taskId)
+    if (!at) { stopPolling(taskId); return }
+    _updateActiveTask(taskId, { pollCount: at.pollCount + 1 })
     try {
-      const { data } = await getRedTeam(t.id)
+      const { data } = await getRedTeam(at.id)
       const s = data.data.status
       if (s === 'success' || s === 'failed') {
         stopPolling(taskId)

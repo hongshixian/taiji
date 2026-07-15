@@ -1,7 +1,9 @@
 import { i18n } from '@/i18n'
 
+export type StatusTone = 'success' | 'warning' | 'info' | 'danger' | 'neutral' | 'brand'
+
 // 任务状态 → 展示 tone / 文案 的统一映射
-const TONE: Record<string, string> = {
+const TONE: Record<string, StatusTone> = {
   pending: 'warning',
   running: 'info',
   success: 'success',
@@ -9,7 +11,7 @@ const TONE: Record<string, string> = {
   timeout: 'warning',
 }
 
-export function taskStatusTone(status: string): string {
+export function taskStatusTone(status: string): StatusTone {
   return TONE[status] || 'neutral'
 }
 
