@@ -129,7 +129,7 @@
           expandable
           :expanded-keys="expandedKeys"
           :loading="loading"
-          @update:expanded-keys="expandedKeys = $event"
+          @update:expanded-keys="onExpand"
         >
           <template #cell-benchmark_suite="{ row }">{{ suiteLabel(row.benchmark_suite) }}</template>
           <template #cell-target_model="{ row }">{{ modelLabel(row.target_model) }}</template>
@@ -464,8 +464,20 @@ async function onDelete(id: number) {
   }
 }
 
+// 手风琴：同一时间最多展开一个任务；展开新行时自动收起旧行
+function onExpand(keys: (string | number)[]) {
+  const old = expandedKeys.value
+  if (keys.length > old.length) {
+    const newly = keys.find((k) => !old.includes(k))
+    expandedKeys.value = newly !== undefined ? [newly] : []
+  } else {
+    expandedKeys.value = keys
+  }
+}
+
 function onPageChange(p: number) {
   page.value = p
+  expandedKeys.value = []   // 换页清空展开状态
   loadTasks()
 }
 
