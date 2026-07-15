@@ -21,7 +21,7 @@ def upgrade():
         sa.Column("tenant_id", sa.Integer(), nullable=True),
         sa.Column("actor_user_id", sa.Integer(), nullable=True),
         sa.Column("actor_username", sa.String(length=80), nullable=True),
-        sa.Column("actor_is_superuser", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        sa.Column("actor_is_superuser", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column("action", sa.String(length=80), nullable=False),
         sa.Column("resource_type", sa.String(length=80), nullable=False),
         sa.Column("resource_id", sa.String(length=100), nullable=True),

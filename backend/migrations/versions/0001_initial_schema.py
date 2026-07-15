@@ -54,8 +54,8 @@ def upgrade():
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("slug", sa.String(length=50), nullable=False),
         sa.Column("name", sa.String(length=100), nullable=False),
-        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("1")),
-        sa.Column("is_system", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
+        sa.Column("is_system", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column("created_at", sa.DateTime(), nullable=True),
         sa.Column("updated_at", sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
@@ -69,8 +69,8 @@ def upgrade():
         sa.Column("username", sa.String(length=80), nullable=False),
         sa.Column("email", sa.String(length=120), nullable=False),
         sa.Column("password_hash", sa.String(length=256), nullable=False),
-        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("1")),
-        sa.Column("is_superuser", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
+        sa.Column("is_superuser", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column("tokens_revoked_at", sa.DateTime(), nullable=True),
         sa.Column("created_at", sa.DateTime(), nullable=True),
         sa.Column("updated_at", sa.DateTime(), nullable=True),
@@ -91,7 +91,7 @@ def upgrade():
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("name", sa.String(length=50), nullable=False),
         sa.Column("description", sa.String(length=200), nullable=True),
-        sa.Column("is_system", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        sa.Column("is_system", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column("created_at", sa.DateTime(), nullable=True),
         sa.Column("updated_at", sa.DateTime(), nullable=True),
         sa.PrimaryKeyConstraint("id"),
@@ -114,8 +114,8 @@ def upgrade():
         sa.Column("tenant_id", sa.Integer(), nullable=False),
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("role_id", sa.Integer(), nullable=False),
-        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("1")),
-        sa.Column("is_owner", sa.Boolean(), nullable=False, server_default=sa.text("0")),
+        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
+        sa.Column("is_owner", sa.Boolean(), nullable=False, server_default=sa.text("false")),
         sa.Column("created_at", sa.DateTime(), nullable=True),
         sa.Column("updated_at", sa.DateTime(), nullable=True),
         sa.ForeignKeyConstraint(["role_id"], ["roles.id"]),
@@ -280,3 +280,13 @@ def _seed_initial_data():
         "value": "guest",
         "description": "新注册用户默认加入的租户 slug",
     }])
+
+    # PostgreSQL：seed 显式插入了 id，需把自增序列同步到当前最大值，
+    # 否则后续 INSERT（新建租户/角色）会主键冲突。SQLite 无此问题。
+    bind = op.get_bind()
+    if bind.dialect.name == "postgresql":
+        for tbl in ("tenants", "roles"):
+            op.execute(
+                f"SELECT setval(pg_get_serial_sequence('{tbl}', 'id'), "
+                f"(SELECT COALESCE(MAX(id), 1) FROM {tbl}))"
+            )

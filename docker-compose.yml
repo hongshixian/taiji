@@ -1,4 +1,20 @@
 services:
+  # ─── PostgreSQL ────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-taiji}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-taiji_pw}
+      - POSTGRES_DB=${POSTGRES_DB:-taiji}
+    volumes:
+      - ./pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-taiji} -d ${POSTGRES_DB:-taiji}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
   # ─── Redis ─────────────────────────────────────
   redis:
     image: redis:7-alpine
@@ -17,7 +33,7 @@ services:
     environment:
       - FLASK_ENV=production
       - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
-      - DATABASE_URL=sqlite:////app/data/taiji.db
+      - DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-taiji}:${POSTGRES_PASSWORD:-taiji_pw}@postgres:5432/${POSTGRES_DB:-taiji}
       - REDIS_URL=redis://redis:6379/0
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-in-production}
       - TASK_LOG_ROOT=/app/logs
@@ -31,6 +47,8 @@ services:
       - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@taiji.local}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
     volumes:
@@ -48,7 +66,7 @@ services:
     environment:
       - FLASK_ENV=production
       - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
-      - DATABASE_URL=sqlite:////app/data/taiji.db
+      - DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-taiji}:${POSTGRES_PASSWORD:-taiji_pw}@postgres:5432/${POSTGRES_DB:-taiji}
       - REDIS_URL=redis://redis:6379/0
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-in-production}
       - CELERY_BROKER_URL=redis://redis:6379/0
@@ -63,6 +81,8 @@ services:
       # inspect_ai 日志级别
       - INSPECT_LOG_LEVEL=info
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
     volumes:

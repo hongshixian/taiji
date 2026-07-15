@@ -7,6 +7,7 @@ flask-cors==5.0.1
 # 数据库
 Flask-SQLAlchemy==3.1.1
 Flask-Migrate==4.1.0
+psycopg[binary]==3.2.3
 
 # JWT 鉴权
 flask-jwt-extended==4.7.1

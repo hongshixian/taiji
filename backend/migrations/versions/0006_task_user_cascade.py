@@ -20,9 +20,8 @@ def upgrade():
     if bind.dialect.name == "sqlite":
         _upgrade_sqlite()
     else:
-        # PostgreSQL / MySQL: 直接 drop 再 add FK
-        op.drop_constraint("fk_tasks_user_id", "tasks", type_="foreignkey")
-        op.create_foreign_key("fk_tasks_user_id", "tasks", "users", ["user_id"], ["id"], ondelete="CASCADE")
+        # PostgreSQL / MySQL: 动态查出 user_id 的 FK 名后重建为 CASCADE
+        _recreate_user_fk(ondelete="CASCADE")
 
 
 def downgrade():
@@ -30,8 +29,22 @@ def downgrade():
     if bind.dialect.name == "sqlite":
         _downgrade_sqlite()
     else:
-        op.drop_constraint("fk_tasks_user_id", "tasks", type_="foreignkey")
-        op.create_foreign_key("fk_tasks_user_id", "tasks", "users", ["user_id"], ["id"])
+        _recreate_user_fk(ondelete=None)
+
+
+def _recreate_user_fk(ondelete):
+    """在 PG/MySQL 上重建 tasks.user_id → users.id 的外键（约束名由方言自动生成，
+    这里通过 inspector 动态查找，避免写死名字导致 drop 失败）。"""
+    from sqlalchemy import inspect
+
+    bind = op.get_bind()
+    insp = inspect(bind)
+    for fk in insp.get_foreign_keys("tasks"):
+        if fk.get("constrained_columns") == ["user_id"] and fk.get("name"):
+            op.drop_constraint(fk["name"], "tasks", type_="foreignkey")
+    op.create_foreign_key(
+        "fk_tasks_user_id", "tasks", "users", ["user_id"], ["id"], ondelete=ondelete,
+    )
 
 
 def _upgrade_sqlite():
