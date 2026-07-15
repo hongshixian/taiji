@@ -1,16 +1,16 @@
 <template>
   <div class="page-shell page-shell--wide tenant-management">
     <header class="page-header">
-      <span class="page-header__eyebrow t-eyebrow">超级管理员 · 租户</span>
+      <span class="page-header__eyebrow t-eyebrow">{{ t('admin.tenantEyebrow') }}</span>
       <div class="page-header__row">
-        <h1 class="page-header__title">租户管理</h1>
+        <h1 class="page-header__title">{{ t('admin.tenantTitle') }}</h1>
         <UiButton @click="openCreateDialog">
           <template #icon><Plus class="size-4" /></template>
-          新建租户
+          {{ t('admin.tenantAdd') }}
         </UiButton>
       </div>
       <p class="page-header__lede">
-        管理平台所有租户。只能切换到自己已加入并启用的租户；系统租户不可删除。
+        {{ t('admin.tenantLede') }}
       </p>
     </header>
 
@@ -18,11 +18,11 @@
       <UiTable :columns="tenantColumns" :data="tenants" row-key="id" stripe :loading="loading">
         <template #cell-slug="{ row }">
           <span class="slug t-mono">{{ row.slug }}</span>
-          <UiBadge v-if="row.is_system" tone="neutral" class="ml-2">系统</UiBadge>
+          <UiBadge v-if="row.is_system" tone="neutral" class="ml-2">{{ t('admin.badgeSystem') }}</UiBadge>
         </template>
         <template #cell-status="{ row }">
           <UiBadge :tone="row.is_active ? 'success' : 'danger'">
-            {{ row.is_active ? '正常' : '已禁用' }}
+            {{ row.is_active ? t('admin.statusNormal') : t('admin.tenantStatusDisabled') }}
           </UiBadge>
         </template>
         <template #cell-user_count="{ row }">
@@ -42,23 +42,23 @@
               :disabled="row.id === authStore.currentTenant?.id || !canSwitchTo(row)"
               @click="handleSwitchTo(row)"
             >
-              切换
+              {{ t('admin.tenantActionSwitch') }}
             </UiButton>
-            <UiButton variant="text" size="sm" @click="openMembersDialog(row)">成员</UiButton>
+            <UiButton variant="text" size="sm" @click="openMembersDialog(row)">{{ t('admin.tenantActionMembers') }}</UiButton>
             <UiDropdown>
               <template #trigger>
                 <UiButton variant="text" size="sm">
-                  更多<ChevronDown class="size-4" />
+                  {{ t('common.more') }}<ChevronDown class="size-4" />
                 </UiButton>
               </template>
               <template #default="{ close }">
-                <UiDropdownItem @select="close(); openEditDialog(row)">编辑</UiDropdownItem>
+                <UiDropdownItem @select="close(); openEditDialog(row)">{{ t('common.edit') }}</UiDropdownItem>
                 <UiDropdownItem
                   danger
                   :disabled="!!row.is_system"
                   @select="close(); handleDelete(row)"
                 >
-                  删除
+                  {{ t('common.delete') }}
                 </UiDropdownItem>
               </template>
             </UiDropdown>
@@ -67,42 +67,42 @@
       </UiTable>
     </section>
 
-    <UiDialog v-model="dialogVisible" :title="editMode ? '编辑租户' : '新建租户'" width="480px">
+    <UiDialog v-model="dialogVisible" :title="editMode ? t('admin.tenantDialogEdit') : t('admin.tenantDialogAdd')" width="480px">
       <div class="flex flex-col gap-4">
-        <UiFormItem label="标识 (slug)" required :error="errors.slug" :hint="editMode ? 'slug 创建后不可修改' : ''">
+        <UiFormItem :label="t('admin.tenantFieldSlug')" required :error="errors.slug" :hint="editMode ? t('admin.tenantHintSlug') : ''">
           <UiInput
             v-model="form.slug"
             :disabled="editMode"
-            placeholder="如 acme-corp（仅小写字母 / 数字 / 连字符）"
+            :placeholder="t('admin.tenantPhSlug')"
           />
         </UiFormItem>
-        <UiFormItem label="名称" required :error="errors.name">
-          <UiInput v-model="form.name" placeholder="如 ACME 公司" />
+        <UiFormItem :label="t('admin.tenantFieldName')" required :error="errors.name">
+          <UiInput v-model="form.name" :placeholder="t('admin.tenantPhName')" />
         </UiFormItem>
-        <UiFormItem v-if="editMode" label="状态">
+        <UiFormItem v-if="editMode" :label="t('common.status')">
           <div class="flex items-center gap-2">
             <UiSwitch v-model="form.is_active" />
-            <span class="text-sm text-fg-secondary">{{ form.is_active ? '启用' : '禁用' }}</span>
+            <span class="text-sm text-fg-secondary">{{ form.is_active ? t('common.enabled') : t('common.disabled') }}</span>
           </div>
         </UiFormItem>
       </div>
       <template #footer>
-        <UiButton variant="secondary" @click="dialogVisible = false">取消</UiButton>
+        <UiButton variant="secondary" @click="dialogVisible = false">{{ t('common.cancel') }}</UiButton>
         <UiButton :loading="submitting" @click="handleSubmit">
-          {{ editMode ? '保存' : '创建' }}
+          {{ editMode ? t('common.save') : t('common.create') }}
         </UiButton>
       </template>
     </UiDialog>
 
     <UiDialog
       v-model="membersDialogVisible"
-      :title="`成员管理 — ${memberTenant?.name || ''}`"
+      :title="t('admin.tenantMembersTitle', { name: memberTenant?.name || '' })"
       width="900px"
     >
       <div class="member-add">
-        <UiInput v-model="memberForm.identifier" placeholder="已注册用户的用户名或邮箱" />
-        <UiSelect v-model="memberForm.role" :options="roleSelectOptions" placeholder="角色" />
-        <UiButton :loading="addingMember" @click="handleAddMember">添加</UiButton>
+        <UiInput v-model="memberForm.identifier" :placeholder="t('admin.tenantPhMemberIdentifier')" />
+        <UiSelect v-model="memberForm.role" :options="roleSelectOptions" :placeholder="t('admin.tenantPhMemberRole')" />
+        <UiButton :loading="addingMember" @click="handleAddMember">{{ t('common.add') }}</UiButton>
       </div>
 
       <UiTable
@@ -119,17 +119,17 @@
           <UiBadge tone="neutral">{{ row.role_name || row.role }}</UiBadge>
         </template>
         <template #cell-superuser="{ row }">
-          <UiBadge v-if="row.is_superuser" tone="danger">是</UiBadge>
+          <UiBadge v-if="row.is_superuser" tone="danger">{{ t('common.yes') }}</UiBadge>
           <span v-else class="t-caption">—</span>
         </template>
         <template #cell-mstatus="{ row }">
           <UiBadge :tone="row.membership_active ? 'success' : 'danger'">
-            {{ row.membership_active ? '正常' : '禁用' }}
+            {{ row.membership_active ? t('admin.statusNormal') : t('admin.statusDisabled') }}
           </UiBadge>
         </template>
         <template #cell-actions="{ row }">
           <div class="flex justify-end">
-            <UiButton variant="danger-text" size="sm" @click="handleRemoveMember(row)">移除</UiButton>
+            <UiButton variant="danger-text" size="sm" @click="handleRemoveMember(row)">{{ t('admin.tenantMemberRemove') }}</UiButton>
           </div>
         </template>
       </UiTable>
@@ -139,6 +139,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Plus, ChevronDown } from 'lucide-vue-next'
 import { toast } from '@/lib/toast'
 import { confirm } from '@/lib/confirm'
@@ -165,6 +166,7 @@ import UiDropdown from '@/components/ui/Dropdown.vue'
 import UiDropdownItem from '@/components/ui/DropdownItem.vue'
 
 const authStore = useAuthStore()
+const { t } = useI18n()
 
 interface TenantRow {
   id: number
@@ -192,25 +194,25 @@ interface RoleOption {
   description?: string
 }
 
-const tenantColumns: TableColumn[] = [
+const tenantColumns = computed<TableColumn[]>(() => [
   { key: 'id', label: 'ID', width: 60 },
-  { key: 'slug', label: '标识 (slug)', minWidth: 180 },
-  { key: 'name', label: '名称', minWidth: 160 },
-  { key: 'status', label: '状态', width: 100 },
-  { key: 'user_count', label: '用户数', width: 80, align: 'center' },
-  { key: 'task_count', label: '任务数', width: 80, align: 'center' },
-  { key: 'created_at', label: '创建时间', width: 160 },
-  { key: 'actions', label: '操作', width: 150, align: 'right', fixed: 'right' },
-]
+  { key: 'slug', label: t('admin.tenantColSlug'), minWidth: 180 },
+  { key: 'name', label: t('admin.tenantColName'), minWidth: 160 },
+  { key: 'status', label: t('common.status'), width: 100 },
+  { key: 'user_count', label: t('admin.tenantColUserCount'), width: 80, align: 'center' },
+  { key: 'task_count', label: t('admin.tenantColTaskCount'), width: 80, align: 'center' },
+  { key: 'created_at', label: t('common.createdAt'), width: 160 },
+  { key: 'actions', label: t('common.actions'), width: 150, align: 'right', fixed: 'right' },
+])
 
-const memberColumns: TableColumn[] = [
-  { key: 'username', label: '用户名', minWidth: 130 },
-  { key: 'email', label: '邮箱', minWidth: 200 },
-  { key: 'role', label: '角色', width: 140 },
-  { key: 'superuser', label: '超级管理员', width: 120 },
-  { key: 'mstatus', label: '状态', width: 100 },
-  { key: 'actions', label: '操作', width: 100, align: 'right', fixed: 'right' },
-]
+const memberColumns = computed<TableColumn[]>(() => [
+  { key: 'username', label: t('admin.colUsername'), minWidth: 130 },
+  { key: 'email', label: t('admin.colEmail'), minWidth: 200 },
+  { key: 'role', label: t('admin.colRole'), width: 140 },
+  { key: 'superuser', label: t('admin.tenantColSuperuser'), width: 120 },
+  { key: 'mstatus', label: t('common.status'), width: 100 },
+  { key: 'actions', label: t('common.actions'), width: 100, align: 'right', fixed: 'right' },
+])
 
 const tenants = ref<TenantRow[]>([])
 const loading = ref(false)
@@ -258,13 +260,13 @@ function validate(): boolean {
   errors.name = ''
   if (!editMode.value) {
     const slug = form.slug.trim()
-    if (!slug) errors.slug = '请输入 slug'
-    else if (!/^[a-z0-9-]+$/.test(slug)) errors.slug = '仅允许小写字母 / 数字 / 连字符'
-    else if (slug.length < 2 || slug.length > 50) errors.slug = '长度 2-50'
+    if (!slug) errors.slug = t('admin.tenantValSlugRequired')
+    else if (!/^[a-z0-9-]+$/.test(slug)) errors.slug = t('admin.tenantValSlugFormat')
+    else if (slug.length < 2 || slug.length > 50) errors.slug = t('admin.tenantValSlugLength')
   }
   const name = form.name.trim()
-  if (!name) errors.name = '请输入名称'
-  else if (name.length > 100) errors.name = '最多 100 字符'
+  if (!name) errors.name = t('admin.tenantValNameRequired')
+  else if (name.length > 100) errors.name = t('admin.tenantValNameLength')
   return !errors.slug && !errors.name
 }
 
@@ -275,7 +277,7 @@ async function fetchTenants() {
     tenants.value = data.data || []
   } catch (err: unknown) {
     const e = err as { response?: { data?: { message?: string } } }
-    toast.error(e.response?.data?.message || '加载租户失败')
+    toast.error(e.response?.data?.message || t('admin.tenantLoadFailed'))
   } finally {
     loading.value = false
   }
@@ -287,7 +289,7 @@ async function fetchRoles(tenantId: number | null = null) {
     roleOptions.value = data.data || []
   } catch (err: unknown) {
     const e = err as { response?: { data?: { message?: string } } }
-    toast.error(e.response?.data?.message || '加载角色失败')
+    toast.error(e.response?.data?.message || t('admin.tenantLoadRolesFailed'))
   }
 }
 
@@ -325,16 +327,16 @@ async function handleSubmit() {
   try {
     if (editMode.value) {
       await updateTenant(editTenantId.value as number, { name: form.name, is_active: form.is_active })
-      toast.success('已保存')
+      toast.success(t('common.saveSuccess'))
     } else {
       await createTenant({ slug: form.slug, name: form.name })
-      toast.success('已创建')
+      toast.success(t('admin.toastCreated'))
     }
     dialogVisible.value = false
     fetchTenants()
   } catch (err: unknown) {
     const e = err as { response?: { data?: { message?: string } } }
-    toast.error(e.response?.data?.message || '操作失败')
+    toast.error(e.response?.data?.message || t('common.operationFailed'))
   } finally {
     submitting.value = false
   }
@@ -343,41 +345,41 @@ async function handleSubmit() {
 async function handleDelete(row: Record<string, unknown>) {
   const r = row as TenantRow
   if (r.is_system) {
-    toast.warning('系统租户不可删除')
+    toast.warning(t('admin.tenantSystemCannotDelete'))
     return
   }
   const ok = await confirm({
-    title: '确认删除',
-    message: `确定删除租户「${r.name}」(${r.slug}) 吗？如租户内仍有用户或任务将无法删除。`,
+    title: t('admin.confirmDeleteTitle'),
+    message: t('admin.tenantDeleteMsg', { name: r.name, slug: r.slug }),
     tone: 'danger',
-    confirmText: '删除',
+    confirmText: t('common.delete'),
   })
   if (!ok) return
   try {
     await deleteTenant(r.id)
-    toast.success('已删除')
+    toast.success(t('common.deleteSuccess'))
     fetchTenants()
   } catch (err: unknown) {
     const e = err as { response?: { data?: { message?: string } } }
-    toast.error(e.response?.data?.message || '删除失败')
+    toast.error(e.response?.data?.message || t('admin.deleteFailed'))
   }
 }
 
 async function handleSwitchTo(row: Record<string, unknown>) {
   const r = row as TenantRow
   const ok = await confirm({
-    title: '切换租户',
-    message: `切换到租户「${r.name}」？后续操作将在该租户上下文下进行。`,
-    confirmText: '切换',
+    title: t('admin.tenantSwitchTitle'),
+    message: t('admin.tenantSwitchMsg', { name: r.name }),
+    confirmText: t('admin.tenantActionSwitch'),
   })
   if (!ok) return
   try {
     await authStore.switchTenant(r.id)
-    toast.success(`已切换到「${r.name}」`)
+    toast.success(t('admin.tenantSwitchedTo', { name: r.name }))
     setTimeout(() => window.location.reload(), 300)
   } catch (err: unknown) {
     const e = err as { response?: { data?: { message?: string } } }
-    toast.error(e.response?.data?.message || '切换失败')
+    toast.error(e.response?.data?.message || t('admin.tenantSwitchFailed'))
   }
 }
 
@@ -402,7 +404,7 @@ async function fetchMembers() {
     members.value = data.data || []
   } catch (err: unknown) {
     const e = err as { response?: { data?: { message?: string } } }
-    toast.error(e.response?.data?.message || '加载成员失败')
+    toast.error(e.response?.data?.message || t('admin.tenantLoadMembersFailed'))
   } finally {
     membersLoading.value = false
   }
@@ -411,7 +413,7 @@ async function fetchMembers() {
 async function handleAddMember() {
   if (!memberTenant.value) return
   if (!memberForm.identifier.trim()) {
-    toast.warning('请输入用户名或邮箱')
+    toast.warning(t('admin.tenantValMemberIdentifierRequired'))
     return
   }
   addingMember.value = true
@@ -420,12 +422,12 @@ async function handleAddMember() {
       identifier: memberForm.identifier.trim(),
       role: memberForm.role,
     })
-    toast.success('已添加成员')
+    toast.success(t('admin.tenantMemberAdded'))
     resetMemberForm()
     await Promise.all([fetchMembers(), fetchTenants()])
   } catch (err: unknown) {
     const e = err as { response?: { data?: { message?: string } } }
-    toast.error(e.response?.data?.message || '添加成员失败')
+    toast.error(e.response?.data?.message || t('admin.tenantAddMemberFailed'))
   } finally {
     addingMember.value = false
   }
@@ -435,19 +437,19 @@ async function handleRemoveMember(row: Record<string, unknown>) {
   const r = row as MemberRow
   if (!memberTenant.value) return
   const ok = await confirm({
-    title: '移除成员',
-    message: `确定从租户「${memberTenant.value.name}」移除成员「${r.username}」吗？`,
+    title: t('admin.tenantRemoveMemberTitle'),
+    message: t('admin.tenantRemoveMemberMsg', { tenant: memberTenant.value.name, name: r.username }),
     tone: 'danger',
-    confirmText: '移除',
+    confirmText: t('admin.tenantMemberRemove'),
   })
   if (!ok) return
   try {
     await removeTenantMember(memberTenant.value.id, r.id)
-    toast.success('已移除')
+    toast.success(t('admin.tenantMemberRemoved'))
     await Promise.all([fetchMembers(), fetchTenants()])
   } catch (err: unknown) {
     const e = err as { response?: { data?: { message?: string } } }
-    toast.error(e.response?.data?.message || '移除失败')
+    toast.error(e.response?.data?.message || t('admin.tenantRemoveMemberFailed'))
   }
 }
 

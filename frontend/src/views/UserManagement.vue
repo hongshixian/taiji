@@ -1,16 +1,16 @@
 <template>
   <div class="page-shell page-shell--wide user-management">
     <header class="page-header">
-      <span class="page-header__eyebrow t-eyebrow">租户 · 成员</span>
+      <span class="page-header__eyebrow t-eyebrow">{{ t('admin.userEyebrow') }}</span>
       <div class="page-header__row">
-        <h1 class="page-header__title">用户管理</h1>
+        <h1 class="page-header__title">{{ t('admin.userTitle') }}</h1>
         <UiButton @click="openCreateDialog">
           <template #icon><Plus class="size-4" /></template>
-          添加用户
+          {{ t('admin.userAdd') }}
         </UiButton>
       </div>
       <p class="page-header__lede">
-        管理当前租户的成员、角色与状态。删除会移除该成员资格；若用户没有其他租户身份，全局账号也会被删除。
+        {{ t('admin.userLede') }}
       </p>
     </header>
 
@@ -24,7 +24,7 @@
         </template>
         <template #cell-status="{ row }">
           <UiBadge :tone="memberActive(row) ? 'success' : 'danger'">
-            {{ memberActive(row) ? '正常' : '禁用' }}
+            {{ memberActive(row) ? t('admin.statusNormal') : t('admin.statusDisabled') }}
           </UiBadge>
         </template>
         <template #cell-created_at="{ row }">
@@ -32,8 +32,8 @@
         </template>
         <template #cell-actions="{ row }">
           <div class="flex justify-end gap-1">
-            <UiButton variant="text" size="sm" @click="openEditDialog(row)">编辑</UiButton>
-            <UiButton variant="danger-text" size="sm" @click="handleDelete(row)">删除</UiButton>
+            <UiButton variant="text" size="sm" @click="openEditDialog(row)">{{ t('common.edit') }}</UiButton>
+            <UiButton variant="danger-text" size="sm" @click="handleDelete(row)">{{ t('common.delete') }}</UiButton>
           </div>
         </template>
       </UiTable>
@@ -48,35 +48,35 @@
       />
     </section>
 
-    <UiDialog v-model="dialogVisible" :title="editMode ? '编辑用户' : '添加用户'" width="480px">
+    <UiDialog v-model="dialogVisible" :title="editMode ? t('admin.userDialogEdit') : t('admin.userDialogAdd')" width="480px">
       <div class="flex flex-col gap-4">
-        <UiFormItem label="用户名" required :error="errors.username">
-          <UiInput v-model="form.username" :disabled="editMode" placeholder="3 至 80 个字符" />
+        <UiFormItem :label="t('admin.userFieldUsername')" required :error="errors.username">
+          <UiInput v-model="form.username" :disabled="editMode" :placeholder="t('admin.userPhUsername')" />
         </UiFormItem>
-        <UiFormItem label="邮箱" required :error="errors.email">
-          <UiInput v-model="form.email" placeholder="user@example.com" />
+        <UiFormItem :label="t('admin.userFieldEmail')" required :error="errors.email">
+          <UiInput v-model="form.email" :placeholder="t('admin.userPhEmail')" />
         </UiFormItem>
-        <UiFormItem label="密码">
+        <UiFormItem :label="t('admin.userFieldPassword')">
           <UiInput
             v-model="form.password"
             type="password"
-            :placeholder="editMode ? '留空则不修改' : '至少 6 位'"
+            :placeholder="editMode ? t('admin.userPhPasswordEdit') : t('admin.userPhPasswordCreate')"
           />
         </UiFormItem>
-        <UiFormItem label="角色" required>
-          <UiSelect v-model="form.role" :options="roleSelectOptions" placeholder="选择角色" />
+        <UiFormItem :label="t('admin.userFieldRole')" required>
+          <UiSelect v-model="form.role" :options="roleSelectOptions" :placeholder="t('admin.userPhSelectRole')" />
         </UiFormItem>
-        <UiFormItem v-if="editMode" label="成员状态">
+        <UiFormItem v-if="editMode" :label="t('admin.userFieldMemberStatus')">
           <div class="flex items-center gap-2">
             <UiSwitch v-model="form.is_active" />
-            <span class="text-sm text-fg-secondary">{{ form.is_active ? '正常' : '禁用' }}</span>
+            <span class="text-sm text-fg-secondary">{{ form.is_active ? t('admin.statusNormal') : t('admin.statusDisabled') }}</span>
           </div>
         </UiFormItem>
       </div>
       <template #footer>
-        <UiButton variant="secondary" @click="dialogVisible = false">取消</UiButton>
+        <UiButton variant="secondary" @click="dialogVisible = false">{{ t('common.cancel') }}</UiButton>
         <UiButton :loading="submitting" @click="handleSubmit">
-          {{ editMode ? '保存' : '创建' }}
+          {{ editMode ? t('common.save') : t('common.create') }}
         </UiButton>
       </template>
     </UiDialog>
@@ -85,6 +85,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Plus } from 'lucide-vue-next'
 import { toast } from '@/lib/toast'
 import { confirm } from '@/lib/confirm'
@@ -115,15 +116,17 @@ interface RoleOption {
   description?: string
 }
 
-const columns: TableColumn[] = [
+const { t } = useI18n()
+
+const columns = computed<TableColumn[]>(() => [
   { key: 'id', label: 'ID', width: 60 },
-  { key: 'username', label: '用户名', minWidth: 120 },
-  { key: 'email', label: '邮箱', minWidth: 200 },
-  { key: 'role', label: '角色', width: 140 },
-  { key: 'status', label: '状态', width: 100 },
-  { key: 'created_at', label: '创建时间', width: 180 },
-  { key: 'actions', label: '操作', width: 160, align: 'right', fixed: 'right' },
-]
+  { key: 'username', label: t('admin.colUsername'), minWidth: 120 },
+  { key: 'email', label: t('admin.colEmail'), minWidth: 200 },
+  { key: 'role', label: t('admin.colRole'), width: 140 },
+  { key: 'status', label: t('common.status'), width: 100 },
+  { key: 'created_at', label: t('common.createdAt'), width: 180 },
+  { key: 'actions', label: t('common.actions'), width: 160, align: 'right', fixed: 'right' },
+])
 
 const users = ref<UserRow[]>([])
 const roleOptions = ref<RoleOption[]>([])
@@ -158,8 +161,8 @@ function roleLabel(row: Record<string, unknown>) {
   const r = row as UserRow
   // 优先用 role_name (后端 RBAC)；兜底用 role 字符串映射
   if (r.role_name) return r.role_name
-  const map: Record<string, string> = { admin: '管理员', user: '普通用户', guest: '访客' }
-  return (r.role && map[r.role]) || r.role || '未知'
+  const map: Record<string, string> = { admin: t('admin.roleAdmin'), user: t('admin.roleUser'), guest: t('admin.roleGuest') }
+  return (r.role && map[r.role]) || r.role || t('admin.roleUnknown')
 }
 
 function roleTone(row: Record<string, unknown>): 'danger' | 'neutral' | 'info' {
@@ -184,7 +187,7 @@ async function fetchUsers() {
   } catch (err: unknown) {
     const e = err as { response?: { status?: number } }
     if (e.response?.status === 403) {
-      toast.error('需要管理员权限')
+      toast.error(t('admin.userNeedAdmin'))
     }
   } finally {
     loading.value = false
@@ -198,8 +201,8 @@ async function fetchRoles() {
   } catch {
     // 没权限或失败：回退默认两个
     roleOptions.value = [
-      { name: 'user', description: '普通用户' },
-      { name: 'admin', description: '管理员' },
+      { name: 'user', description: t('admin.roleUser') },
+      { name: 'admin', description: t('admin.roleAdmin') },
     ]
   }
 }
@@ -219,12 +222,12 @@ function validate(): boolean {
   errors.email = ''
   if (!editMode.value) {
     const name = form.username.trim()
-    if (!name) errors.username = '请输入用户名'
-    else if (name.length < 3 || name.length > 80) errors.username = '3-80 个字符'
+    if (!name) errors.username = t('admin.userValUsernameRequired')
+    else if (name.length < 3 || name.length > 80) errors.username = t('admin.userValUsernameLength')
   }
   const email = form.email.trim()
-  if (!email) errors.email = '请输入邮箱'
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = '邮箱格式不正确'
+  if (!email) errors.email = t('admin.userValEmailRequired')
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = t('admin.userValEmailInvalid')
   return !errors.username && !errors.email
 }
 
@@ -262,7 +265,7 @@ async function handleSubmit() {
       }
       if (form.password) payload.password = form.password
       await updateUser(editUserId.value as number, payload)
-      toast.success('已更新')
+      toast.success(t('admin.toastUpdated'))
     } else {
       await createUser({
         username: form.username,
@@ -270,13 +273,13 @@ async function handleSubmit() {
         password: form.password,
         role: form.role,
       })
-      toast.success('已创建')
+      toast.success(t('admin.toastCreated'))
     }
     dialogVisible.value = false
     fetchUsers()
   } catch (err: unknown) {
     const e = err as { response?: { data?: { message?: string } } }
-    toast.error(e.response?.data?.message || '操作失败')
+    toast.error(e.response?.data?.message || t('common.operationFailed'))
   } finally {
     submitting.value = false
   }
@@ -285,19 +288,19 @@ async function handleSubmit() {
 async function handleDelete(row: Record<string, unknown>) {
   const r = row as UserRow
   const ok = await confirm({
-    title: '确认删除',
-    message: `确定删除用户「${r.username}」吗？此操作不可恢复。`,
+    title: t('admin.confirmDeleteTitle'),
+    message: t('admin.userDeleteMsg', { name: r.username }),
     tone: 'danger',
-    confirmText: '删除',
+    confirmText: t('common.delete'),
   })
   if (!ok) return
   try {
     await deleteUser(r.id)
-    toast.success('已删除')
+    toast.success(t('common.deleteSuccess'))
     fetchUsers()
   } catch (err: unknown) {
     const e = err as { response?: { data?: { message?: string } } }
-    toast.error(e.response?.data?.message || '删除失败')
+    toast.error(e.response?.data?.message || t('admin.deleteFailed'))
   }
 }
 

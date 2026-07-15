@@ -21,23 +21,23 @@
               v-if="authStore.isSuperuser"
               class="inline-flex items-center rounded-full border border-[#c9b37e]/40 bg-[#c9b37e]/15 px-4 py-1 text-xs font-semibold text-[#c9b37e]"
             >
-              超级管理员
+              {{ t('nav.superadmin') }}
             </span>
           </div>
         </div>
 
         <h1 class="m-0 text-4xl font-black leading-[1.08] tracking-tight text-[#f5f0ff] sm:text-5xl">
-          {{ greeting }}，{{ authStore.user?.username }}。<br />
-          继续你的<em class="font-normal italic text-[#c9b37e]">测评</em>。
+          {{ t('home.greetingUser', { greeting, name: authStore.user?.username }) }}<br />
+          {{ t('home.heroContinue') }}<em class="font-normal italic text-[#c9b37e]">{{ t('home.heroEm') }}</em>{{ t('home.heroEnd') }}
         </h1>
         <p class="m-0 max-w-[56ch] text-lg leading-relaxed text-white/70">
-          提交一个测评任务，让 Worker 在后台为你完成。
+          {{ t('home.heroSubtitle') }}
         </p>
 
         <div class="mt-3 flex flex-wrap gap-5">
           <UiButton size="lg" @click="router.push('/tasks/benchmark')">
             <template #icon><Plus class="size-4" /></template>
-            新建测评任务
+            {{ t('home.newTaskButton') }}
           </UiButton>
           <UiButton
             variant="secondary"
@@ -46,7 +46,7 @@
             @click="router.push('/leaderboard')"
           >
             <template #icon><BarChart3 class="size-4" /></template>
-            查看测评榜单
+            {{ t('home.viewLeaderboardButton') }}
           </UiButton>
         </div>
 
@@ -57,24 +57,24 @@
     <!-- 指标区 — metric callout -->
     <section class="grid grid-cols-1 gap-6 px-8 sm:grid-cols-2 lg:grid-cols-4">
       <article class="flex flex-col gap-3 rounded-lg border border-line bg-surface p-8 shadow-xs transition-shadow hover:shadow-sm">
-        <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">总任务</span>
+        <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">{{ t('home.statTotal') }}</span>
         <span class="font-mono text-4xl font-semibold leading-none text-fg">{{ stats.total }}</span>
-        <span class="text-xs text-fg-tertiary">当前租户全部任务</span>
+        <span class="text-xs text-fg-tertiary">{{ t('home.statTotalHint') }}</span>
       </article>
       <article class="flex flex-col gap-3 rounded-lg border border-brand/30 bg-brand-soft p-8 shadow-xs transition-shadow hover:shadow-sm">
-        <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">已完成</span>
+        <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">{{ t('home.statCompleted') }}</span>
         <span class="font-mono text-4xl font-semibold leading-none text-fg">{{ stats.success }}</span>
-        <span class="text-xs text-fg-tertiary">{{ percent('success') }}% 通过率</span>
+        <span class="text-xs text-fg-tertiary">{{ t('home.statCompletedHint', { n: percent('success') }) }}</span>
       </article>
       <article class="flex flex-col gap-3 rounded-lg border border-line bg-surface p-8 shadow-xs transition-shadow hover:shadow-sm">
-        <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">进行中</span>
+        <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">{{ t('home.statRunning') }}</span>
         <span class="font-mono text-4xl font-semibold leading-none text-fg">{{ stats.running }}</span>
-        <span class="text-xs text-fg-tertiary">排队 / 处理中</span>
+        <span class="text-xs text-fg-tertiary">{{ t('home.statRunningHint') }}</span>
       </article>
       <article class="flex flex-col gap-3 rounded-lg border border-line bg-surface p-8 shadow-xs transition-shadow hover:shadow-sm">
-        <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">失败</span>
+        <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">{{ t('home.statFailed') }}</span>
         <span class="font-mono text-4xl font-semibold leading-none text-fg">{{ stats.failed }}</span>
-        <span class="text-xs text-fg-tertiary">{{ percent('failed') }}% 占比</span>
+        <span class="text-xs text-fg-tertiary">{{ t('home.statFailedHint', { n: percent('failed') }) }}</span>
       </article>
     </section>
 
@@ -83,12 +83,12 @@
       <!-- 状态分布 -->
       <article class="flex flex-col gap-7 rounded-lg border border-line bg-surface p-8 shadow-xs">
         <header class="flex flex-col gap-1">
-          <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">状态分布</span>
-          <h2 class="m-0 text-2xl font-bold tracking-tight text-fg">任务执行结果</h2>
+          <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">{{ t('home.distKicker') }}</span>
+          <h2 class="m-0 text-2xl font-bold tracking-tight text-fg">{{ t('home.distTitle') }}</h2>
         </header>
         <div v-if="stats.total === 0" class="flex flex-col items-center gap-3 py-9 text-fg-secondary">
-          <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">暂无数据</span>
-          <p class="m-0 text-sm">提交第一个任务后这里会显示分布。</p>
+          <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">{{ t('common.noData') }}</span>
+          <p class="m-0 text-sm">{{ t('home.emptyStatsDesc') }}</p>
         </div>
         <div v-else class="flex flex-col gap-6">
           <div v-for="item in statusBars" :key="item.key" class="flex flex-col gap-3">
@@ -111,16 +111,16 @@
       <article class="flex flex-col gap-7 rounded-lg border border-line bg-surface p-8 shadow-xs">
         <header class="flex items-end justify-between gap-4">
           <div class="flex flex-col gap-1">
-            <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">最近</span>
-            <h2 class="m-0 text-2xl font-bold tracking-tight text-fg">最新任务</h2>
+            <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">{{ t('home.recentKicker') }}</span>
+            <h2 class="m-0 text-2xl font-bold tracking-tight text-fg">{{ t('home.recentTitle') }}</h2>
           </div>
           <router-link to="/tasks/benchmark" class="text-sm font-semibold text-brand hover:underline">
-            全部 →
+            {{ t('home.viewAll') }}
           </router-link>
         </header>
         <div v-if="recentTasks.length === 0" class="flex flex-col items-center gap-3 py-9 text-fg-secondary">
-          <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">暂无记录</span>
-          <p class="m-0 text-sm">这里会显示当前租户最近 6 条任务。</p>
+          <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">{{ t('home.emptyRecentLabel') }}</span>
+          <p class="m-0 text-sm">{{ t('home.emptyRecentDesc') }}</p>
         </div>
         <ul v-else class="m-0 flex list-none flex-col p-0">
           <li
@@ -145,6 +145,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { Building2, Plus, BarChart3 } from 'lucide-vue-next'
 import UiButton from '@/components/ui/Button.vue'
 import UiBadge from '@/components/ui/Badge.vue'
@@ -171,6 +172,7 @@ interface Stats {
 
 const router = useRouter()
 const authStore = useAuthStore()
+const { t } = useI18n()
 const stats = ref<Stats>({ total: 0, success: 0, running: 0, failed: 0 })
 const recentTasks = ref<TaskItem[]>([])
 
@@ -178,19 +180,19 @@ const tenantName = computed(() => authStore.currentTenant?.name || '')
 
 const greeting = computed(() => {
   const h = new Date().getHours()
-  if (h < 6) return '夜深了'
-  if (h < 11) return '早上好'
-  if (h < 14) return '中午好'
-  if (h < 18) return '下午好'
-  return '晚上好'
+  if (h < 6) return t('home.greetingLateNight')
+  if (h < 11) return t('home.greetingMorning')
+  if (h < 14) return t('home.greetingNoon')
+  if (h < 18) return t('home.greetingAfternoon')
+  return t('home.greetingEvening')
 })
 
 const statusBars = computed(() => {
-  const t = stats.value.total || 1
+  const total = stats.value.total || 1
   return [
-    { key: 'success', label: '已完成', value: stats.value.success, percent: Math.round((stats.value.success / t) * 100), barClass: 'bg-success' },
-    { key: 'running', label: '进行中', value: stats.value.running, percent: Math.round((stats.value.running / t) * 100), barClass: 'bg-brand' },
-    { key: 'failed', label: '失败', value: stats.value.failed, percent: Math.round((stats.value.failed / t) * 100), barClass: 'bg-danger' },
+    { key: 'success', label: t('home.statCompleted'), value: stats.value.success, percent: Math.round((stats.value.success / total) * 100), barClass: 'bg-success' },
+    { key: 'running', label: t('home.statRunning'), value: stats.value.running, percent: Math.round((stats.value.running / total) * 100), barClass: 'bg-brand' },
+    { key: 'failed', label: t('home.statFailed'), value: stats.value.failed, percent: Math.round((stats.value.failed / total) * 100), barClass: 'bg-danger' },
   ]
 })
 
@@ -200,7 +202,12 @@ function percent(key: 'success' | 'failed'): number {
 }
 
 function statusLabel(s: string): string {
-  const map: Record<string, string> = { pending: '排队中', running: '处理中', success: '已完成', failed: '失败' }
+  const map: Record<string, string> = {
+    pending: t('home.statusPending'),
+    running: t('home.statusRunning'),
+    success: t('home.statusSuccess'),
+    failed: t('home.statusFailed'),
+  }
   return map[s] || s
 }
 function statusTone(s: string): BadgeTone {
@@ -212,10 +219,10 @@ function formatTime(iso?: string): string {
   const d = new Date(iso)
   const now = new Date()
   const diff = (now.getTime() - d.getTime()) / 1000
-  if (diff < 60) return '刚刚'
-  if (diff < 3600) return Math.floor(diff / 60) + ' 分钟前'
-  if (diff < 86400) return Math.floor(diff / 3600) + ' 小时前'
-  if (diff < 604800) return Math.floor(diff / 86400) + ' 天前'
+  if (diff < 60) return t('home.timeJustNow')
+  if (diff < 3600) return t('home.timeMinutesAgo', { n: Math.floor(diff / 60) })
+  if (diff < 86400) return t('home.timeHoursAgo', { n: Math.floor(diff / 3600) })
+  if (diff < 604800) return t('home.timeDaysAgo', { n: Math.floor(diff / 86400) })
   return d.toLocaleDateString('zh-CN')
 }
 function recentTaskTitle(task: TaskItem): string {

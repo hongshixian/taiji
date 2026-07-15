@@ -4,7 +4,7 @@
     <UiAlert
       v-if="task.status === 'failed' && task.error_message"
       type="danger"
-      title="评测执行失败"
+      :title="t('benchmark.execFailed')"
     >
       <pre class="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-xs">{{ task.error_message }}</pre>
     </UiAlert>
@@ -12,40 +12,40 @@
     <!-- 无结果 -->
     <div v-if="!hasResult" class="flex flex-col items-center gap-4 py-10 text-center text-fg-tertiary">
       <BarChart3 class="size-7" />
-      <span>{{ task.status === 'failed' ? '任务失败，未产出结果' : '任务尚未产出结果' }}</span>
+      <span>{{ task.status === 'failed' ? t('benchmark.noResultFailed') : t('benchmark.noResultYet') }}</span>
     </div>
 
     <template v-else>
       <!-- 概览卡片 -->
       <div class="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-5">
         <div class="rounded-md border border-line bg-surface-sunken p-6">
-          <div class="mb-5 font-semibold text-fg">主要指标</div>
+          <div class="mb-5 font-semibold text-fg">{{ t('benchmark.mainMetrics') }}</div>
           <div v-if="metricEntries.length" class="flex flex-col gap-3">
             <div v-for="[k, v] in metricEntries" :key="k" class="flex items-center justify-between gap-4">
               <span class="font-mono text-sm text-fg-secondary">{{ k }}</span>
               <span class="font-mono font-semibold text-fg">{{ formatMetric(v) }}</span>
             </div>
           </div>
-          <div v-else class="text-sm text-fg-tertiary">暂无指标</div>
+          <div v-else class="text-sm text-fg-tertiary">{{ t('benchmark.noMetrics') }}</div>
         </div>
 
         <div class="rounded-md border border-line bg-surface-sunken p-6">
-          <div class="mb-5 font-semibold text-fg">样本统计</div>
+          <div class="mb-5 font-semibold text-fg">{{ t('benchmark.sampleStats') }}</div>
           <div class="flex flex-col gap-3">
-            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">总数</span><span class="font-mono font-semibold text-fg">{{ result.total_samples ?? '—' }}</span></div>
-            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">已完成</span><span class="font-mono font-semibold text-fg">{{ result.completed_samples ?? '—' }}</span></div>
-            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">失败</span><span class="font-mono font-semibold" :class="result.failed_samples ? 'text-danger' : 'text-fg'">{{ result.failed_samples ?? 0 }}</span></div>
-            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">状态</span><StatusPill :tone="statusTone(result.status || task.status)" :label="statusLabel(result.status || task.status)" /></div>
+            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('benchmark.sampleTotal') }}</span><span class="font-mono font-semibold text-fg">{{ result.total_samples ?? '—' }}</span></div>
+            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('benchmark.sampleCompleted') }}</span><span class="font-mono font-semibold text-fg">{{ result.completed_samples ?? '—' }}</span></div>
+            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('benchmark.sampleFailed') }}</span><span class="font-mono font-semibold" :class="result.failed_samples ? 'text-danger' : 'text-fg'">{{ result.failed_samples ?? 0 }}</span></div>
+            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('common.status') }}</span><StatusPill :tone="statusTone(result.status || task.status)" :label="statusLabel(result.status || task.status)" /></div>
           </div>
         </div>
 
         <div class="rounded-md border border-line bg-surface-sunken p-6">
-          <div class="mb-5 font-semibold text-fg">Token 消耗</div>
+          <div class="mb-5 font-semibold text-fg">{{ t('benchmark.tokenUsage') }}</div>
           <div class="flex flex-col gap-3">
-            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">输入</span><span class="font-mono font-semibold text-fg">{{ fmtNum(result.model_usage?.input_tokens) }}</span></div>
-            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">输出</span><span class="font-mono font-semibold text-fg">{{ fmtNum(result.model_usage?.output_tokens) }}</span></div>
-            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">合计</span><span class="font-mono font-semibold text-fg">{{ fmtNum(result.model_usage?.total_tokens) }}</span></div>
-            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">引擎</span><span class="font-mono font-semibold text-fg">{{ result.engine || '—' }}</span></div>
+            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('benchmark.tokenInput') }}</span><span class="font-mono font-semibold text-fg">{{ fmtNum(result.model_usage?.input_tokens) }}</span></div>
+            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('benchmark.tokenOutput') }}</span><span class="font-mono font-semibold text-fg">{{ fmtNum(result.model_usage?.output_tokens) }}</span></div>
+            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('benchmark.tokenTotal') }}</span><span class="font-mono font-semibold text-fg">{{ fmtNum(result.model_usage?.total_tokens) }}</span></div>
+            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('benchmark.engine') }}</span><span class="font-mono font-semibold text-fg">{{ result.engine || '—' }}</span></div>
           </div>
         </div>
       </div>
@@ -53,21 +53,21 @@
       <!-- 元信息 -->
       <div class="flex flex-wrap gap-x-8 gap-y-4 rounded-md border border-line bg-surface px-6 py-4">
         <div class="flex items-center gap-3 text-sm"><span class="text-fg-tertiary">Suite</span><span class="font-mono">{{ task.benchmark_suite }}</span></div>
-        <div class="flex items-center gap-3 text-sm"><span class="text-fg-tertiary">被测</span><span>{{ task.target_model?.display_name || '—' }}</span></div>
-        <div class="flex items-center gap-3 text-sm"><span class="text-fg-tertiary">评委</span><span>{{ task.judge_model?.display_name || '（无）' }}</span></div>
+        <div class="flex items-center gap-3 text-sm"><span class="text-fg-tertiary">{{ t('benchmark.metaTarget') }}</span><span>{{ task.target_model?.display_name || '—' }}</span></div>
+        <div class="flex items-center gap-3 text-sm"><span class="text-fg-tertiary">{{ t('benchmark.metaJudge') }}</span><span>{{ task.judge_model?.display_name || t('common.none') }}</span></div>
       </div>
 
       <!-- 样本网格（contribution-graph 风格） -->
       <div v-if="gridCells.length" class="rounded-md border border-line bg-surface p-6">
         <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <span class="font-semibold text-fg">样本分布（{{ gridCells.length }} 条）</span>
+          <span class="font-semibold text-fg">{{ t('benchmark.sampleDistribution', { n: gridCells.length }) }}</span>
           <div class="flex items-center gap-4">
             <div class="flex items-center gap-4 text-xs text-fg-secondary">
-              <span class="flex items-center gap-1.5"><i class="size-3 rounded-[3px]" style="background:var(--color-success-fg)" />执行成功 {{ counts.success }}</span>
-              <span class="flex items-center gap-1.5"><i class="size-3 rounded-[3px]" style="background:var(--color-danger-fg)" />执行失败 {{ counts.error }}</span>
-              <span class="flex items-center gap-1.5"><i class="size-3 rounded-[3px]" style="background:var(--color-warning-fg)" />未执行 {{ counts.none }}</span>
+              <span class="flex items-center gap-1.5"><i class="size-3 rounded-[3px]" style="background:var(--color-success-fg)" />{{ t('benchmark.sampleSuccess') }} {{ counts.success }}</span>
+              <span class="flex items-center gap-1.5"><i class="size-3 rounded-[3px]" style="background:var(--color-danger-fg)" />{{ t('benchmark.sampleError') }} {{ counts.error }}</span>
+              <span class="flex items-center gap-1.5"><i class="size-3 rounded-[3px]" style="background:var(--color-warning-fg)" />{{ t('benchmark.sampleNone') }} {{ counts.none }}</span>
             </div>
-            <UiButton variant="text" size="sm" @click="$emit('view-log')">查看完整日志</UiButton>
+            <UiButton variant="text" size="sm" @click="$emit('view-log')">{{ t('benchmark.viewFullLog') }}</UiButton>
           </div>
         </div>
         <div class="flex flex-wrap gap-[3px]">
@@ -84,13 +84,13 @@
           />
         </div>
         <p v-if="!hasDetailForAll" class="mt-3 text-xs text-fg-tertiary">
-          提示：仅前 {{ detailCount }} 条样本可查看完整内容，其余方块仅展示执行状态。
+          {{ t('benchmark.sampleLimitHint', { n: detailCount }) }}
         </p>
       </div>
     </template>
 
     <!-- 样本详情弹窗 -->
-    <UiDialog v-model="sampleDialogOpen" :title="`样本 #${activeSample?.id ?? ''}`" width="640px">
+    <UiDialog v-model="sampleDialogOpen" :title="t('benchmark.sampleDialogTitle', { id: activeSample?.id ?? '' })" width="640px">
       <div v-if="activeSample" class="flex flex-col gap-4">
         <div class="flex items-center gap-3">
           <StatusPill :tone="cellTone(activeSample.status)" :label="statusText(activeSample.status)" />
@@ -103,8 +103,8 @@
           </div>
         </template>
         <div v-else class="rounded-sm bg-surface-sunken p-4 text-sm text-fg-secondary">
-          该样本超出预览范围，仅记录了执行状态。完整内容请
-          <button type="button" class="text-brand hover:underline" @click="sampleDialogOpen = false; $emit('view-log')">查看完整日志</button>。
+          {{ t('benchmark.sampleNoDetailPrefix') }}
+          <button type="button" class="text-brand hover:underline" @click="sampleDialogOpen = false; $emit('view-log')">{{ t('benchmark.viewFullLog') }}</button>{{ t('benchmark.sampleNoDetailSuffix') }}
         </div>
       </div>
     </UiDialog>
@@ -113,6 +113,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { BarChart3 } from 'lucide-vue-next'
 import StatusPill from './StatusPill.vue'
 import UiAlert from './ui/Alert.vue'
@@ -132,6 +133,7 @@ interface GridCell {
 
 const props = defineProps<{ task: BenchmarkTask }>()
 defineEmits<{ 'view-log': [] }>()
+const { t } = useI18n()
 
 const result = computed<Partial<BenchmarkResult>>(() => props.task.result || {})
 const metricEntries = computed(() => Object.entries(result.value.metrics || {}))
@@ -206,7 +208,7 @@ function cellTone(status: SampleStatus): 'success' | 'danger' | 'warning' {
   return 'warning'
 }
 function statusText(status: SampleStatus): string {
-  return { success: '执行成功', error: '执行失败', none: '未执行' }[status]
+  return { success: t('benchmark.sampleSuccess'), error: t('benchmark.sampleError'), none: t('benchmark.sampleNone') }[status]
 }
 
 function formatMetric(v: number | string) {

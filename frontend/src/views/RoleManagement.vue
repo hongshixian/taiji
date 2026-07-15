@@ -1,16 +1,16 @@
 <template>
   <div class="page-shell page-shell--wide role-management">
     <header class="page-header">
-      <span class="page-header__eyebrow t-eyebrow">权限 · 角色</span>
+      <span class="page-header__eyebrow t-eyebrow">{{ t('admin.roleEyebrow') }}</span>
       <div class="page-header__row">
-        <h1 class="page-header__title">角色管理</h1>
+        <h1 class="page-header__title">{{ t('admin.roleTitle') }}</h1>
         <UiButton v-if="has('role:write')" @click="openCreateDialog">
           <template #icon><Plus class="size-4" /></template>
-          新建角色
+          {{ t('admin.roleAdd') }}
         </UiButton>
       </div>
       <p class="page-header__lede">
-        系统角色（admin / user / guest）由代码定义，全租户共享且不可编辑。当前租户也可以创建只对本租户生效的自定义角色。
+        {{ t('admin.roleLede') }}
       </p>
     </header>
 
@@ -18,11 +18,11 @@
       <UiTable :columns="columns" :data="roles" row-key="id" stripe :loading="loading">
         <template #cell-name="{ row }">
           <span class="role-name">{{ row.name }}</span>
-          <UiBadge v-if="row.is_system" tone="neutral" class="ml-2">系统</UiBadge>
-          <UiBadge v-else tone="info" class="ml-2">当前租户</UiBadge>
+          <UiBadge v-if="row.is_system" tone="neutral" class="ml-2">{{ t('admin.badgeSystem') }}</UiBadge>
+          <UiBadge v-else tone="info" class="ml-2">{{ t('admin.roleBadgeCurrentTenant') }}</UiBadge>
         </template>
         <template #cell-perms="{ row }">
-          <span class="t-mono">{{ (row.permissions as string[]).length }} 项</span>
+          <span class="t-mono">{{ t('admin.rolePermCount', { n: (row.permissions as string[]).length }) }}</span>
         </template>
         <template #cell-actions="{ row }">
           <div class="flex justify-end gap-1">
@@ -32,7 +32,7 @@
               size="sm"
               @click="openEditDialog(row)"
             >
-              编辑
+              {{ t('common.edit') }}
             </UiButton>
             <UiButton
               v-if="has('role:delete') && !row.is_system"
@@ -40,26 +40,26 @@
               size="sm"
               @click="handleDelete(row)"
             >
-              删除
+              {{ t('common.delete') }}
             </UiButton>
           </div>
         </template>
       </UiTable>
     </section>
 
-    <UiDialog v-model="dialogVisible" :title="editMode ? '编辑角色' : '新建角色'" width="600px">
+    <UiDialog v-model="dialogVisible" :title="editMode ? t('admin.roleDialogEdit') : t('admin.roleDialogAdd')" width="600px">
       <div class="flex flex-col gap-4">
-        <UiFormItem label="角色名" required>
+        <UiFormItem :label="t('admin.roleFieldName')" required>
           <UiInput
             v-model="form.name"
             :disabled="editMode && form.is_system"
-            placeholder="如 editor、viewer"
+            :placeholder="t('admin.rolePhName')"
           />
         </UiFormItem>
-        <UiFormItem label="描述">
+        <UiFormItem :label="t('common.description')">
           <UiTextarea v-model="form.description" :rows="2" />
         </UiFormItem>
-        <UiFormItem label="权限">
+        <UiFormItem :label="t('admin.roleFieldPermissions')">
           <div class="flex flex-col gap-6">
             <div
               v-for="(group, prefix) in groupedPermissions"
@@ -87,9 +87,9 @@
         </UiFormItem>
       </div>
       <template #footer>
-        <UiButton variant="secondary" @click="dialogVisible = false">取消</UiButton>
+        <UiButton variant="secondary" @click="dialogVisible = false">{{ t('common.cancel') }}</UiButton>
         <UiButton :loading="submitting" @click="handleSubmit">
-          {{ editMode ? '保存' : '创建' }}
+          {{ editMode ? t('common.save') : t('common.create') }}
         </UiButton>
       </template>
     </UiDialog>
@@ -98,6 +98,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Plus } from 'lucide-vue-next'
 import { toast } from '@/lib/toast'
 import { confirm } from '@/lib/confirm'
@@ -112,6 +113,7 @@ import UiInput from '@/components/ui/Input.vue'
 import UiTextarea from '@/components/ui/Textarea.vue'
 
 const { has } = usePermission()
+const { t } = useI18n()
 
 interface Permission {
   code: string
@@ -126,13 +128,13 @@ interface RoleRow {
   [key: string]: unknown
 }
 
-const columns: TableColumn[] = [
+const columns = computed<TableColumn[]>(() => [
   { key: 'id', label: 'ID', width: 60 },
-  { key: 'name', label: '角色名', minWidth: 180 },
-  { key: 'description', label: '描述', minWidth: 220 },
-  { key: 'perms', label: '权限数', width: 120 },
-  { key: 'actions', label: '操作', width: 160, align: 'right', fixed: 'right' },
-]
+  { key: 'name', label: t('admin.roleColName'), minWidth: 180 },
+  { key: 'description', label: t('common.description'), minWidth: 220 },
+  { key: 'perms', label: t('admin.roleColPermCount'), width: 120 },
+  { key: 'actions', label: t('common.actions'), width: 160, align: 'right', fixed: 'right' },
+])
 
 const roles = ref<RoleRow[]>([])
 const allPermissions = ref<Permission[]>([])
@@ -161,7 +163,7 @@ const groupedPermissions = computed<Record<string, Permission[]>>(() => {
 })
 
 function groupLabel(prefix: string) {
-  const map: Record<string, string> = { user: '用户管理', role: '角色管理', task: '任务', system: '系统' }
+  const map: Record<string, string> = { user: t('admin.roleGroupUser'), role: t('admin.roleGroupRole'), task: t('admin.roleGroupTask'), system: t('admin.roleGroupSystem') }
   return map[prefix] || prefix
 }
 
@@ -179,7 +181,7 @@ async function fetchData() {
     allPermissions.value = permsResp.data.data
   } catch (err: unknown) {
     const e = err as { response?: { data?: { message?: string } } }
-    toast.error(e.response?.data?.message || '加载失败')
+    toast.error(e.response?.data?.message || t('common.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -212,7 +214,7 @@ function openEditDialog(row: Record<string, unknown>) {
 
 async function handleSubmit() {
   if (!form.name.trim()) {
-    toast.warning('请输入角色名')
+    toast.warning(t('admin.roleValNameRequired'))
     return
   }
   submitting.value = true
@@ -224,20 +226,20 @@ async function handleSubmit() {
       }
       if (!form.is_system) payload.name = form.name
       await updateRole(editRoleId.value as number, payload)
-      toast.success('已保存')
+      toast.success(t('common.saveSuccess'))
     } else {
       await createRole({
         name: form.name,
         description: form.description,
         permissions: form.permissions,
       })
-      toast.success('已创建')
+      toast.success(t('admin.toastCreated'))
     }
     dialogVisible.value = false
     fetchData()
   } catch (err: unknown) {
     const e = err as { response?: { data?: { message?: string } } }
-    toast.error(e.response?.data?.message || '操作失败')
+    toast.error(e.response?.data?.message || t('common.operationFailed'))
   } finally {
     submitting.value = false
   }
@@ -246,19 +248,19 @@ async function handleSubmit() {
 async function handleDelete(row: Record<string, unknown>) {
   const r = row as RoleRow
   const ok = await confirm({
-    title: '确认删除',
-    message: `确定删除角色「${r.name}」吗？如有用户绑定该角色将无法删除。`,
+    title: t('admin.confirmDeleteTitle'),
+    message: t('admin.roleDeleteMsg', { name: r.name }),
     tone: 'danger',
-    confirmText: '删除',
+    confirmText: t('common.delete'),
   })
   if (!ok) return
   try {
     await deleteRole(r.id)
-    toast.success('已删除')
+    toast.success(t('common.deleteSuccess'))
     fetchData()
   } catch (err: unknown) {
     const e = err as { response?: { data?: { message?: string } } }
-    toast.error(e.response?.data?.message || '删除失败')
+    toast.error(e.response?.data?.message || t('admin.deleteFailed'))
   }
 }
 

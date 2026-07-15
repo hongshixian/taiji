@@ -1,54 +1,54 @@
 <template>
   <div class="page-shell page-shell--wide">
     <header class="mb-8 flex flex-col gap-2">
-      <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">任务 · Benchmark 测评</span>
+      <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">{{ t('benchmark.pageEyebrow') }}</span>
       <div class="flex items-center justify-between gap-6">
-        <h1 class="m-0 text-3xl font-bold tracking-tight text-fg">Benchmark 测评</h1>
+        <h1 class="m-0 text-3xl font-bold tracking-tight text-fg">{{ t('benchmark.pageTitle') }}</h1>
         <UiButton @click="openCreateDialog">
-          <Plus class="size-4" /> 新建测评
+          <Plus class="size-4" /> {{ t('benchmark.newTask') }}
         </UiButton>
       </div>
       <p class="m-0 max-w-[64ch] text-sm text-fg-secondary">
-        选择被测模型与评测集，由 Worker 异步驱动 inspect_evals 引擎执行标准化 Benchmark 评测。
+        {{ t('benchmark.pageDesc') }}
       </p>
     </header>
 
     <!-- 指标 -->
     <section class="mb-8 grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-5">
       <div class="flex flex-col gap-2 rounded-lg border border-line bg-surface-sunken p-6">
-        <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">进行中</span>
+        <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">{{ t('benchmark.metricActive') }}</span>
         <span class="font-mono text-3xl font-bold text-fg">{{ activeTasks.length }}</span>
       </div>
       <div class="flex flex-col gap-2 rounded-lg border border-line bg-surface-sunken p-6">
-        <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">累计任务</span>
+        <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">{{ t('benchmark.metricTotal') }}</span>
         <span class="font-mono text-3xl font-bold text-fg">{{ total }}</span>
       </div>
       <div class="flex flex-col gap-2 rounded-lg border border-line bg-surface-sunken p-6">
-        <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">可用评测集</span>
+        <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">{{ t('benchmark.metricSuites') }}</span>
         <span class="font-mono text-3xl font-bold text-fg">{{ enabledSuites.length }}</span>
       </div>
     </section>
 
     <!-- 新建对话框 -->
-    <UiDialog v-model="showDialog" title="新建 Benchmark 测评" width="720px">
+    <UiDialog v-model="showDialog" :title="t('benchmark.dialogTitle')" width="720px">
       <div class="flex flex-col gap-6">
         <section class="flex flex-col gap-4 border-b border-line pb-5">
-          <div class="font-semibold text-fg">基本信息</div>
-          <UiFormItem label="任务名称" inline>
-            <UiInput v-model="form.taskName" placeholder="留空则自动生成：模型-评测集-时间" :maxlength="100" />
+          <div class="font-semibold text-fg">{{ t('benchmark.sectionBasic') }}</div>
+          <UiFormItem :label="t('benchmark.taskName')" inline>
+            <UiInput v-model="form.taskName" :placeholder="t('benchmark.taskNamePlaceholder')" :maxlength="100" />
           </UiFormItem>
-          <UiFormItem label="备注" inline>
-            <UiTextarea v-model="form.notes" :rows="2" placeholder="记录本次评测的目的（可选）" :maxlength="500" />
+          <UiFormItem :label="t('benchmark.notes')" inline>
+            <UiTextarea v-model="form.notes" :rows="2" :placeholder="t('benchmark.notesPlaceholder')" :maxlength="500" />
           </UiFormItem>
         </section>
 
         <section class="flex flex-col gap-4 border-b border-line pb-5">
-          <div class="font-semibold text-fg">评测集</div>
+          <div class="font-semibold text-fg">{{ t('benchmark.sectionSuite') }}</div>
           <UiFormItem label="Benchmark" required inline>
             <UiSelect
               v-model="form.suiteKey"
               :groups="suiteSelectGroups"
-              placeholder="请选择评测集"
+              :placeholder="t('benchmark.suitePlaceholder')"
               filterable
               @update:model-value="onSuiteChange"
             />
@@ -57,44 +57,44 @@
         </section>
 
         <section class="flex flex-col gap-4 border-b border-line pb-5">
-          <div class="font-semibold text-fg">被测模型</div>
-          <UiFormItem label="模型" required inline>
-            <UiSelect v-model="form.targetModelId" :options="modelOptions" placeholder="选择已配置的模型" filterable />
+          <div class="font-semibold text-fg">{{ t('benchmark.sectionTarget') }}</div>
+          <UiFormItem :label="t('benchmark.model')" required inline>
+            <UiSelect v-model="form.targetModelId" :options="modelOptions" :placeholder="t('benchmark.targetModelPlaceholder')" filterable />
           </UiFormItem>
           <p class="flex items-center gap-2 text-xs text-fg-tertiary">
-            <Info class="size-4" /> 生成参数（temperature / max_tokens 等）来自模型管理页面，本次评测使用其固定值。
+            <Info class="size-4" /> {{ t('benchmark.targetModelHint') }}
           </p>
         </section>
 
         <section v-if="selectedSuite?.needs_judge" class="flex flex-col gap-4 border-b border-line pb-5">
-          <div class="font-semibold text-fg">评委模型</div>
-          <UiFormItem label="模型" required inline>
-            <UiSelect v-model="form.judgeModelId" :options="modelOptions" placeholder="选择评委模型" filterable />
+          <div class="font-semibold text-fg">{{ t('benchmark.sectionJudge') }}</div>
+          <UiFormItem :label="t('benchmark.model')" required inline>
+            <UiSelect v-model="form.judgeModelId" :options="modelOptions" :placeholder="t('benchmark.judgeModelPlaceholder')" filterable />
           </UiFormItem>
           <p class="flex items-center gap-2 text-xs text-fg-tertiary">
-            <Info class="size-4" /> 该评测集需要一个模型作为评委来判断答案质量。
+            <Info class="size-4" /> {{ t('benchmark.judgeModelHint') }}
           </p>
         </section>
 
         <section class="flex flex-col gap-4 border-b border-line pb-5">
-          <div class="font-semibold text-fg">执行控制</div>
-          <UiFormItem label="样本数量" inline>
+          <div class="font-semibold text-fg">{{ t('benchmark.sectionExecution') }}</div>
+          <UiFormItem :label="t('benchmark.sampleCount')" inline>
             <UiSegmented v-model="limitPreset" :options="limitPresetOptions" @update:model-value="onLimitPresetChange" />
           </UiFormItem>
-          <UiFormItem v-if="limitPreset === 'custom'" label="自定义样本数" inline>
+          <UiFormItem v-if="limitPreset === 'custom'" :label="t('benchmark.customSampleCount')" inline>
             <UiInputNumber v-model="form.executionConfig.limit" :min="1" :max="20000" />
           </UiFormItem>
-          <UiCollapse title="高级 (并发 / 重复次数 / 超时)">
+          <UiCollapse :title="t('benchmark.advanced')">
             <div class="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
-              <UiFormItem label="并发数"><UiInputNumber v-model="form.executionConfig.max_connections" :min="1" :max="100" block /></UiFormItem>
-              <UiFormItem label="重复次数"><UiInputNumber v-model="form.executionConfig.epochs" :min="1" :max="10" block /></UiFormItem>
-              <UiFormItem label="超时(分钟)"><UiInputNumber v-model="form.executionConfig.timeout_minutes" :min="5" :max="720" block /></UiFormItem>
+              <UiFormItem :label="t('benchmark.maxConnections')"><UiInputNumber v-model="form.executionConfig.max_connections" :min="1" :max="100" block /></UiFormItem>
+              <UiFormItem :label="t('benchmark.epochs')"><UiInputNumber v-model="form.executionConfig.epochs" :min="1" :max="10" block /></UiFormItem>
+              <UiFormItem :label="t('benchmark.timeoutMinutes')"><UiInputNumber v-model="form.executionConfig.timeout_minutes" :min="5" :max="720" block /></UiFormItem>
             </div>
           </UiCollapse>
         </section>
 
         <section v-if="selectedSuite?.config_schema?.fields?.length" class="flex flex-col gap-4">
-          <div class="font-semibold text-fg">Suite 特有参数</div>
+          <div class="font-semibold text-fg">{{ t('benchmark.suiteParams') }}</div>
           <DynamicField
             v-for="field in selectedSuite.config_schema.fields"
             :key="field.key"
@@ -105,31 +105,31 @@
       </div>
 
       <template #footer>
-        <UiButton variant="secondary" @click="showDialog = false">取消</UiButton>
-        <UiButton :loading="submitting" @click="onSubmit">提交任务</UiButton>
+        <UiButton variant="secondary" @click="showDialog = false">{{ t('common.cancel') }}</UiButton>
+        <UiButton :loading="submitting" @click="onSubmit">{{ t('benchmark.submitTask') }}</UiButton>
       </template>
     </UiDialog>
 
     <!-- 进行中 -->
     <section v-if="activeTasks.length" class="mb-8">
-      <h2 class="mb-5 text-lg font-semibold text-fg">进行中</h2>
+      <h2 class="mb-5 text-lg font-semibold text-fg">{{ t('benchmark.inProgress') }}</h2>
       <div class="grid grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-5">
-        <div v-for="t in activeTasks" :key="t.id" class="flex flex-col gap-4 rounded-lg border border-line bg-surface p-6 shadow-xs">
+        <div v-for="task in activeTasks" :key="task.id" class="flex flex-col gap-4 rounded-lg border border-line bg-surface p-6 shadow-xs">
           <div class="flex items-center justify-between gap-4">
-            <span class="font-semibold text-fg">{{ t.task_name || '(未命名)' }}</span>
-            <StatusPill :tone="statusTone(t.status)" :label="statusLabel(t.status)" dot />
+            <span class="font-semibold text-fg">{{ task.task_name || t('benchmark.unnamed') }}</span>
+            <StatusPill :tone="statusTone(task.status)" :label="statusLabel(task.status)" dot />
           </div>
           <div class="flex gap-5 text-xs text-fg-tertiary">
-            <span>{{ suiteLabel(t.benchmark_suite) }}</span>
-            <span>{{ modelLabel(t.target_model) }}</span>
+            <span>{{ suiteLabel(task.benchmark_suite) }}</span>
+            <span>{{ modelLabel(task.target_model) }}</span>
           </div>
           <UiProgress
-            v-if="t.progress && t.progress.total"
-            :percentage="Math.round((t.progress.completed / t.progress.total) * 100)"
+            v-if="task.progress && task.progress.total"
+            :percentage="Math.round((task.progress.completed / task.progress.total) * 100)"
             :stroke-width="8"
           />
           <div v-else class="text-xs text-fg-tertiary">
-            {{ t.status === 'pending' ? '等待 Worker 拾取…' : '准备中…' }}
+            {{ task.status === 'pending' ? t('benchmark.waitingWorker') : t('benchmark.preparing') }}
           </div>
         </div>
       </div>
@@ -138,12 +138,12 @@
     <!-- 历史 -->
     <section class="rounded-lg border border-line bg-surface p-6">
       <div class="mb-6 flex items-center justify-between">
-        <h2 class="text-lg font-semibold text-fg">历史记录</h2>
-        <UiButton variant="secondary" size="sm" :loading="loading" @click="loadTasks">刷新</UiButton>
+        <h2 class="text-lg font-semibold text-fg">{{ t('benchmark.history') }}</h2>
+        <UiButton variant="secondary" size="sm" :loading="loading" @click="loadTasks">{{ t('common.refresh') }}</UiButton>
       </div>
 
-      <UiEmpty v-if="!loading && !historyTasks.length" description="还没有已完成的评测任务">
-        <UiButton @click="openCreateDialog">新建测评</UiButton>
+      <UiEmpty v-if="!loading && !historyTasks.length" :description="t('benchmark.emptyHistory')">
+        <UiButton @click="openCreateDialog">{{ t('benchmark.newTask') }}</UiButton>
       </UiEmpty>
 
       <template v-else>
@@ -168,9 +168,9 @@
           <template #cell-created_at="{ row }">{{ fmtTime(row.created_at) }}</template>
           <template #cell-actions="{ row }">
             <div class="flex items-center gap-1">
-              <UiButton variant="text" size="sm" @click="openLog(row.id)">日志</UiButton>
-              <UiButton variant="text" size="sm" @click="onRetry(row.id)">重试</UiButton>
-              <UiButton v-if="canDelete" variant="danger-text" size="sm" @click="onDelete(row.id)">删除</UiButton>
+              <UiButton variant="text" size="sm" @click="openLog(row.id)">{{ t('benchmark.log') }}</UiButton>
+              <UiButton variant="text" size="sm" @click="onRetry(row.id)">{{ t('common.retry') }}</UiButton>
+              <UiButton v-if="canDelete" variant="danger-text" size="sm" @click="onDelete(row.id)">{{ t('common.delete') }}</UiButton>
             </div>
           </template>
           <template #expand="{ row }">
@@ -189,6 +189,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Plus, Info } from 'lucide-vue-next'
 import { toast } from '@/lib/toast'
 import { confirm } from '@/lib/confirm'
@@ -224,6 +225,7 @@ import { usePermission } from '@/composables/usePermission'
 import { taskStatusTone as statusTone, taskStatusLabel as statusLabel } from '@/composables/taskStatus'
 
 const { has } = usePermission()
+const { t } = useI18n()
 const canDelete = computed(() => has('task:delete:any'))
 
 const showDialog = ref(false)
@@ -250,22 +252,22 @@ const form = reactive({
 })
 const limitPreset = ref<string | number | null>('20')
 
-const limitPresetOptions = [
-  { label: '快速冒烟 (20)', value: '20' },
-  { label: '标准 (200)', value: '200' },
-  { label: '完整', value: 'full' },
-  { label: '自定义', value: 'custom' },
-]
+const limitPresetOptions = computed(() => [
+  { label: t('benchmark.presetSmoke'), value: '20' },
+  { label: t('benchmark.presetStandard'), value: '200' },
+  { label: t('benchmark.presetFull'), value: 'full' },
+  { label: t('benchmark.presetCustom'), value: 'custom' },
+])
 
-const columns: TableColumn[] = [
-  { key: 'task_name', label: '任务', minWidth: 180, tooltip: true },
-  { key: 'benchmark_suite', label: '评测集', minWidth: 160, tooltip: true },
-  { key: 'target_model', label: '被测模型', minWidth: 130, tooltip: true },
-  { key: 'status', label: '状态', width: 100 },
-  { key: 'metric', label: '主指标', width: 130 },
-  { key: 'created_at', label: '创建时间', width: 160 },
-  { key: 'actions', label: '操作', width: 170, fixed: 'right' },
-]
+const columns = computed<TableColumn[]>(() => [
+  { key: 'task_name', label: t('benchmark.colTask'), minWidth: 180, tooltip: true },
+  { key: 'benchmark_suite', label: t('benchmark.colSuite'), minWidth: 160, tooltip: true },
+  { key: 'target_model', label: t('benchmark.colTargetModel'), minWidth: 130, tooltip: true },
+  { key: 'status', label: t('common.status'), width: 100 },
+  { key: 'metric', label: t('benchmark.colMetric'), width: 130 },
+  { key: 'created_at', label: t('common.createdAt'), width: 160 },
+  { key: 'actions', label: t('common.actions'), width: 170, fixed: 'right' },
+])
 
 const enabledSuites = computed(() => suites.value.filter((s) => !s.disabled))
 const selectedSuite = computed(() => suites.value.find((s) => s.key === form.suiteKey) || null)
@@ -278,9 +280,9 @@ const modelOptions = computed<SelectOption[]>(() =>
 
 const suiteSelectGroups = computed<SelectGroupDef[]>(() => {
   const groups: Record<string, { label: string; options: SelectOption[] }> = {
-    capability: { label: '能力评测', options: [] },
-    safety: { label: '安全评测', options: [] },
-    alignment: { label: '对齐/行为评测', options: [] },
+    capability: { label: t('benchmark.categoryCapability'), options: [] },
+    safety: { label: t('benchmark.categorySafety'), options: [] },
+    alignment: { label: t('benchmark.categoryAlignment'), options: [] },
   }
   suites.value.forEach((s) => {
     ;(groups[s.category] || groups.capability).options.push({
@@ -309,7 +311,7 @@ async function loadTasks() {
     mergeById(data.data.items || [])
     total.value = data.data.total || 0
   } catch (err: unknown) {
-    toast.error(errMsg(err) || '加载任务失败')
+    toast.error(errMsg(err) || t('benchmark.loadTasksFailed'))
   } finally {
     loading.value = false
   }
@@ -339,7 +341,7 @@ async function loadSuites() {
     const { data } = await listBenchmarkSuites()
     suites.value = data.data.items || []
   } catch {
-    toast.error('加载评测集失败')
+    toast.error(t('benchmark.loadSuitesFailed'))
   }
 }
 
@@ -381,10 +383,10 @@ function onLimitPresetChange(v: string | number | null) {
 }
 
 async function onSubmit() {
-  if (!form.suiteKey) return toast.warning('请选择评测集')
-  if (!form.targetModelId) return toast.warning('请选择被测模型')
+  if (!form.suiteKey) return toast.warning(t('benchmark.selectSuiteWarn'))
+  if (!form.targetModelId) return toast.warning(t('benchmark.selectTargetWarn'))
   const needsJudge = selectedSuite.value?.needs_judge
-  if (needsJudge && !form.judgeModelId) return toast.warning('该评测集需要评委模型')
+  if (needsJudge && !form.judgeModelId) return toast.warning(t('benchmark.needJudgeWarn'))
 
   const taskName = form.taskName.trim() || autoTaskName()
   submitting.value = true
@@ -398,11 +400,11 @@ async function onSubmit() {
       execution_config: form.executionConfig,
       suite_config: form.suiteConfig,
     })
-    toast.success('任务已提交')
+    toast.success(t('benchmark.submitSuccess'))
     showDialog.value = false
     await loadTasks()
   } catch (err: unknown) {
-    toast.error(errMsg(err) || '提交失败')
+    toast.error(errMsg(err) || t('benchmark.submitFailed'))
   } finally {
     submitting.value = false
   }
@@ -421,23 +423,23 @@ function autoTaskName(): string {
 async function onRetry(id: number) {
   try {
     await retryBenchmark(id)
-    toast.success('已重新提交')
+    toast.success(t('benchmark.retrySuccess'))
     loadTasks()
   } catch (err: unknown) {
-    toast.error(errMsg(err) || '重试失败')
+    toast.error(errMsg(err) || t('benchmark.retryFailed'))
   }
 }
 
 async function onDelete(id: number) {
-  const ok = await confirm({ message: '确认删除这条评测任务？', tone: 'danger' })
+  const ok = await confirm({ message: t('benchmark.deleteConfirm'), tone: 'danger' })
   if (!ok) return
   try {
     await deleteBenchmark(id)
     expandedKeys.value = expandedKeys.value.filter((k) => k !== id)
-    toast.success('已删除')
+    toast.success(t('common.deleteSuccess'))
     loadTasks()
   } catch (err: unknown) {
-    toast.error(errMsg(err) || '删除失败')
+    toast.error(errMsg(err) || t('benchmark.deleteFailed'))
   }
 }
 

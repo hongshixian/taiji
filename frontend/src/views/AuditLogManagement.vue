@@ -1,16 +1,16 @@
 <template>
   <div class="page-shell page-shell--wide audit-log-management">
     <header class="page-header">
-      <span class="page-header__eyebrow t-eyebrow">审计 · 平台日志</span>
+      <span class="page-header__eyebrow t-eyebrow">{{ t('admin.auditEyebrow') }}</span>
       <div class="page-header__row">
-        <h1 class="page-header__title">审计日志</h1>
+        <h1 class="page-header__title">{{ t('admin.auditTitle') }}</h1>
         <UiButton variant="secondary" :loading="loading" @click="fetchLogs">
           <template #icon><RefreshCw class="size-4" /></template>
-          刷新
+          {{ t('common.refresh') }}
         </UiButton>
       </div>
       <p class="page-header__lede">
-        平台管理操作的不可变记录。租户管理员只看本租户；超级管理员可跨租户查询。
+        {{ t('admin.auditLede') }}
       </p>
     </header>
 
@@ -20,7 +20,7 @@
         v-model="filters.tenant_id"
         :options="tenantOptions"
         clearable
-        placeholder="租户"
+        :placeholder="t('admin.auditPhTenant')"
         class="filter-control"
       />
       <UiSelect
@@ -28,28 +28,28 @@
         :options="actionSelectOptions"
         clearable
         filterable
-        placeholder="操作"
+        :placeholder="t('admin.auditPhAction')"
         class="filter-control"
       />
       <UiSelect
         v-model="filters.resource_type"
         :options="resourceSelectOptions"
         clearable
-        placeholder="资源"
+        :placeholder="t('admin.auditPhResource')"
         class="filter-control"
       />
-      <UiInput v-model="filters.actor_user_id" placeholder="操作者 ID" class="small-control" />
-      <UiInput v-model="filters.resource_id" placeholder="资源 ID" class="small-control" />
+      <UiInput v-model="filters.actor_user_id" :placeholder="t('admin.auditPhActorId')" class="small-control" />
+      <UiInput v-model="filters.resource_id" :placeholder="t('admin.auditPhResourceId')" class="small-control" />
       <input v-model="dateFrom" type="datetime-local" class="date-input" />
       <span class="text-fg-tertiary">—</span>
       <input v-model="dateTo" type="datetime-local" class="date-input" />
       <UiButton @click="handleSearch">
         <template #icon><Search class="size-4" /></template>
-        查询
+        {{ t('admin.auditQuery') }}
       </UiButton>
       <UiButton variant="secondary" @click="resetFilters">
         <template #icon><RotateCcw class="size-4" /></template>
-        重置
+        {{ t('common.reset') }}
       </UiButton>
     </section>
 
@@ -68,7 +68,7 @@
         </template>
         <template #cell-actor="{ row }">
           <span>{{ row.actor_username || '—' }}</span>
-          <UiBadge v-if="row.actor_is_superuser" tone="danger" class="ml-2">超管</UiBadge>
+          <UiBadge v-if="row.actor_is_superuser" tone="danger" class="ml-2">{{ t('admin.auditBadgeSuperShort') }}</UiBadge>
         </template>
         <template #cell-tenant="{ row }">
           {{ row.tenant_name || platformLabel(row) }}
@@ -93,15 +93,15 @@
         <template #expand="{ row }">
           <div class="detail-grid">
             <div class="detail-block">
-              <span class="t-eyebrow detail-title">变更前</span>
+              <span class="t-eyebrow detail-title">{{ t('admin.auditExpandBefore') }}</span>
               <pre>{{ formatJson(row.before_data) }}</pre>
             </div>
             <div class="detail-block">
-              <span class="t-eyebrow detail-title">变更后</span>
+              <span class="t-eyebrow detail-title">{{ t('admin.auditExpandAfter') }}</span>
               <pre>{{ formatJson(row.after_data) }}</pre>
             </div>
             <div class="detail-block">
-              <span class="t-eyebrow detail-title">上下文</span>
+              <span class="t-eyebrow detail-title">{{ t('admin.auditExpandContext') }}</span>
               <pre>{{ formatJson(row.metadata) }}</pre>
             </div>
           </div>
@@ -128,6 +128,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { RefreshCw, RotateCcw, Search } from 'lucide-vue-next'
 import { toast } from '@/lib/toast'
 import { listAuditLogs } from '@/api/audit'
@@ -141,6 +142,7 @@ import UiInput from '@/components/ui/Input.vue'
 import UiSelect, { type SelectOption } from '@/components/ui/Select.vue'
 
 const authStore = useAuthStore()
+const { t } = useI18n()
 
 interface AuditRow {
   id: number
@@ -173,16 +175,16 @@ const dateFrom = ref('')
 const dateTo = ref('')
 const expandedKeys = ref<(string | number)[]>([])
 
-const columns: TableColumn[] = [
-  { key: 'created_at', label: '时间', width: 160 },
-  { key: 'actor', label: '操作者', minWidth: 120, prop: 'actor_username', tooltip: true },
-  { key: 'tenant', label: '租户', minWidth: 110, prop: 'tenant_name', tooltip: true },
-  { key: 'action', label: '操作', minWidth: 140, tooltip: true },
-  { key: 'resource_type', label: '资源', minWidth: 100, tooltip: true },
-  { key: 'object', label: '对象', minWidth: 130, prop: 'resource_name', tooltip: true },
-  { key: 'result', label: '结果', width: 100 },
-  { key: 'ip_address', label: 'IP', width: 120 },
-]
+const columns = computed<TableColumn[]>(() => [
+  { key: 'created_at', label: t('admin.auditColTime'), width: 160 },
+  { key: 'actor', label: t('admin.auditColActor'), minWidth: 120, prop: 'actor_username', tooltip: true },
+  { key: 'tenant', label: t('admin.auditColTenant'), minWidth: 110, prop: 'tenant_name', tooltip: true },
+  { key: 'action', label: t('admin.auditColAction'), minWidth: 140, tooltip: true },
+  { key: 'resource_type', label: t('admin.auditColResource'), minWidth: 100, tooltip: true },
+  { key: 'object', label: t('admin.auditColObject'), minWidth: 130, prop: 'resource_name', tooltip: true },
+  { key: 'result', label: t('admin.auditColResult'), width: 100 },
+  { key: 'ip_address', label: t('admin.auditColIp'), width: 120 },
+])
 
 const pagination = reactive({
   page: 1,
@@ -220,11 +222,13 @@ const actionOptions = [
 const resourceOptions = ['tenant', 'tenant_member', 'user', 'role', 'system_setting']
 
 const tenantOptions = computed<SelectOption[]>(() =>
-  tenants.value.map((t) => ({ label: t.name, value: t.id })),
+  tenants.value.map((tn) => ({ label: tn.name, value: tn.id })),
 )
 const actionSelectOptions: SelectOption[] = actionOptions.map((a) => ({ label: a, value: a }))
 const resourceSelectOptions: SelectOption[] = resourceOptions.map((r) => ({ label: r, value: r }))
-const pageSizeOptions: SelectOption[] = [10, 20, 50].map((n) => ({ label: `${n} 条/页`, value: n }))
+const pageSizeOptions = computed<SelectOption[]>(() =>
+  [10, 20, 50].map((n) => ({ label: t('admin.auditPageSizeLabel', { n }), value: n })),
+)
 
 function buildParams() {
   const params: Record<string, unknown> = {
@@ -249,7 +253,7 @@ async function fetchLogs() {
     total.value = data.data.total
   } catch (err: unknown) {
     const e = err as { response?: { data?: { message?: string } } }
-    toast.error(e.response?.data?.message || '加载审计日志失败')
+    toast.error(e.response?.data?.message || t('admin.auditLoadFailed'))
   } finally {
     loading.value = false
   }
@@ -304,7 +308,7 @@ function formatTime(value?: unknown) {
 
 function platformLabel(row: Record<string, unknown>) {
   const r = row as AuditRow
-  return r.tenant_id === null || r.tenant_id === undefined ? '平台级' : `租户 #${r.tenant_id}`
+  return r.tenant_id === null || r.tenant_id === undefined ? t('admin.auditPlatformLevel') : t('admin.auditTenantHash', { id: r.tenant_id })
 }
 
 onMounted(async () => {

@@ -1,20 +1,20 @@
 <template>
   <UiDialog
     :model-value="visible"
-    title="任务日志"
+    :title="t('benchmark.logDialogTitle')"
     width="760px"
     @update:model-value="$emit('update:visible', $event)"
   >
     <div class="mb-4 flex items-center justify-between gap-4">
       <UiSegmented v-model="levelFilter" :options="levelOptions" />
       <div class="flex items-center gap-3 text-fg-tertiary">
-        <span class="text-xs">{{ filteredEntries.length }} 条</span>
-        <UiButton variant="secondary" size="sm" :loading="loading" @click="refresh">刷新</UiButton>
+        <span class="text-xs">{{ t('benchmark.logCount', { n: filteredEntries.length }) }}</span>
+        <UiButton variant="secondary" size="sm" :loading="loading" @click="refresh">{{ t('common.refresh') }}</UiButton>
       </div>
     </div>
 
     <div class="min-h-[220px]">
-      <UiEmpty v-if="!loading && filteredEntries.length === 0" description="暂无执行日志" />
+      <UiEmpty v-if="!loading && filteredEntries.length === 0" :description="t('benchmark.noLogs')" />
       <div v-else class="flex flex-col gap-3">
         <article
           v-for="(entry, index) in filteredEntries"
@@ -41,6 +41,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { toast } from '@/lib/toast'
 import { getTaskLogs } from '@/api/task'
 import type { TaskLogEntry } from '@/api/types'
@@ -56,16 +57,17 @@ const props = defineProps<{
 }>()
 defineEmits<{ 'update:visible': [value: boolean] }>()
 
+const { t } = useI18n()
 const loading = ref(false)
 const entries = ref<TaskLogEntry[]>([])
 const levelFilter = ref<string | number | null>('ALL')
 
-const levelOptions = [
-  { label: '全部', value: 'ALL' },
-  { label: '信息', value: 'INFO' },
-  { label: '警告', value: 'WARN' },
-  { label: '错误', value: 'ERROR' },
-]
+const levelOptions = computed(() => [
+  { label: t('common.all'), value: 'ALL' },
+  { label: t('benchmark.logInfo'), value: 'INFO' },
+  { label: t('benchmark.logWarn'), value: 'WARN' },
+  { label: t('benchmark.logError'), value: 'ERROR' },
+])
 
 const filteredEntries = computed(() =>
   levelFilter.value === 'ALL'
@@ -91,7 +93,7 @@ async function fetchLogs(id: number | string) {
     entries.value = data.data.items || []
   } catch (err: unknown) {
     const e = err as { response?: { data?: { message?: string } } }
-    toast.error(e.response?.data?.message || '加载任务日志失败')
+    toast.error(e.response?.data?.message || t('benchmark.loadLogsFailed'))
   } finally {
     loading.value = false
   }
