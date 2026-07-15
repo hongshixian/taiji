@@ -7,7 +7,7 @@ import { useAuthStore } from '../stores/auth'
 
 const request: AxiosInstance = axios.create({
   baseURL: '/api/v1',
-  timeout: 10000,
+  timeout: 30000,
 })
 
 // 请求拦截器：自动附带 access token

@@ -59,6 +59,22 @@ def create_app(config_obj=Config):
     # 初始化扩展
     db.init_app(flask_app)
     migrate.init_app(flask_app, db)
+
+    # SQLite：开启 WAL 模式 + busy_timeout，让读写并发、写不阻塞读
+    # （多个 Celery worker 高频写 progress 时，避免列表接口读被锁导致前端超时）
+    from sqlalchemy import event
+    from sqlalchemy.engine import Engine
+
+    @event.listens_for(Engine, "connect")
+    def _set_sqlite_pragma(dbapi_conn, _rec):
+        # 仅对 SQLite 连接生效（有 execute + 是 sqlite3 连接）
+        if dbapi_conn.__class__.__module__.startswith("sqlite3"):
+            cur = dbapi_conn.cursor()
+            cur.execute("PRAGMA journal_mode=WAL")
+            cur.execute("PRAGMA busy_timeout=15000")
+            cur.execute("PRAGMA synchronous=NORMAL")
+            cur.close()
+
     jwt.init_app(flask_app)
     limiter.init_app(flask_app)
     # CORS — 仅允许配置的来源；未配置时默认允许同源（安全回退）
