@@ -43,6 +43,7 @@ pytest-flask==1.3.0
 inspect-ai>=0.3.221
 inspect-evals>=0.14.0
 PyYAML>=6.0
+nltk>=3.9          # makemesay / agent_threat_bench 等 suite 依赖
 
 # inspect_ai 的 LLM provider 可选依赖（一期覆盖主流 provider）
 openai>=1.60.0

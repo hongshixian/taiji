@@ -103,7 +103,12 @@ class InspectEvalsEngine(BenchmarkEngine):
         )
 
         # 5) 真正调 inspect_ai
+        # 每次执行前清空 log_dir，避免同一 task workspace 下残留历史 .eval 文件
+        # 被误读（例如 task_id 复用、重试产生多份 log）
         log_dir = ctx.workspace / "inspect_logs"
+        if log_dir.exists():
+            import shutil
+            shutil.rmtree(log_dir, ignore_errors=True)
         log_dir.mkdir(parents=True, exist_ok=True)
 
         prev_env = {k: os.environ.get(k) for k in env_overrides}
@@ -281,10 +286,11 @@ class InspectEvalsEngine(BenchmarkEngine):
         return inspect_eval(**kwargs)
 
     def _pick_first_log(self, log_dir: Path) -> Path | None:
-        candidates = sorted(log_dir.glob("*.eval"))
+        # 取最近修改的 .eval（防止同目录多份 log 时误读旧文件）
+        candidates = list(log_dir.glob("*.eval")) or list(log_dir.glob("*.json"))
         if not candidates:
-            candidates = sorted(log_dir.glob("*.json"))
-        return candidates[0] if candidates else None
+            return None
+        return max(candidates, key=lambda p: p.stat().st_mtime)
 
 
 _SECRET_KEYS = {"api_key", "hf_token"}
