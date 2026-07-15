@@ -261,7 +261,7 @@ async function handleSubmit() {
         membership_active: form.is_active,
       }
       if (form.password) payload.password = form.password
-      await updateUser(editUserId.value, payload)
+      await updateUser(editUserId.value as number, payload)
       toast.success('已更新')
     } else {
       await createUser({

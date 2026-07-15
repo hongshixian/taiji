@@ -223,7 +223,7 @@ async function handleSubmit() {
         permissions: form.permissions,
       }
       if (!form.is_system) payload.name = form.name
-      await updateRole(editRoleId.value, payload)
+      await updateRole(editRoleId.value as number, payload)
       toast.success('已保存')
     } else {
       await createRole({

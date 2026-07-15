@@ -4,6 +4,6 @@ export function listTasks(page = 1, perPage = 20) {
   return request.get('/tasks/', { params: { page, per_page: perPage } })
 }
 
-export function getTaskLogs(taskId) {
+export function getTaskLogs(taskId: number | string) {
   return request.get(`/tasks/${taskId}/logs`)
 }

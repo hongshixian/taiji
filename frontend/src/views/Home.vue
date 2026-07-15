@@ -219,7 +219,7 @@ function formatTime(iso?: string): string {
   return d.toLocaleDateString('zh-CN')
 }
 function recentTaskTitle(task: TaskItem): string {
-  return TASK_TYPE_LABELS[task.task_type] || task.task_type_name || task.task_type
+  return (TASK_TYPE_LABELS as Record<string, string>)[task.task_type] || task.task_type_name || task.task_type
 }
 
 onMounted(async () => {

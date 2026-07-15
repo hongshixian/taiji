@@ -8,9 +8,10 @@ import {
   logout as logoutApi,
 } from '../api/auth'
 import router from '../router'
+import type { User } from '../api/types'
 
 export const useAuthStore = defineStore('auth', () => {
-  const user = ref(null)
+  const user = ref<User | null>(null)
   const isLoggedIn = ref(!!localStorage.getItem('accessToken'))
 
   /* 当前用户是否管理员（当前租户 membership 角色） */
@@ -38,7 +39,7 @@ export const useAuthStore = defineStore('auth', () => {
     return stored ? parseInt(stored, 10) : currentTenant.value?.id ?? null
   })
 
-  async function login(payload) {
+  async function login(payload: { username: string; password: string }) {
     // payload: { username, password }
     const { data } = await loginApi(payload)
     const { access_token, refresh_token, user: userInfo } = data.data
@@ -52,7 +53,7 @@ export const useAuthStore = defineStore('auth', () => {
     return userInfo
   }
 
-  async function register(username, email, password) {
+  async function register(username: string, email: string, password: string) {
     const { data } = await registerApi({ username, email, password })
     return data.data
   }
@@ -75,7 +76,7 @@ export const useAuthStore = defineStore('auth', () => {
    * 拿到新 access token 后替换 localStorage，再 fetchUser() 更新身份。
    * 调用方负责刷新当前页面数据（或全局 window.location.reload）。
    */
-  async function switchTenant(tenantId) {
+  async function switchTenant(tenantId: number) {
     const { data } = await switchTenantApi(tenantId)
     const { access_token } = data.data
     localStorage.setItem('accessToken', access_token)

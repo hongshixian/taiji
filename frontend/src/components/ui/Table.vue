@@ -91,7 +91,7 @@ export interface TableColumn {
 const props = withDefaults(
   defineProps<{
     columns: TableColumn[]
-    data: Record<string, unknown>[]
+    data: any[]
     rowKey?: string
     expandable?: boolean
     expandedKeys?: (string | number)[]
@@ -111,16 +111,16 @@ const props = withDefaults(
 
 const emit = defineEmits<{ 'update:expandedKeys': [keys: (string | number)[]] }>()
 
-function rowId(row: Record<string, unknown>): string | number {
+function rowId(row: any): string | number {
   return row[props.rowKey] as string | number
 }
-function cellValue(row: Record<string, unknown>, col: TableColumn) {
+function cellValue(row: any, col: TableColumn) {
   return row[col.prop ?? col.key]
 }
-function isExpanded(row: Record<string, unknown>) {
+function isExpanded(row: any) {
   return props.expandedKeys.includes(rowId(row))
 }
-function toggle(row: Record<string, unknown>) {
+function toggle(row: any) {
   const id = rowId(row)
   const next = isExpanded(row)
     ? props.expandedKeys.filter((k) => k !== id)

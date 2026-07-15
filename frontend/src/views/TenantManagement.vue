@@ -324,7 +324,7 @@ async function handleSubmit() {
   submitting.value = true
   try {
     if (editMode.value) {
-      await updateTenant(editTenantId.value, { name: form.name, is_active: form.is_active })
+      await updateTenant(editTenantId.value as number, { name: form.name, is_active: form.is_active })
       toast.success('已保存')
     } else {
       await createTenant({ slug: form.slug, name: form.name })
