@@ -94,7 +94,7 @@
 - 权限：`task:read`
 - query：`page`（≥1，默认 1）、`per_page`（1-100，默认 20）。
 - 响应 `data`：分页结构，`items` 为 `BenchmarkTask[]`。
-- ⚠️ 列表项的 `result.samples_preview` **恒为空数组**（仅保留 `sample_grid` 状态网格 + `samples_preview_count`），样本预览文本按需通过 §2.7 拉取。
+- ⚠️ 列表项的 `result.samples_preview` **恒为空数组**（预览文本不再随结果存储），仅保留 `sample_grid` 状态网格；样本预览文本按需通过 §2.7 拉取。
 
 ### 2.3 任务状态统计【指标用】
 
@@ -148,7 +148,7 @@
 
 - 权限：`task:read`
 - `sample_id` 为路径段（字符串匹配，如 `5` 或 `abc`）。
-- 从已存储的 `result.samples_preview`（前 N 条，N=50）中取对应样本的预览文本。
+- 按需从 `result.artifact_paths` 指向的 `.eval` log 中读取对应样本的预览文本（实时解析，无条数上限）。
 - 响应 `data`（命中时）：
 
 ```jsonc
@@ -163,9 +163,9 @@
 }
 ```
 
-- 未命中（超出预览范围 / 任务无结果）：`code=90404`，message「该样本暂无预览数据（可能超出预览范围，请查看完整日志）」，前端据此提示跳转完整日志。
+- 未命中（样本不存在 / `.eval` log 缺失）：`code=90404`，message「该样本暂无预览数据（可能超出预览范围，请查看完整日志）」，前端据此提示跳转完整日志。
 
-> 设计：列表/详情接口只回传 `sample_grid`（每样本仅 `{id, status}`，紧凑），点击方块时才按需拉取本接口，避免列表回传大段样本文本。
+> 设计：列表/详情接口只回传 `sample_grid`（每样本仅 `{id, status}`，紧凑）；预览文本不随结果存储（避免大 N 撑大 result JSON），点击方块时才按需读取 `.eval` log 解析对应样本。
 
 ### 2.8 删除任务
 
@@ -240,8 +240,7 @@
   "completed_samples": 20,
   "failed_samples": 0,
   "model_usage": { "input_tokens": 12000, "output_tokens": 3000, "total_tokens": 15000 },
-  "samples_preview": [],                     // ⚠️ 列表/详情恒为空；按需走 §2.7
-  "samples_preview_count": 20,               // 已存储的预览条数（前 N 条）
+  "samples_preview": [],                     // ⚠️ 恒为空（不再随结果存储）；按需走 §2.7 读 .eval log
   "sample_grid": [                           // 全部样本的状态网格（紧凑）
     { "id": 1, "status": "success" },        // status: success / error / none
     { "id": 2, "status": "error" }
@@ -278,5 +277,6 @@
 
 | 日期       | 变更                                                                 |
 |------------|----------------------------------------------------------------------|
+| 2026-07-15 | 执行中样本网格全量渲染：未执行样本默认黄色占位，完成后逐个更新为绿/红。移除 50 条预览上限：`samples_preview` 不再随结果存储，`GET /<id>/samples/<sample_id>` 改为按需读取 `.eval` log 解析对应样本（无条数上限）。 |
 | 2026-07-15 | 执行中实时样本网格：`progress.sample_grid` 由 `on_sample_end` hook 逐样本累积（reporter 1s 节流），前端执行中回退渲染该网格，完成后切换到 `result.sample_grid`。 |
 | 2026-07-15 | 新增 `GET /stats`（全局状态计数）；新增 `GET /<id>/samples/<sample_id>`（样本预览懒加载）；列表/详情默认剥离 `samples_preview`，改回传 `samples_preview_count`。 |

@@ -108,9 +108,8 @@ export default {
   sampleError: 'Failed',
   sampleNone: 'Not run',
   viewFullLog: 'View full logs',
-  sampleLimitHint: 'Note: only the first {n} samples show full content; the rest display execution status only.',
   sampleDialogTitle: 'Sample #{id}',
-  sampleNoDetailPrefix: 'This sample is beyond the preview range; only its execution status was recorded. For full content, ',
+  sampleNoDetailPrefix: 'Failed to load this sample. For full content, ',
   sampleNoDetailSuffix: '.',
 
   // Log dialog (TaskLogDialog)

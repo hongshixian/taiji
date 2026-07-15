@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Any
 
 
-_SAMPLES_PREVIEW_LIMIT = 50
 _PREVIEW_TEXT_MAX = 500
 
 
@@ -72,32 +71,12 @@ def parse_eval_log_file(path: Path, engine: str) -> dict:
     except Exception:
         pass
 
-    # ---- samples preview + grid ----
-    samples_preview: list[dict] = []
+    # ---- sample grid ----
+    # 样本预览文本不再随结果存储（避免大 N 撑大 result JSON），
+    # 改为点击方块时由 read_sample_preview 按需读取 .eval log。
     sample_grid: list[dict] = []
     try:
         samples = list(getattr(log, "samples", None) or [])
-        # 详情预览（前 N 条，带完整文本，供点击方块查看）
-        for s in samples[:_SAMPLES_PREVIEW_LIMIT]:
-            score = getattr(s, "score", None)
-            score_value = None
-            score_explain = None
-            if score is not None:
-                score_value = getattr(score, "value", None)
-                score_explain = getattr(score, "explanation", None)
-            out = getattr(s, "output", None)
-            completion = ""
-            if out is not None:
-                completion = getattr(out, "completion", "") or ""
-            samples_preview.append({
-                "id": getattr(s, "id", None),
-                "input": _shorten(_stringify(getattr(s, "input", ""))),
-                "target": _shorten(_stringify(getattr(s, "target", ""))),
-                "output": _shorten(completion),
-                "score": _stringify(score_value),
-                "explanation": _shorten(_stringify(score_explain)) if score_explain else None,
-                "error": _shorten(_stringify(getattr(s, "error", None))) if getattr(s, "error", None) else None,
-            })
         # 网格状态（全部样本，仅 id + status，紧凑；供 contribution-graph 式方块展示）
         for s in samples:
             st = sample_status(s)
@@ -120,7 +99,7 @@ def parse_eval_log_file(path: Path, engine: str) -> dict:
         "completed_samples": completed,
         "failed_samples": failed,
         "model_usage": usage,
-        "samples_preview": samples_preview,
+        "samples_preview": [],
         "sample_grid": sample_grid,
         "artifact_paths": [str(path)],
         "engine": engine,
@@ -146,6 +125,50 @@ def sample_status(s) -> str:
     if completion:
         return "success"
     return "none"
+
+
+def build_sample_preview(s) -> dict:
+    """构造单条样本的预览 dict（input/target/output/score/explanation/error，文本截断至 _PREVIEW_TEXT_MAX）。
+
+    点击方块时由 read_sample_preview 按需调用，不随结果存储，故无条数上限。
+    """
+    score = getattr(s, "score", None)
+    score_value = None
+    score_explain = None
+    if score is not None:
+        score_value = getattr(score, "value", None)
+        score_explain = getattr(score, "explanation", None)
+    out = getattr(s, "output", None)
+    completion = ""
+    if out is not None:
+        completion = getattr(out, "completion", "") or ""
+    return {
+        "id": getattr(s, "id", None),
+        "input": _shorten(_stringify(getattr(s, "input", ""))),
+        "target": _shorten(_stringify(getattr(s, "target", ""))),
+        "output": _shorten(completion),
+        "score": _stringify(score_value),
+        "explanation": _shorten(_stringify(score_explain)) if score_explain else None,
+        "error": _shorten(_stringify(getattr(s, "error", None))) if getattr(s, "error", None) else None,
+    }
+
+
+def read_sample_preview(path: Path, sample_id: str) -> dict | None:
+    """按需从 .eval log 读取单条样本预览（点击方块时调用）。
+
+    每次调用都会 read_eval_log 整份日志，适合低频的点击交互；
+    未找到匹配样本返回 None（前端据此提示查看完整日志）。
+    """
+    from inspect_ai.log import read_eval_log
+
+    try:
+        log = read_eval_log(str(path))
+    except Exception:
+        return None
+    for s in (getattr(log, "samples", None) or []):
+        if str(getattr(s, "id", None)) == str(sample_id):
+            return build_sample_preview(s)
+    return None
 
 
 def _stringify(v) -> str:

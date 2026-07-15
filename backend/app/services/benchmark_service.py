@@ -193,8 +193,7 @@ def benchmark_task_to_dict(task: Task, *, include_samples_preview: bool = False)
     # 不携带样本预览文本（samples_preview）—— 点击方块时按需拉取，
     # 避免列表接口每个任务都回传大段样本文本。
     if result and not include_samples_preview:
-        preview = result.get("samples_preview") or []
-        result = {**result, "samples_preview": [], "samples_preview_count": len(preview)}
+        result = {**result, "samples_preview": []}
 
     return {
         **base,
@@ -213,18 +212,19 @@ def benchmark_task_to_dict(task: Task, *, include_samples_preview: bool = False)
 
 
 def get_sample_preview(task: Task, sample_id: str) -> dict | None:
-    """从已存储的 result.samples_preview 中取单条样本预览。
+    """按需读取单条样本预览。
 
-    samples_preview 仅包含前 N 条样本（见 log_parser._SAMPLES_PREVIEW_LIMIT），
-    超出范围的样本返回 None，前端据此提示“查看完整日志”。
+    不再从 result.samples_preview 取（已不存储），而是从 result.artifact_paths
+    指向的 .eval log 实时解析对应样本，故无条数上限。
     """
     detail: BenchmarkTask | None = task.benchmark
     if not detail or not detail.result:
         return None
-    for s in detail.result.get("samples_preview") or []:
-        if str(s.get("id")) == str(sample_id):
-            return s
-    return None
+    paths = (detail.result.get("artifact_paths") or [])
+    if not paths:
+        return None
+    from app.benchmark.engine.inspect_evals.log_parser import read_sample_preview
+    return read_sample_preview(Path(paths[0]), sample_id)
 
 
 # ---------------------------------------------------------------------------

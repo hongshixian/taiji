@@ -108,9 +108,8 @@ export default {
   sampleError: '执行失败',
   sampleNone: '未执行',
   viewFullLog: '查看完整日志',
-  sampleLimitHint: '提示：仅前 {n} 条样本可查看完整内容，其余方块仅展示执行状态。',
   sampleDialogTitle: '样本 #{id}',
-  sampleNoDetailPrefix: '该样本超出预览范围，仅记录了执行状态。完整内容请',
+  sampleNoDetailPrefix: '未能读取该样本详情，请',
   sampleNoDetailSuffix: '。',
 
   // 日志弹窗 (TaskLogDialog)

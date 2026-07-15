@@ -85,6 +85,12 @@ class InspectEvalsEngine(BenchmarkEngine):
         taiji_hooks.ensure_registered(ctx.logger)
         taiji_hooks.bind(ctx.progress, total_hint=int(exec_cfg.get("limit") or 0), logger=ctx.logger)
 
+        # 立即上报初始进度（total=limit），让前端尽早显示全量黄色占位网格，
+        # 不必等数据集加载完、on_task_start 触发才看到 total。
+        limit_hint = int(exec_cfg.get("limit") or 0)
+        if limit_hint > 0:
+            ctx.progress.report(completed=0, total=limit_hint)
+
         # 4) 记录一条 run_started 日志
         ctx.logger.info(
             step="run",

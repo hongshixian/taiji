@@ -84,13 +84,10 @@
             isRunning ? 'cursor-default' : 'hover:scale-125 hover:ring-2 hover:ring-brand/40',
             cellClass(cell.status),
           )"
-          :title="`#${cell.id} · ${statusText(cell.status)}`"
+          :title="cellTitle(cell)"
           @click="openSample(cell)"
         />
       </div>
-      <p v-if="!isRunning && !hasDetailForAll" class="mt-3 text-xs text-fg-tertiary">
-        {{ t('benchmark.sampleLimitHint', { n: detailCount }) }}
-      </p>
     </div>
 
     <!-- 样本详情弹窗 -->
@@ -153,20 +150,20 @@ const isRunning = computed(() => props.task.status === 'running' || props.task.s
 const liveCompleted = computed(() => props.task.progress?.completed ?? 0)
 const liveTotal = computed(() => props.task.progress?.total ?? 0)
 
-// 已存储的预览条数（前 N 条）；后端默认不回传预览文本，点击方块时按需拉取
-const detailCount = computed(() => result.value.samples_preview_count ?? 0)
-
-// 网格单元：完成后用 result.sample_grid；执行中回退到 progress.sample_grid 实时累积网格
+// 网格单元：完成后用 result.sample_grid；执行中用已完成样本 + 黄色占位补齐到 total
 const gridCells = computed<GridCell[]>(() => {
   const grid = result.value.sample_grid
   if (grid && grid.length) return grid.map((g) => ({ id: g.id, status: g.status }))
-  const live = props.task.progress?.sample_grid
-  if (live && live.length) return live.map((g) => ({ id: g.id, status: g.status }))
+  if (isRunning.value) {
+    const live = props.task.progress?.sample_grid || []
+    const cells: GridCell[] = live.map((g) => ({ id: g.id, status: g.status }))
+    for (let i = cells.length; i < liveTotal.value; i++) {
+      cells.push({ id: `__pending_${i}`, status: 'none' })
+    }
+    return cells
+  }
   return []
 })
-
-// 是否所有方块都有预览（前 N 条之外无预览，点击时回退到“查看完整日志”）
-const hasDetailForAll = computed(() => gridCells.value.length > 0 && detailCount.value >= gridCells.value.length)
 
 const counts = computed(() => {
   let success = 0, error = 0, none = 0
@@ -212,6 +209,12 @@ function cellTone(status: SampleStatus): 'success' | 'danger' | 'warning' {
 }
 function statusText(status: SampleStatus): string {
   return { success: t('benchmark.sampleSuccess'), error: t('benchmark.sampleError'), none: t('benchmark.sampleNone') }[status]
+}
+function cellTitle(cell: GridCell): string {
+  const s = statusText(cell.status)
+  // 执行中的黄色占位方块（未执行）只显示状态，不显示合成 id
+  if (typeof cell.id === 'string' && cell.id.startsWith('__pending')) return s
+  return `#${cell.id} · ${s}`
 }
 
 function formatMetric(v: number | string) {

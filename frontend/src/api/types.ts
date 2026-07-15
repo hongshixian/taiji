@@ -94,7 +94,7 @@ export interface BenchmarkResult {
   completed_samples: number
   failed_samples: number
   model_usage: { input_tokens?: number; output_tokens?: number; total_tokens?: number }
-  // samples_preview 默认不随列表/详情返回（置空），仅在点击方块时按需拉取
+  // samples_preview 默认不随列表/详情返回（置空），仅在点击方块时按需读 .eval log 拉取
   samples_preview: Array<{
     id: string | number
     input: string
@@ -104,8 +104,6 @@ export interface BenchmarkResult {
     explanation?: string | null
     error?: string | null
   }>
-  // 已存储的预览条数（前 N 条），供前端判断哪些方块可点击查看预览
-  samples_preview_count?: number
   sample_grid?: Array<{ id: string | number; status: 'success' | 'error' | 'none' }>
   artifact_paths: string[]
   engine: string
