@@ -153,6 +153,7 @@ class InspectEvalsEngine(BenchmarkEngine):
             failed_samples=raw["failed_samples"],
             model_usage=raw["model_usage"],
             samples_preview=raw["samples_preview"],
+            sample_grid=raw.get("sample_grid", []),
             artifact_paths=raw["artifact_paths"],
             engine=engine_id,
             engine_metadata=raw["engine_metadata"],

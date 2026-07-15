@@ -97,7 +97,8 @@ class BenchmarkResult:
     completed_samples: int
     failed_samples: int = 0
     model_usage: dict = field(default_factory=dict)      # {"input_tokens", "output_tokens", ...}
-    samples_preview: list[dict] = field(default_factory=list)  # 前 N 条样本预览
+    samples_preview: list[dict] = field(default_factory=list)  # 前 N 条样本预览（带完整文本）
+    sample_grid: list[dict] = field(default_factory=list)       # 全部样本的 {id, status}（供方块网格）
     artifact_paths: list[str] = field(default_factory=list)    # .eval / .json 绝对路径
     engine: str = ""                              # "inspect_evals@0.14.3"
     engine_metadata: dict = field(default_factory=dict)
@@ -112,6 +113,7 @@ class BenchmarkResult:
             "failed_samples": self.failed_samples,
             "model_usage": self.model_usage,
             "samples_preview": self.samples_preview,
+            "sample_grid": self.sample_grid,
             "artifact_paths": self.artifact_paths,
             "engine": self.engine,
             "engine_metadata": self.engine_metadata,

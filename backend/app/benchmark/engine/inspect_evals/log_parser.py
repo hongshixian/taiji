@@ -11,8 +11,12 @@ from pathlib import Path
 from typing import Any
 
 
-_SAMPLES_PREVIEW_LIMIT = 20
+_SAMPLES_PREVIEW_LIMIT = 50
 _PREVIEW_TEXT_MAX = 500
+
+# 判定单个样本状态时用的取值集合
+_CORRECT_VALUES = {"C", "CORRECT", "1", "1.0", "TRUE"}
+_INCORRECT_VALUES = {"I", "INCORRECT", "0", "0.0", "FALSE"}
 
 
 def parse_eval_log_file(path: Path, engine: str) -> dict:
@@ -72,10 +76,12 @@ def parse_eval_log_file(path: Path, engine: str) -> dict:
     except Exception:
         pass
 
-    # ---- samples preview ----
+    # ---- samples preview + grid ----
     samples_preview: list[dict] = []
+    sample_grid: list[dict] = []
     try:
         samples = list(getattr(log, "samples", None) or [])
+        # 详情预览（前 N 条，带完整文本，供点击方块查看）
         for s in samples[:_SAMPLES_PREVIEW_LIMIT]:
             score = getattr(s, "score", None)
             score_value = None
@@ -96,9 +102,11 @@ def parse_eval_log_file(path: Path, engine: str) -> dict:
                 "explanation": _shorten(_stringify(score_explain)) if score_explain else None,
                 "error": _shorten(_stringify(getattr(s, "error", None))) if getattr(s, "error", None) else None,
             })
-        # 统计 failed（score.value 为 None 且没 completion 视为 error 样本）
+        # 网格状态（全部样本，仅 id + status，紧凑；供 contribution-graph 式方块展示）
         for s in samples:
-            if getattr(s, "error", None):
+            st = _sample_status(s)
+            sample_grid.append({"id": getattr(s, "id", None), "status": st})
+            if st == "error":
                 failed += 1
     except Exception:
         pass
@@ -117,12 +125,33 @@ def parse_eval_log_file(path: Path, engine: str) -> dict:
         "failed_samples": failed,
         "model_usage": usage,
         "samples_preview": samples_preview,
+        "sample_grid": sample_grid,
         "artifact_paths": [str(path)],
         "engine": engine,
         "engine_metadata": {},
         "status": status,
         "error": error_msg,
     }
+
+
+def _sample_status(s) -> str:
+    """判定单个样本的执行状态：error / correct / incorrect / none。"""
+    if getattr(s, "error", None):
+        return "error"
+    score = getattr(s, "score", None)
+    value = getattr(score, "value", None) if score is not None else None
+    if value is None:
+        return "none"
+    key = _stringify(value).strip().upper()
+    if key in _CORRECT_VALUES:
+        return "correct"
+    if key in _INCORRECT_VALUES:
+        return "incorrect"
+    # 数值型分数：>0 视为正确（大多数 benchmark 的 accuracy 语义）
+    try:
+        return "correct" if float(key) > 0 else "incorrect"
+    except (ValueError, TypeError):
+        return "none"
 
 
 def _stringify(v) -> str:
