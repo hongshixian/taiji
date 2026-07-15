@@ -63,9 +63,9 @@
           <span class="font-semibold text-fg">样本分布（{{ gridCells.length }} 条）</span>
           <div class="flex items-center gap-4">
             <div class="flex items-center gap-4 text-xs text-fg-secondary">
-              <span class="flex items-center gap-1.5"><i class="size-3 rounded-[3px]" style="background:var(--color-success-fg)" />成功 {{ counts.correct }}</span>
-              <span class="flex items-center gap-1.5"><i class="size-3 rounded-[3px]" style="background:var(--color-danger-fg)" />失败 {{ counts.fail }}</span>
-              <span class="flex items-center gap-1.5"><i class="size-3 rounded-[3px] border border-line bg-surface" />未执行 {{ counts.none }}</span>
+              <span class="flex items-center gap-1.5"><i class="size-3 rounded-[3px]" style="background:var(--color-success-fg)" />执行成功 {{ counts.success }}</span>
+              <span class="flex items-center gap-1.5"><i class="size-3 rounded-[3px]" style="background:var(--color-danger-fg)" />执行失败 {{ counts.error }}</span>
+              <span class="flex items-center gap-1.5"><i class="size-3 rounded-[3px]" style="background:var(--color-warning-fg)" />未执行 {{ counts.none }}</span>
             </div>
             <UiButton variant="text" size="sm" @click="$emit('view-log')">查看完整日志</UiButton>
           </div>
@@ -122,7 +122,7 @@ import { cn } from '@/lib/utils'
 import { taskStatusTone as statusTone, taskStatusLabel as statusLabel } from '@/composables/taskStatus'
 import type { BenchmarkTask, BenchmarkResult } from '@/api/types'
 
-type SampleStatus = 'correct' | 'incorrect' | 'error' | 'none'
+type SampleStatus = 'success' | 'error' | 'none'
 type SampleDetail = NonNullable<BenchmarkResult['samples_preview']>[number]
 interface GridCell {
   id: string | number
@@ -171,13 +171,13 @@ const gridCells = computed<GridCell[]>(() => {
 const hasDetailForAll = computed(() => gridCells.value.every((c) => c.detail))
 
 const counts = computed(() => {
-  let correct = 0, fail = 0, none = 0
+  let success = 0, error = 0, none = 0
   for (const c of gridCells.value) {
-    if (c.status === 'correct') correct++
-    else if (c.status === 'incorrect' || c.status === 'error') fail++
+    if (c.status === 'success') success++
+    else if (c.status === 'error') error++
     else none++
   }
-  return { correct, fail, none }
+  return { success, error, none }
 })
 
 const sampleDialogOpen = ref(false)
@@ -187,29 +187,26 @@ function openSample(cell: GridCell) {
   sampleDialogOpen.value = true
 }
 
+// 只看是否拿到结果，不看答对答错
 function detailStatus(s: SampleDetail): SampleStatus {
   if (s.error) return 'error'
-  const k = String(s.score || '').trim().toUpperCase()
-  if (['C', 'CORRECT', '1', 'TRUE'].includes(k)) return 'correct'
-  if (['I', 'INCORRECT', '0', 'FALSE'].includes(k)) return 'incorrect'
-  const n = Number(k)
-  if (!Number.isNaN(n)) return n > 0 ? 'correct' : 'incorrect'
+  if (s.score || s.output) return 'success'
   return 'none'
 }
 
-// 成功=绿，失败(答错/执行错)=红，未执行=白
+// 执行成功=绿，执行失败(报错)=红，未执行=黄
 function cellClass(status: SampleStatus): string {
-  if (status === 'correct') return 'bg-[var(--color-success-fg)]'
-  if (status === 'incorrect' || status === 'error') return 'bg-[var(--color-danger-fg)]'
-  return 'border border-line bg-surface'
+  if (status === 'success') return 'bg-[var(--color-success-fg)]'
+  if (status === 'error') return 'bg-[var(--color-danger-fg)]'
+  return 'bg-[var(--color-warning-fg)]'
 }
-function cellTone(status: SampleStatus): 'success' | 'danger' | 'neutral' {
-  if (status === 'correct') return 'success'
-  if (status === 'incorrect' || status === 'error') return 'danger'
-  return 'neutral'
+function cellTone(status: SampleStatus): 'success' | 'danger' | 'warning' {
+  if (status === 'success') return 'success'
+  if (status === 'error') return 'danger'
+  return 'warning'
 }
 function statusText(status: SampleStatus): string {
-  return { correct: '成功', incorrect: '失败', error: '执行错误', none: '未执行' }[status]
+  return { success: '执行成功', error: '执行失败', none: '未执行' }[status]
 }
 
 function formatMetric(v: number | string) {

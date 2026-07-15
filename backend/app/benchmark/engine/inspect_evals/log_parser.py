@@ -14,10 +14,6 @@ from typing import Any
 _SAMPLES_PREVIEW_LIMIT = 50
 _PREVIEW_TEXT_MAX = 500
 
-# 判定单个样本状态时用的取值集合
-_CORRECT_VALUES = {"C", "CORRECT", "1", "1.0", "TRUE"}
-_INCORRECT_VALUES = {"I", "INCORRECT", "0", "0.0", "FALSE"}
-
 
 def parse_eval_log_file(path: Path, engine: str) -> dict:
     """读取一个 .eval / .json log 文件并翻成 BenchmarkResult 的原始 dict。
@@ -135,23 +131,21 @@ def parse_eval_log_file(path: Path, engine: str) -> dict:
 
 
 def _sample_status(s) -> str:
-    """判定单个样本的执行状态：error / correct / incorrect / none。"""
+    """判定单个样本的执行状态（只看是否拿到结果，不看答对答错）：
+      error   —— 执行报错，未拿到结果
+      success —— 执行成功，拿到了结果（有分数或有输出，不论对错/分值）
+      none    —— 未执行 / 无任何产出
+    """
     if getattr(s, "error", None):
         return "error"
     score = getattr(s, "score", None)
-    value = getattr(score, "value", None) if score is not None else None
-    if value is None:
-        return "none"
-    key = _stringify(value).strip().upper()
-    if key in _CORRECT_VALUES:
-        return "correct"
-    if key in _INCORRECT_VALUES:
-        return "incorrect"
-    # 数值型分数：>0 视为正确（大多数 benchmark 的 accuracy 语义）
-    try:
-        return "correct" if float(key) > 0 else "incorrect"
-    except (ValueError, TypeError):
-        return "none"
+    if score is not None and getattr(score, "value", None) is not None:
+        return "success"
+    out = getattr(s, "output", None)
+    completion = getattr(out, "completion", None) if out is not None else None
+    if completion:
+        return "success"
+    return "none"
 
 
 def _stringify(v) -> str:

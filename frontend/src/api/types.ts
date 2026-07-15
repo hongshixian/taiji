@@ -103,7 +103,7 @@ export interface BenchmarkResult {
     explanation?: string | null
     error?: string | null
   }>
-  sample_grid?: Array<{ id: string | number; status: 'correct' | 'incorrect' | 'error' | 'none' }>
+  sample_grid?: Array<{ id: string | number; status: 'success' | 'error' | 'none' }>
   artifact_paths: string[]
   engine: string
   status: string
