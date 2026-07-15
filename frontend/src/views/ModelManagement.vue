@@ -1,15 +1,15 @@
 <template>
   <div class="page-shell page-shell--wide flex flex-col gap-8">
     <header class="page-header">
-      <span class="page-header__eyebrow t-eyebrow">资源 · 模型库</span>
+      <span class="page-header__eyebrow t-eyebrow">{{ t('model.eyebrow') }}</span>
       <div class="flex items-center justify-between gap-6">
-        <h1 class="page-header__title">模型管理</h1>
+        <h1 class="page-header__title">{{ t('model.title') }}</h1>
         <UiButton v-if="has('model:write')" @click="openCreateDialog">
-          <Plus class="size-4" />添加模型
+          <Plus class="size-4" />{{ t('model.add') }}
         </UiButton>
       </div>
       <p class="page-header__lede">
-        配置被测模型的 API 信息，供测评任务直接调用。数据归属当前租户，其他租户不可见。
+        {{ t('model.lede') }}
       </p>
     </header>
 
@@ -20,7 +20,7 @@
       <div class="flex items-center gap-4">
         <label class="flex cursor-pointer items-center gap-2">
           <UiSwitch v-model="showInactive" @update:model-value="handleFilterChange" />
-          <span class="text-xs text-fg-tertiary">显示已停用</span>
+          <span class="text-xs text-fg-tertiary">{{ t('model.showInactive') }}</span>
         </label>
       </div>
 
@@ -38,7 +38,7 @@
           <span class="t-mono block break-all text-xs text-fg-secondary">{{ value }}</span>
         </template>
         <template #cell-is_active="{ value }">
-          <UiBadge :tone="value ? 'success' : 'danger'">{{ value ? '启用' : '停用' }}</UiBadge>
+          <UiBadge :tone="value ? 'success' : 'danger'">{{ value ? t('common.enabled') : t('common.disabled') }}</UiBadge>
         </template>
         <template #cell-created_at="{ value }">
           <span class="t-mono">{{ formatTime(value as string | null) }}</span>
@@ -50,27 +50,27 @@
               size="sm"
               :loading="testingId === (row as ModelItem).id"
               @click="handleTest(row as ModelItem)"
-            >测试</UiButton>
+            >{{ t('model.testBtn') }}</UiButton>
             <UiButton
               v-if="has('model:write')"
               variant="text"
               size="sm"
               @click="openEditDialog(row as ModelItem)"
-            >编辑</UiButton>
+            >{{ t('common.edit') }}</UiButton>
             <UiDropdown v-if="has('model:write') || has('model:delete')">
               <template #trigger>
-                <UiButton variant="text" size="sm">更多<ChevronDown class="size-4" /></UiButton>
+                <UiButton variant="text" size="sm">{{ t('common.more') }}<ChevronDown class="size-4" /></UiButton>
               </template>
               <template #default="{ close }">
                 <UiDropdownItem
                   v-if="has('model:write')"
                   @select="close(); toggleActive(row as ModelItem)"
-                >{{ (row as ModelItem).is_active ? '停用' : '启用' }}</UiDropdownItem>
+                >{{ (row as ModelItem).is_active ? t('common.disabled') : t('common.enabled') }}</UiDropdownItem>
                 <UiDropdownItem
                   v-if="has('model:delete')"
                   danger
                   @select="close(); handleDelete(row as ModelItem)"
-                >删除</UiDropdownItem>
+                >{{ t('common.delete') }}</UiDropdownItem>
               </template>
             </UiDropdown>
           </div>
@@ -92,33 +92,33 @@
       v-if="!loading && models.length === 0"
       class="flex flex-col items-center gap-5 rounded-lg border border-dashed border-line-strong bg-surface px-9 py-16 text-center"
     >
-      <span class="t-eyebrow">暂无模型</span>
-      <h3 class="m-0 text-2xl text-fg">还没有配置任何模型</h3>
+      <span class="t-eyebrow">{{ t('model.empty.eyebrow') }}</span>
+      <h3 class="m-0 text-2xl text-fg">{{ t('model.empty.title') }}</h3>
       <p class="m-0 max-w-[48ch] text-fg-secondary">
-        在这里维护被测模型的 API 地址、密钥等信息，创建测评任务时可直接从模型库选择，无需重复填写。
+        {{ t('model.empty.desc') }}
       </p>
       <UiButton v-if="has('model:write')" class="mt-3" @click="openCreateDialog">
-        <Plus class="size-4" />添加第一个模型
+        <Plus class="size-4" />{{ t('model.empty.addFirst') }}
       </UiButton>
     </section>
 
     <!-- 新建 / 编辑对话框 -->
     <UiDialog
       v-model="dialogVisible"
-      :title="editMode ? '编辑模型配置' : '添加模型'"
+      :title="editMode ? t('model.dialog.editTitle') : t('model.dialog.createTitle')"
       width="560px"
     >
       <div class="flex flex-col gap-4">
-        <UiFormItem label="显示名称" required hint="显示在测评榜单和任务列表中的名称">
-          <UiInput v-model="form.display_name" placeholder="例：GPT-4o（OpenAI 官方）" :maxlength="100" />
+        <UiFormItem :label="t('model.field.displayName')" required :hint="t('model.field.displayNameHint')">
+          <UiInput v-model="form.display_name" :placeholder="t('model.field.displayNamePlaceholder')" :maxlength="100" />
         </UiFormItem>
-        <UiFormItem label="模型标识" required hint="API 请求 body 中的 model 字段值">
-          <UiInput v-model="form.model_name" class="font-mono" placeholder="例：gpt-4o" :maxlength="200" />
+        <UiFormItem :label="t('model.field.modelName')" required :hint="t('model.field.modelNameHint')">
+          <UiInput v-model="form.model_name" class="font-mono" :placeholder="t('model.field.modelNamePlaceholder')" :maxlength="200" />
         </UiFormItem>
-        <UiFormItem label="API 协议" required>
+        <UiFormItem :label="t('model.field.protocol')" required>
           <UiSelect v-model="form.api_protocol" :options="protocolOptions" />
         </UiFormItem>
-        <UiFormItem label="API 地址" required>
+        <UiFormItem :label="t('model.field.apiUrl')" required>
           <UiInput
             v-model="form.api_base_url"
             class="font-mono"
@@ -126,87 +126,87 @@
             :maxlength="500"
           />
         </UiFormItem>
-        <UiFormItem label="API Key">
+        <UiFormItem :label="t('model.field.apiKey')">
           <UiInput
             v-model="form.api_key"
             type="password"
             class="font-mono"
-            :placeholder="editMode ? '留空则不修改原有密钥' : 'sk-...（可选，加密存储）'"
+            :placeholder="editMode ? t('model.field.apiKeyPlaceholderEdit') : t('model.field.apiKeyPlaceholderCreate')"
             :maxlength="500"
           />
         </UiFormItem>
-        <UiFormItem label="描述">
-          <UiTextarea v-model="form.description" :rows="2" placeholder="可选的备注说明" :maxlength="500" />
+        <UiFormItem :label="t('common.description')">
+          <UiTextarea v-model="form.description" :rows="2" :placeholder="t('model.field.descPlaceholder')" :maxlength="500" />
         </UiFormItem>
 
         <div class="my-2 flex items-center gap-3 text-xs font-semibold text-fg-tertiary">
-          <span>生成参数</span><span class="h-px flex-1 bg-line" />
+          <span>{{ t('model.field.genParams') }}</span><span class="h-px flex-1 bg-line" />
         </div>
         <p class="-mt-2 text-xs leading-relaxed text-fg-tertiary">
-          评测时将统一使用这里配置的采样参数，保证同一模型的结果可比。留空则由引擎使用默认值。
+          {{ t('model.field.genParamsHint') }}
         </p>
         <div class="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
           <UiFormItem label="Temperature">
             <UiInputNumber
               v-model="form.gen_temperature"
               :min="0" :max="2" :step="0.1" :precision="2"
-              block placeholder="可选"
+              block :placeholder="t('model.field.optionalPlaceholder')"
             />
           </UiFormItem>
           <UiFormItem label="Top-P">
             <UiInputNumber
               v-model="form.gen_top_p"
               :min="0" :max="1" :step="0.05" :precision="2"
-              block placeholder="可选"
+              block :placeholder="t('model.field.optionalPlaceholder')"
             />
           </UiFormItem>
           <UiFormItem label="Max Tokens">
             <UiInputNumber
               v-model="form.gen_max_tokens"
               :min="1" :max="200000" :step="256"
-              block placeholder="可选"
+              block :placeholder="t('model.field.optionalPlaceholder')"
             />
           </UiFormItem>
-          <UiFormItem label="Stop 序列">
-            <UiInput v-model="form.gen_stop_sequences" placeholder="逗号分隔，可选" />
+          <UiFormItem :label="t('model.field.stopSeq')">
+            <UiInput v-model="form.gen_stop_sequences" :placeholder="t('model.field.stopPlaceholder')" />
           </UiFormItem>
         </div>
 
-        <UiFormItem v-if="editMode" label="状态">
+        <UiFormItem v-if="editMode" :label="t('common.status')">
           <label class="flex items-center gap-2">
             <UiSwitch v-model="form.is_active" />
-            <span class="text-sm text-fg-secondary">{{ form.is_active ? '启用' : '停用' }}</span>
+            <span class="text-sm text-fg-secondary">{{ form.is_active ? t('common.enabled') : t('common.disabled') }}</span>
           </label>
         </UiFormItem>
       </div>
       <template #footer>
-        <UiButton variant="secondary" @click="dialogVisible = false">取消</UiButton>
+        <UiButton variant="secondary" @click="dialogVisible = false">{{ t('common.cancel') }}</UiButton>
         <UiButton :loading="submitting" @click="handleSubmit">
-          {{ editMode ? '保存' : '添加' }}
+          {{ editMode ? t('common.save') : t('common.add') }}
         </UiButton>
       </template>
     </UiDialog>
 
     <!-- 测试结果对话框 -->
-    <UiDialog v-model="testDialogVisible" title="模型连通性测试" width="600px">
+    <UiDialog v-model="testDialogVisible" :title="t('model.test.title')" width="600px">
       <!-- 测试进行中 -->
       <div v-if="testing" class="flex min-h-[140px] flex-col items-center justify-center gap-4">
         <UiSpinner :size="28" />
-        <span class="text-xs text-fg-tertiary">正在向模型发送测试请求…</span>
-        <span class="text-xs text-fg-tertiary">模型：{{ testTargetName }}</span>
+        <span class="text-xs text-fg-tertiary">{{ t('model.test.sending') }}</span>
+        <span class="text-xs text-fg-tertiary">{{ t('model.test.modelLabel', { name: testTargetName }) }}</span>
       </div>
 
       <!-- 测试结果 -->
       <div v-else-if="testResult" class="flex flex-col gap-5">
         <div class="flex items-center gap-4">
           <UiBadge :tone="testResult.ok ? 'success' : 'danger'">
-            {{ testResult.ok ? '通过' : '失败' }}
+            {{ testResult.ok ? t('model.test.pass') : t('model.test.fail') }}
           </UiBadge>
-          <span class="text-xs text-fg-tertiary">模型：{{ testTargetName }}</span>
+          <span class="text-xs text-fg-tertiary">{{ t('model.test.modelLabel', { name: testTargetName }) }}</span>
         </div>
         <div class="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-4 rounded-md border border-line bg-canvas p-4">
           <div class="flex flex-col gap-1">
-            <span class="t-eyebrow">耗时</span>
+            <span class="t-eyebrow">{{ t('model.test.latency') }}</span>
             <span class="t-mono">{{ testResult.latency_ms }} ms</span>
           </div>
           <div class="flex flex-col gap-1">
@@ -219,11 +219,11 @@
           </div>
         </div>
         <div v-if="testResult.ok" class="flex flex-col gap-2">
-          <div class="t-eyebrow">样例输出</div>
-          <pre class="m-0 max-h-[260px] overflow-auto whitespace-pre-wrap break-words rounded-md border border-line bg-canvas p-4 font-mono text-xs">{{ testResult.sample_output || '(空)' }}</pre>
+          <div class="t-eyebrow">{{ t('model.test.sampleOutput') }}</div>
+          <pre class="m-0 max-h-[260px] overflow-auto whitespace-pre-wrap break-words rounded-md border border-line bg-canvas p-4 font-mono text-xs">{{ testResult.sample_output || t('model.test.emptyOutput') }}</pre>
         </div>
         <div v-else class="flex flex-col gap-2">
-          <div class="t-eyebrow">错误信息</div>
+          <div class="t-eyebrow">{{ t('model.test.errorInfo') }}</div>
           <pre class="m-0 max-h-[260px] overflow-auto whitespace-pre-wrap break-words rounded-md border border-danger/30 bg-danger-soft p-4 font-mono text-xs text-danger">{{ testResult.error }}</pre>
         </div>
       </div>
@@ -232,15 +232,16 @@
           v-if="!testing && testResult && currentTestRow"
           variant="secondary"
           @click="handleTest(currentTestRow)"
-        >重新测试</UiButton>
-        <UiButton variant="secondary" @click="testDialogVisible = false">关闭</UiButton>
+        >{{ t('model.test.retest') }}</UiButton>
+        <UiButton variant="secondary" @click="testDialogVisible = false">{{ t('common.close') }}</UiButton>
       </template>
     </UiDialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Plus, ChevronDown } from 'lucide-vue-next'
 import { listModels, createModel, updateModel, deleteModel, testModel } from '@/api/model'
 import { usePermission } from '@/composables/usePermission'
@@ -287,6 +288,7 @@ interface TestResult {
 type ApiError = { response?: { data?: { message?: string } }; message?: string }
 
 const { has } = usePermission()
+const { t } = useI18n()
 
 const models = ref<ModelItem[]>([])
 const loading = ref(false)
@@ -308,24 +310,24 @@ const testTargetName = ref('')
 const testing = ref(false)
 const currentTestRow = ref<ModelItem | null>(null)
 
-const columns: TableColumn[] = [
+const columns = computed<TableColumn[]>(() => [
   { key: 'id', label: 'ID', width: 60 },
-  { key: 'display_name', label: '显示名称', minWidth: 160 },
-  { key: 'model_name', label: '模型标识', minWidth: 160 },
-  { key: 'api_protocol', label: '协议', width: 110 },
-  { key: 'api_base_url', label: 'API 地址', minWidth: 220 },
-  { key: 'is_active', label: '状态', width: 90 },
-  { key: 'created_at', label: '创建时间', minWidth: 160 },
-  { key: 'actions', label: '操作', width: 150, fixed: 'right' },
-]
+  { key: 'display_name', label: t('model.col.displayName'), minWidth: 160 },
+  { key: 'model_name', label: t('model.col.modelName'), minWidth: 160 },
+  { key: 'api_protocol', label: t('model.col.protocol'), width: 110 },
+  { key: 'api_base_url', label: t('model.col.apiUrl'), minWidth: 220 },
+  { key: 'is_active', label: t('common.status'), width: 90 },
+  { key: 'created_at', label: t('common.createdAt'), minWidth: 160 },
+  { key: 'actions', label: t('common.actions'), width: 150, fixed: 'right' },
+])
 
-const protocolOptions = [
-  { label: 'OpenAI 兼容', value: 'openai' },
+const protocolOptions = computed(() => [
+  { label: t('model.proto.openai'), value: 'openai' },
   { label: 'Anthropic', value: 'anthropic' },
   { label: 'Gemini', value: 'gemini' },
   { label: 'Ollama', value: 'ollama' },
-  { label: '自定义', value: 'custom' },
-]
+  { label: t('model.proto.custom'), value: 'custom' },
+])
 
 interface ModelForm {
   display_name: string
@@ -411,7 +413,7 @@ async function fetchModels() {
     models.value = data.data.items
     total.value = data.data.total
   } catch {
-    toast.error('加载模型列表失败')
+    toast.error(t('model.toast.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -428,9 +430,9 @@ function onPageChange(p: number) {
 }
 
 async function handleSubmit() {
-  if (!form.display_name.trim()) return toast.warning('请填写显示名称')
-  if (!form.model_name.trim()) return toast.warning('请填写模型标识')
-  if (!form.api_base_url.trim()) return toast.warning('请填写 API 地址')
+  if (!form.display_name.trim()) return toast.warning(t('model.toast.fillDisplayName'))
+  if (!form.model_name.trim()) return toast.warning(t('model.toast.fillModelName'))
+  if (!form.api_base_url.trim()) return toast.warning(t('model.toast.fillApiUrl'))
 
   submitting.value = true
   try {
@@ -462,17 +464,17 @@ async function handleSubmit() {
     if (editMode.value) {
       payload.is_active = form.is_active
       await updateModel(editId.value as number, payload)
-      toast.success('已保存')
+      toast.success(t('common.saveSuccess'))
     } else {
       await createModel(payload)
-      toast.success('模型已添加')
+      toast.success(t('model.toast.added'))
     }
     dialogVisible.value = false
     page.value = 1
     await fetchModels()
   } catch (err: unknown) {
     const e = err as ApiError
-    toast.error(e.response?.data?.message || '操作失败')
+    toast.error(e.response?.data?.message || t('common.operationFailed'))
   } finally {
     submitting.value = false
   }
@@ -482,10 +484,10 @@ async function toggleActive(row: ModelItem) {
   try {
     await updateModel(row.id, { is_active: !row.is_active })
     row.is_active = !row.is_active
-    toast.success(row.is_active ? '已启用' : '已停用')
+    toast.success(row.is_active ? t('common.active') : t('common.inactive'))
   } catch (err: unknown) {
     const e = err as ApiError
-    toast.error(e.response?.data?.message || '操作失败')
+    toast.error(e.response?.data?.message || t('common.operationFailed'))
   }
 }
 
@@ -501,9 +503,9 @@ async function handleTest(row: ModelItem) {
     const { data } = await testModel(row.id)
     testResult.value = data.data
     if (testResult.value?.ok) {
-      toast.success(`测试通过（${testResult.value.latency_ms}ms）`)
+      toast.success(t('model.toast.testPass', { ms: testResult.value.latency_ms }))
     } else {
-      toast.warning('测试失败，请查看错误详情')
+      toast.warning(t('model.toast.testFail'))
     }
   } catch (err: unknown) {
     const e = err as ApiError
@@ -511,11 +513,11 @@ async function handleTest(row: ModelItem) {
       ok: false,
       latency_ms: 0,
       sample_output: null,
-      error: e.response?.data?.message || e.message || '请求失败',
+      error: e.response?.data?.message || e.message || t('model.toast.reqFailed'),
       provider: row.api_protocol,
       model: row.model_name,
     }
-    toast.error(e.response?.data?.message || '测试请求失败')
+    toast.error(e.response?.data?.message || t('model.toast.testReqFailed'))
   } finally {
     testing.value = false
     testingId.value = null
@@ -524,9 +526,9 @@ async function handleTest(row: ModelItem) {
 
 async function handleDelete(row: ModelItem) {
   const ok = await confirm({
-    message: `确定删除模型「${row.display_name}」？删除后不可恢复，已关联该模型的历史任务不受影响。`,
-    title: '删除确认',
-    confirmText: '确认删除',
+    message: t('model.remove.message', { name: row.display_name }),
+    title: t('model.remove.title'),
+    confirmText: t('model.remove.confirmText'),
     tone: 'danger',
   })
   if (!ok) return
@@ -534,10 +536,10 @@ async function handleDelete(row: ModelItem) {
     await deleteModel(row.id)
     models.value = models.value.filter((m) => m.id !== row.id)
     total.value--
-    toast.success('已删除')
+    toast.success(t('common.deleteSuccess'))
   } catch (err: unknown) {
     const e = err as ApiError
-    toast.error(e.response?.data?.message || '删除失败')
+    toast.error(e.response?.data?.message || t('common.operationFailed'))
   }
 }
 

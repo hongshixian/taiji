@@ -1,10 +1,10 @@
 <template>
   <div class="page-shell flex max-w-[960px] flex-col gap-8">
     <header class="page-header">
-      <span class="page-header__eyebrow t-eyebrow">超级管理员 · 平台配置</span>
-      <h1 class="page-header__title">系统设置</h1>
+      <span class="page-header__eyebrow t-eyebrow">{{ t('systemSettings.eyebrow') }}</span>
+      <h1 class="page-header__title">{{ t('systemSettings.title') }}</h1>
       <p class="page-header__lede">
-        平台级 key/value 配置和超级管理员名册。修改这里的设置会影响整个平台。
+        {{ t('systemSettings.lede') }}
       </p>
     </header>
 
@@ -17,21 +17,21 @@
         <UiSpinner :size="28" />
       </div>
       <header class="flex flex-col gap-3">
-        <span class="t-eyebrow">注册策略</span>
-        <h2 class="m-0 text-2xl font-bold tracking-tight text-fg">默认注册租户</h2>
+        <span class="t-eyebrow">{{ t('systemSettings.registration.eyebrow') }}</span>
+        <h2 class="m-0 text-2xl font-bold tracking-tight text-fg">{{ t('systemSettings.registration.title') }}</h2>
         <p class="m-0 max-w-[56ch] text-sm text-fg-secondary">
-          新公开注册的用户会自动加入这里选择的租户。
+          {{ t('systemSettings.registration.desc') }}
         </p>
       </header>
 
       <div class="flex max-w-[620px] flex-col gap-5">
-        <UiFormItem label="默认租户">
+        <UiFormItem :label="t('systemSettings.registration.defaultTenant')">
           <div class="max-w-[420px]">
             <UiSelect v-model="form.defaultRegistrationTenantSlug" :options="tenantOptions" filterable />
           </div>
         </UiFormItem>
         <div>
-          <UiButton :loading="saving" @click="saveSettings">保存</UiButton>
+          <UiButton :loading="saving" @click="saveSettings">{{ t('common.save') }}</UiButton>
         </div>
       </div>
     </section>
@@ -45,32 +45,32 @@
         <UiSpinner :size="28" />
       </div>
       <header class="flex flex-col gap-3">
-        <span class="t-eyebrow">评测集成</span>
-        <h2 class="m-0 text-2xl font-bold tracking-tight text-fg">Benchmark 集成设置</h2>
+        <span class="t-eyebrow">{{ t('systemSettings.benchmark.eyebrow') }}</span>
+        <h2 class="m-0 text-2xl font-bold tracking-tight text-fg">{{ t('systemSettings.benchmark.title') }}</h2>
         <p class="m-0 max-w-[56ch] text-sm text-fg-secondary">
-          HuggingFace 访问令牌用于加载 gated 数据集；默认评委模型会在需要评委的评测集里预填。
+          {{ t('systemSettings.benchmark.desc') }}
         </p>
       </header>
 
       <div class="flex max-w-[620px] flex-col gap-5">
-        <UiFormItem label="HuggingFace Token" hint="留空则不修改；保存后不会再回显。">
+        <UiFormItem :label="t('systemSettings.benchmark.hfToken')" :hint="t('systemSettings.benchmark.hfTokenHint')">
           <div class="max-w-[420px]">
             <UiInput v-model="form.hfToken" type="password" :placeholder="hfTokenPlaceholder" />
           </div>
         </UiFormItem>
-        <UiFormItem label="默认评委模型">
+        <UiFormItem :label="t('systemSettings.benchmark.judgeModel')">
           <div class="max-w-[420px]">
             <UiSelect
               v-model="form.defaultJudgeModelId"
               :options="judgeModelOptions"
               filterable
               clearable
-              placeholder="选择一个模型作为默认评委"
+              :placeholder="t('systemSettings.benchmark.judgeModelPlaceholder')"
             />
           </div>
         </UiFormItem>
         <div>
-          <UiButton :loading="savingBenchmark" @click="saveBenchmarkSettings">保存</UiButton>
+          <UiButton :loading="savingBenchmark" @click="saveBenchmarkSettings">{{ t('common.save') }}</UiButton>
         </div>
       </div>
     </section>
@@ -79,21 +79,21 @@
     <section class="flex flex-col gap-7 rounded-lg border border-line bg-surface p-8 shadow-xs">
       <header class="flex flex-col gap-7 sm:flex-row sm:items-end sm:justify-between">
         <div class="flex flex-col gap-3">
-          <span class="t-eyebrow">权限</span>
-          <h2 class="m-0 text-2xl font-bold tracking-tight text-fg">超级管理员</h2>
+          <span class="t-eyebrow">{{ t('systemSettings.superuser.eyebrow') }}</span>
+          <h2 class="m-0 text-2xl font-bold tracking-tight text-fg">{{ t('systemSettings.superuser.title') }}</h2>
           <p class="m-0 max-w-[56ch] text-sm text-fg-secondary">
-            可绕过权限校验的平台运营账号。无法移除自己的超管身份。
+            {{ t('systemSettings.superuser.desc') }}
           </p>
         </div>
         <div class="flex items-center gap-3 sm:shrink-0">
           <div class="w-[220px]">
             <UiInput
               v-model="superuserIdentifier"
-              placeholder="用户名或邮箱"
+              :placeholder="t('systemSettings.superuser.identifierPlaceholder')"
               @enter="handleAddSuperuser"
             />
           </div>
-          <UiButton :loading="addingSuperuser" @click="handleAddSuperuser">添加</UiButton>
+          <UiButton :loading="addingSuperuser" @click="handleAddSuperuser">{{ t('common.add') }}</UiButton>
         </div>
       </header>
 
@@ -122,7 +122,7 @@
             size="sm"
             :disabled="(row as Superuser).id === authStore.user?.id"
             @click="handleRemoveSuperuser(row as Superuser)"
-          >移除</UiButton>
+          >{{ t('systemSettings.superuser.remove') }}</UiButton>
         </template>
       </UiTable>
     </section>
@@ -131,6 +131,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import {
   addSuperuser,
@@ -183,6 +184,7 @@ interface SystemSetting {
 type ApiError = { response?: { data?: { message?: string } }; message?: string }
 
 const authStore = useAuthStore()
+const { t } = useI18n()
 const loading = ref(false)
 const saving = ref(false)
 const savingBenchmark = ref(false)
@@ -203,12 +205,12 @@ const form = reactive<{
   defaultJudgeModelId: null,
 })
 
-const superuserColumns: TableColumn[] = [
-  { key: 'username', label: '用户名', minWidth: 140 },
-  { key: 'email', label: '邮箱', minWidth: 200 },
-  { key: 'memberships', label: '加入租户', minWidth: 240 },
-  { key: 'actions', label: '操作', width: 110, fixed: 'right' },
-]
+const superuserColumns = computed<TableColumn[]>(() => [
+  { key: 'username', label: t('systemSettings.superuser.colUsername'), minWidth: 140 },
+  { key: 'email', label: t('systemSettings.superuser.colEmail'), minWidth: 200 },
+  { key: 'memberships', label: t('systemSettings.superuser.colMemberships'), minWidth: 240 },
+  { key: 'actions', label: t('common.actions'), width: 110, fixed: 'right' },
+])
 
 const activeTenants = computed(() => tenants.value.filter((t) => t.is_active))
 const tenantOptions = computed(() =>
@@ -218,7 +220,9 @@ const judgeModelOptions = computed(() =>
   judgeModelCandidates.value.map((m) => ({ label: m.display_name, value: m.id })),
 )
 const hfTokenPlaceholder = computed(() =>
-  hfTokenAlreadySet.value ? '已保存（不回显；留空保持不变）' : '例：hf_xxxxxxxx（可选）',
+  hfTokenAlreadySet.value
+    ? t('systemSettings.benchmark.hfTokenPlaceholderSet')
+    : t('systemSettings.benchmark.hfTokenPlaceholderUnset'),
 )
 
 async function fetchData() {
@@ -243,7 +247,7 @@ async function fetchData() {
     form.defaultJudgeModelId = judgeSetting?.value ?? null
   } catch (err: unknown) {
     const e = err as ApiError
-    toast.error(e.response?.data?.message || '加载失败')
+    toast.error(e.response?.data?.message || t('common.loadFailed'))
   } finally {
     loading.value = false
   }
@@ -251,7 +255,7 @@ async function fetchData() {
 
 async function saveSettings() {
   if (!form.defaultRegistrationTenantSlug) {
-    toast.warning('请选择默认注册租户')
+    toast.warning(t('systemSettings.toast.selectTenant'))
     return
   }
   saving.value = true
@@ -259,10 +263,10 @@ async function saveSettings() {
     await updateSystemSettings({
       [DEFAULT_REGISTRATION_TENANT_KEY]: form.defaultRegistrationTenantSlug,
     })
-    toast.success('已保存')
+    toast.success(t('common.saveSuccess'))
   } catch (err: unknown) {
     const e = err as ApiError
-    toast.error(e.response?.data?.message || '保存失败')
+    toast.error(e.response?.data?.message || t('systemSettings.toast.saveFailed'))
   } finally {
     saving.value = false
   }
@@ -278,12 +282,12 @@ async function saveBenchmarkSettings() {
   savingBenchmark.value = true
   try {
     await updateSystemSettings(payload)
-    toast.success('已保存')
+    toast.success(t('common.saveSuccess'))
     form.hfToken = ''
     fetchData()
   } catch (err: unknown) {
     const e = err as ApiError
-    toast.error(e.response?.data?.message || '保存失败')
+    toast.error(e.response?.data?.message || t('systemSettings.toast.saveFailed'))
   } finally {
     savingBenchmark.value = false
   }
@@ -296,7 +300,7 @@ async function fetchSuperusers() {
     superusers.value = data.data || []
   } catch (err: unknown) {
     const e = err as ApiError
-    toast.error(e.response?.data?.message || '加载超级管理员失败')
+    toast.error(e.response?.data?.message || t('systemSettings.toast.loadSuperusersFailed'))
   } finally {
     superusersLoading.value = false
   }
@@ -305,18 +309,18 @@ async function fetchSuperusers() {
 async function handleAddSuperuser() {
   const identifier = superuserIdentifier.value.trim()
   if (!identifier) {
-    toast.warning('请输入用户名或邮箱')
+    toast.warning(t('systemSettings.toast.enterIdentifier'))
     return
   }
   addingSuperuser.value = true
   try {
     await addSuperuser(identifier)
     superuserIdentifier.value = ''
-    toast.success('已添加')
+    toast.success(t('systemSettings.toast.added'))
     fetchSuperusers()
   } catch (err: unknown) {
     const e = err as ApiError
-    toast.error(e.response?.data?.message || '添加失败')
+    toast.error(e.response?.data?.message || t('systemSettings.toast.addFailed'))
   } finally {
     addingSuperuser.value = false
   }
@@ -324,19 +328,19 @@ async function handleAddSuperuser() {
 
 async function handleRemoveSuperuser(row: Superuser) {
   const ok = await confirm({
-    message: `确定移除「${row.username}」的超级管理员权限吗？`,
-    title: '移除超级管理员',
-    confirmText: '移除',
+    message: t('systemSettings.removeConfirm.message', { name: row.username }),
+    title: t('systemSettings.removeConfirm.title'),
+    confirmText: t('systemSettings.removeConfirm.confirmText'),
     tone: 'danger',
   })
   if (!ok) return
   try {
     await removeSuperuser(row.id)
-    toast.success('已移除')
+    toast.success(t('systemSettings.toast.removed'))
     fetchSuperusers()
   } catch (err: unknown) {
     const e = err as ApiError
-    toast.error(e.response?.data?.message || '移除失败')
+    toast.error(e.response?.data?.message || t('systemSettings.toast.removeFailed'))
   }
 }
 
