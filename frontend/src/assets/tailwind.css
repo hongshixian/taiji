@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+/* ======================================================================
+   Tailwind v4 ← Fangcun design tokens 桥接
+   工具类映射到语义 token；语义 token 在 [data-theme=dark] 下自动翻转，
+   因此 bg-surface / text-fg / border-line 等工具类天生支持暗色模式。
+   ====================================================================== */
+
+/* 暗色变体对齐本项目的 [data-theme=dark]（而非默认的 prefers-color-scheme） */
+@custom-variant dark (&:where([data-theme=dark] *, [data-theme=dark]));
+
+@theme inline {
+  /* ---- 颜色（语义，暗色自动翻转） ---- */
+  --color-canvas:          var(--bg-canvas);
+  --color-surface:         var(--bg-surface);
+  --color-surface-raised:  var(--bg-surface-raised);
+  --color-surface-sunken:  var(--bg-surface-sunken);
+  --color-surface-muted:   var(--bg-surface-muted);
+
+  --color-fg:              var(--fg-primary);
+  --color-fg-secondary:    var(--fg-secondary);
+  --color-fg-tertiary:     var(--fg-tertiary);
+  --color-fg-inverse:      var(--fg-inverse);
+
+  --color-line:            var(--border-subtle);
+  --color-line-strong:     var(--border-default);
+
+  --color-brand:           var(--violet-500);
+  --color-brand-hover:     var(--violet-600);
+  --color-brand-active:    var(--violet-700);
+  --color-brand-fg:        var(--ink-0);
+  --color-brand-soft:      var(--bg-brand-soft);
+
+  --color-success:         var(--color-success-fg);
+  --color-success-soft:    var(--color-success-bg);
+  --color-warning:         var(--color-warning-fg);
+  --color-warning-soft:    var(--color-warning-bg);
+  --color-danger:          var(--color-danger-fg);
+  --color-danger-soft:     var(--color-danger-bg);
+  --color-info:            var(--color-info-fg);
+  --color-info-soft:       var(--color-info-bg);
+
+  /* raw violet scale（marketing/图表用） */
+  --color-violet-50:  var(--violet-50);
+  --color-violet-100: var(--violet-100);
+  --color-violet-200: var(--violet-200);
+  --color-violet-300: var(--violet-300);
+  --color-violet-400: var(--violet-400);
+  --color-violet-500: var(--violet-500);
+  --color-violet-600: var(--violet-600);
+  --color-violet-700: var(--violet-700);
+
+  /* ---- 字体 ---- */
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  /* ---- 圆角 ---- */
+  --radius-sm:  var(--radius-sm);
+  --radius-md:  var(--radius-md);
+  --radius-lg:  var(--radius-lg);
+  --radius-xl:  var(--radius-xl);
+  --radius-2xl: var(--radius-2xl);
+
+  /* ---- 阴影 ---- */
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+}
+
+/* 基础层：全局背景/前景走 token */
+@layer base {
+  body {
+    background-color: var(--bg-canvas);
+    color: var(--fg-primary);
+    font-family: var(--font-sans);
+  }
+}

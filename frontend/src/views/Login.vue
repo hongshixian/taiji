@@ -1,265 +1,114 @@
 <template>
-  <div class="auth-page">
+  <div class="flex min-h-screen bg-canvas">
     <!-- 品牌区 — 暗色 marketing tier -->
-    <aside class="brand-side fc-grain">
-      <div class="brand-content">
-        <span class="t-eyebrow brand-eyebrow">FANGCUN AI</span>
-        <h1 class="brand-title fc-display-serif">
-          为每一次推理，<br>
-          构建可验证的<em class="fc-italic-word">边界</em>。
+    <aside class="relative hidden flex-[1.1] items-center overflow-hidden bg-[#0a0a14] px-16 py-20 text-fg-inverse lg:flex">
+      <div
+        class="pointer-events-none absolute inset-0 z-0"
+        style="background: radial-gradient(circle at 25% 20%, rgba(143,114,208,0.25) 0%, transparent 55%)"
+      />
+      <div class="relative z-10 flex max-w-[520px] flex-col gap-8">
+        <span class="text-2xs font-bold uppercase tracking-[0.22em] text-white/55">FANGCUN AI</span>
+        <h1 class="m-0 text-5xl font-black leading-[1.05] tracking-tight text-[#f5f0ff]">
+          为每一次推理，<br />
+          构建可验证的<em class="font-normal italic text-[#c9b37e]">边界</em>。
         </h1>
-        <p class="brand-lede">
+        <p class="m-0 max-w-[44ch] text-lg leading-relaxed text-white/70">
           面向大模型的安全与能力评测平台。标准化 Benchmark、自动化红队，一处提交、全程可追溯。
         </p>
-
-        <dl class="brand-stats">
+        <dl class="mt-4 grid grid-cols-2 gap-8 border-t border-white/10 pt-6">
           <div>
-            <dt class="t-eyebrow">评测引擎</dt>
-            <dd class="t-mono">inspect_evals</dd>
+            <dt class="mb-2 text-2xs font-bold uppercase tracking-[0.18em] text-white/55">评测引擎</dt>
+            <dd class="m-0 font-mono text-sm text-[#f5f0ff]">inspect_evals</dd>
           </div>
           <div>
-            <dt class="t-eyebrow">覆盖能力</dt>
-            <dd class="t-mono">能力 · 安全 · 对齐</dd>
+            <dt class="mb-2 text-2xs font-bold uppercase tracking-[0.18em] text-white/55">覆盖能力</dt>
+            <dd class="m-0 font-mono text-sm text-[#f5f0ff]">能力 · 安全 · 对齐</dd>
           </div>
         </dl>
-
-        <span class="brand-divider" aria-hidden="true"></span>
+        <span class="mt-3 h-px w-12 bg-[#c9b37e]" />
       </div>
     </aside>
 
     <!-- 表单区 — 亮色产品 UI -->
-    <main class="form-side">
-      <div class="form-shell">
-        <header class="form-header">
-          <span class="t-eyebrow">登录</span>
-          <h2 class="form-title">欢迎回来</h2>
-          <p class="form-lede">输入账号密码进入工作台。</p>
+    <main class="flex flex-1 items-center justify-center bg-surface px-8 py-16">
+      <div class="flex w-full max-w-[380px] flex-col gap-8">
+        <header class="flex flex-col gap-2">
+          <span class="text-2xs font-bold uppercase tracking-widest text-fg-tertiary">登录</span>
+          <h2 class="m-0 text-3xl font-bold tracking-tight text-fg">欢迎回来</h2>
+          <p class="m-0 text-sm text-fg-secondary">输入账号密码进入工作台。</p>
         </header>
 
-        <el-form
-          ref="formRef"
-          :model="form"
-          :rules="rules"
-          label-width="0"
-          size="large"
-          @submit.prevent="handleLogin"
-        >
-          <el-form-item prop="username">
-            <el-input
+        <form class="flex flex-col gap-4" @submit.prevent="handleLogin">
+          <div class="flex flex-col gap-1.5">
+            <UiInput
               v-model="form.username"
               placeholder="用户名"
               autocomplete="username"
+              @enter="handleLogin"
             >
-              <template #prefix><el-icon><User /></el-icon></template>
-            </el-input>
-          </el-form-item>
-          <el-form-item prop="password">
-            <el-input
+              <template #prefix><User class="size-4" /></template>
+            </UiInput>
+            <p v-if="errors.username" class="text-xs text-danger">{{ errors.username }}</p>
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <UiInput
               v-model="form.password"
               type="password"
               placeholder="密码"
-              show-password
               autocomplete="current-password"
+              @enter="handleLogin"
             >
-              <template #prefix><el-icon><Lock /></el-icon></template>
-            </el-input>
-          </el-form-item>
-          <el-form-item>
-            <el-button
-              type="primary"
-              native-type="submit"
-              :loading="loading"
-              class="auth-btn"
-            >
-              登录
-            </el-button>
-          </el-form-item>
-        </el-form>
+              <template #prefix><Lock class="size-4" /></template>
+            </UiInput>
+            <p v-if="errors.password" class="text-xs text-danger">{{ errors.password }}</p>
+          </div>
+          <UiButton native-type="submit" :loading="loading" block size="lg" class="mt-2 tracking-wide">
+            登录
+          </UiButton>
+        </form>
 
-        <p class="form-footer">
-          还没有账号？<router-link to="/register">注册账号</router-link>
+        <p class="m-0 text-center text-sm text-fg-secondary">
+          还没有账号？<router-link to="/register" class="ml-1 font-semibold text-brand hover:underline">注册账号</router-link>
         </p>
       </div>
     </main>
   </div>
 </template>
 
-<script setup>
-import { ref, reactive } from 'vue'
+<script setup lang="ts">
+import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { useAuthStore } from '../stores/auth'
+import { User, Lock } from 'lucide-vue-next'
+import UiInput from '@/components/ui/Input.vue'
+import UiButton from '@/components/ui/Button.vue'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const formRef = ref(null)
 const loading = ref(false)
 
-const form = reactive({
-  username: '',
-  password: '',
-})
+const form = reactive({ username: '', password: '' })
+const errors = reactive<{ username: string; password: string }>({ username: '', password: '' })
 
-const rules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+function validate(): boolean {
+  errors.username = form.username.trim() ? '' : '请输入用户名'
+  errors.password = form.password ? '' : '请输入密码'
+  return !errors.username && !errors.password
 }
 
 async function handleLogin() {
-  const valid = await formRef.value.validate().catch(() => false)
-  if (!valid) return
-
+  if (!validate()) return
   loading.value = true
   try {
-    const payload = { username: form.username, password: form.password }
-    await authStore.login(payload)
+    await authStore.login({ username: form.username, password: form.password })
     ElMessage.success('登录成功')
     router.push('/')
-  } catch (err) {
-    const msg = err.response?.data?.message || '登录失败，请检查账号密码'
-    ElMessage.error(msg)
+  } catch (err: unknown) {
+    const e = err as { response?: { data?: { message?: string } } }
+    ElMessage.error(e.response?.data?.message || '登录失败，请检查账号密码')
   } finally {
     loading.value = false
   }
 }
 </script>
-
-<style scoped>
-.auth-page {
-  display: flex;
-  min-height: 100vh;
-  background: var(--bg-canvas);
-}
-
-/* ─── 品牌区 — 暗色 hero ─── */
-.brand-side {
-  flex: 1.1;
-  position: relative;
-  background: var(--ink-950);
-  color: var(--fg-inverse);
-  display: flex;
-  align-items: center;
-  padding: var(--space-13) var(--space-12);
-  overflow: hidden;
-}
-.brand-side::before {
-  /* 紫色径向辉光，呼应 logo 渐变 */
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 25% 20%, rgba(143, 114, 208, 0.25) 0%, transparent 55%);
-  z-index: 0;
-}
-.brand-content {
-  position: relative;
-  z-index: 2;
-  max-width: 520px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-7);
-}
-.brand-eyebrow {
-  color: rgba(245, 240, 255, 0.55);
-  letter-spacing: 0.22em;
-}
-.brand-title {
-  font-size: clamp(40px, 5vw, 64px);
-  line-height: 1.05;
-  margin: 0;
-  color: #f5f0ff;
-  letter-spacing: -0.01em;
-}
-.brand-title em {
-  color: #c9b37e;
-  font-style: italic;
-  font-weight: 400;
-}
-.brand-lede {
-  font-size: var(--text-lg);
-  line-height: var(--leading-relaxed);
-  color: rgba(245, 240, 255, 0.72);
-  margin: 0;
-  max-width: 44ch;
-}
-.brand-stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-8);
-  margin: var(--space-7) 0 0;
-  padding-top: var(--space-7);
-  border-top: 1px solid rgba(245, 240, 255, 0.12);
-}
-.brand-stats dt {
-  color: rgba(245, 240, 255, 0.55);
-  letter-spacing: 0.18em;
-  margin-bottom: var(--space-3);
-}
-.brand-stats dd {
-  margin: 0;
-  font-size: var(--text-md);
-  color: #f5f0ff;
-}
-.brand-divider {
-  width: 48px;
-  height: 1px;
-  background: #c9b37e;
-  margin-top: var(--space-5);
-}
-
-/* ─── 表单区 — 亮色 ─── */
-.form-side {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-11) var(--space-9);
-  background: var(--bg-surface);
-}
-.form-shell {
-  width: 100%;
-  max-width: 380px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-}
-.form-header {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-.form-title {
-  font-size: var(--text-3xl);
-  font-weight: var(--weight-bold);
-  letter-spacing: -0.01em;
-  margin: 0;
-  color: var(--fg-primary);
-}
-.form-lede {
-  margin: 0;
-  font-size: var(--text-md);
-  color: var(--fg-secondary);
-}
-.auth-btn {
-  width: 100%;
-  font-weight: var(--weight-semibold);
-  letter-spacing: 0.04em;
-}
-.form-footer {
-  font-size: var(--text-sm);
-  color: var(--fg-secondary);
-  text-align: center;
-  margin: 0;
-}
-.form-footer a {
-  color: var(--violet-600);
-  text-decoration: none;
-  font-weight: var(--weight-semibold);
-  margin-left: 4px;
-}
-.form-footer a:hover { text-decoration: underline; }
-
-/* ─── 响应式 ─── */
-@media (max-width: 900px) {
-  .brand-side { display: none; }
-}
-</style>
