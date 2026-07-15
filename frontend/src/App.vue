@@ -141,6 +141,9 @@
         <component :is="Component" />
       </transition>
     </router-view>
+
+    <Toaster />
+    <ConfirmHost />
   </div>
 </template>
 
@@ -150,6 +153,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from './stores/auth'
 import { usePermission } from './composables/usePermission'
 import TenantSwitcher from './components/TenantSwitcher.vue'
+import Toaster from './components/ui/Toaster.vue'
+import ConfirmHost from './components/ui/ConfirmHost.vue'
 import { applyTheme, isDarkActive } from './utils/theme'
 import {
   BENCHMARK_TASK_TYPE,

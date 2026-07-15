@@ -1,7 +1,11 @@
-import axios from 'axios'
+import axios, {
+  type AxiosError,
+  type AxiosInstance,
+  type InternalAxiosRequestConfig,
+} from 'axios'
 import { useAuthStore } from '../stores/auth'
 
-const request = axios.create({
+const request: AxiosInstance = axios.create({
   baseURL: '/api/v1',
   timeout: 10000,
 })
@@ -20,26 +24,24 @@ request.interceptors.request.use(
 
 // 响应拦截器：401 自动刷新 token
 let isRefreshing = false
-let failedQueue = []
+type QueueItem = { resolve: (token: string) => void; reject: (err: unknown) => void }
+let failedQueue: QueueItem[] = []
 
-const processQueue = (error, token = null) => {
+function processQueue(error: unknown, token: string | null = null) {
   failedQueue.forEach((prom) => {
-    if (error) {
-      prom.reject(error)
-    } else {
-      prom.resolve(token)
-    }
+    if (error) prom.reject(error)
+    else if (token) prom.resolve(token)
   })
   failedQueue = []
 }
 
 request.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    const originalRequest = error.config
+  async (error: AxiosError<{ code?: number }>) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
     const errCode = error.response?.data?.code
 
-    // TOKEN_REVOKED (30006)：refresh 也会被拒，直接跳登录，避免循环
+    // TOKEN_REVOKED (30006)：直接跳登录，避免循环
     if (errCode === 30006) {
       localStorage.removeItem('accessToken')
       localStorage.removeItem('refreshToken')
@@ -49,14 +51,12 @@ request.interceptors.response.use(
       return Promise.reject(error)
     }
 
-    // 非 401 或已经是刷新请求，直接抛出
     if (error.response?.status !== 401 || originalRequest._retry) {
       return Promise.reject(error)
     }
 
-    // 正在刷新，排队等待
     if (isRefreshing) {
-      return new Promise((resolve, reject) => {
+      return new Promise<string>((resolve, reject) => {
         failedQueue.push({ resolve, reject })
       })
         .then((token) => {
@@ -71,20 +71,20 @@ request.interceptors.response.use(
 
     const refreshToken = localStorage.getItem('refreshToken')
     if (!refreshToken) {
-      // 没有 refresh token，直接登出
       useAuthStore().logout()
       window.location.hash = '#/login'
       return Promise.reject(error)
     }
 
     try {
-      const { data } = await axios.post('/api/v1/auth/refresh', {}, {
-        headers: { Authorization: `Bearer ${refreshToken}` },
-      })
+      const { data } = await axios.post(
+        '/api/v1/auth/refresh',
+        {},
+        { headers: { Authorization: `Bearer ${refreshToken}` } },
+      )
       const newAccessToken = data.data.access_token
       localStorage.setItem('accessToken', newAccessToken)
       processQueue(null, newAccessToken)
-
       originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
       return request(originalRequest)
     } catch (refreshError) {
