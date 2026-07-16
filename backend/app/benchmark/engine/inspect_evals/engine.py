@@ -259,7 +259,7 @@ class InspectEvalsEngine(BenchmarkEngine):
         max_connections = exec_cfg.get("max_connections") or 10
 
         kwargs: dict = {
-            "tasks": suite.engine_ref,
+            "tasks": self._resolve_tasks(suite),
             "model": target_model,
             "log_dir": str(log_dir),
             "log_format": "eval",
@@ -306,6 +306,19 @@ class InspectEvalsEngine(BenchmarkEngine):
         except Exception:
             return model_roles  # 构造失败则退回字符串（非流式），不阻断评测
         return {role: judge_model for role in model_roles}
+
+    def _resolve_tasks(self, suite: SuiteDescriptor):
+        """解析 engine_ref：custom/<func> 前缀指向平台自定义 @task，否则原样传字符串给 inspect。"""
+        ref = suite.engine_ref
+        if ref.startswith("custom/"):
+            from app.benchmark.engine.inspect_evals import custom_tasks
+
+            func_name = ref[len("custom/"):]
+            func = getattr(custom_tasks, func_name, None)
+            if func is None:
+                raise RuntimeError(f"自定义 task 未实现：{ref}（在 custom_tasks.py 中找不到 {func_name}）")
+            return func
+        return ref
 
     def _pick_first_log(self, log_dir: Path) -> Path | None:
         # 取最近修改的 .eval（防止同目录多份 log 时误读旧文件）

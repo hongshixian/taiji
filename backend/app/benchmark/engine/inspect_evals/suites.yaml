@@ -154,9 +154,8 @@ suites:
   - key: safetybench
     display_name: SafetyBench
     category: safety
-    engine_ref: ""
-    disabled: true
-    disabled_reason: "inspect_evals 尚未收录"
+    engine_ref: custom/safetybench
+    notes: "自定义接入（清华多选题安全评测，MIT 许可）；默认 dev 集 35 题含答案，7 个安全类别"
 
   - key: safety_prompts
     display_name: Safety-Prompts
