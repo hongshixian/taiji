@@ -84,8 +84,6 @@
           <UiCollapse :title="t('benchmark.advanced')">
             <div class="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
               <UiFormItem :label="t('benchmark.maxConnections')"><UiInputNumber v-model="form.executionConfig.max_connections" :min="1" :max="100" block /></UiFormItem>
-              <UiFormItem :label="t('benchmark.epochs')"><UiInputNumber v-model="form.executionConfig.epochs" :min="1" :max="10" block /></UiFormItem>
-              <UiFormItem :label="t('benchmark.timeoutMinutes')"><UiInputNumber v-model="form.executionConfig.timeout_minutes" :min="5" :max="720" block /></UiFormItem>
             </div>
           </UiCollapse>
         </section>
@@ -241,7 +239,7 @@ const form = reactive({
   suiteKey: '' as string,
   targetModelId: null as number | null,
   judgeModelId: null as number | null,
-  executionConfig: { limit: 20 as number | null, max_connections: 10, epochs: 1, timeout_minutes: 60 },
+  executionConfig: { limit: 20 as number | null, max_connections: 10, epochs: 1 },
   suiteConfig: {} as Record<string, unknown>,
 })
 const limitPreset = ref<string | number | null>('partial')
@@ -371,7 +369,7 @@ function openCreateDialog() {
   form.suiteKey = ''
   form.targetModelId = null
   form.judgeModelId = null
-  form.executionConfig = { limit: 20, max_connections: 10, epochs: 1, timeout_minutes: 60 }
+  form.executionConfig = { limit: 20, max_connections: 10, epochs: 1 }
   form.suiteConfig = {}
   limitPreset.value = 'partial'
   showDialog.value = true

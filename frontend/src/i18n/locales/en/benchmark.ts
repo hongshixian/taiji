@@ -30,8 +30,6 @@ export default {
   customSampleCount: 'Custom Sample Count',
   advanced: 'Advanced (Concurrency / Epochs / Timeout)',
   maxConnections: 'Concurrency',
-  epochs: 'Epochs',
-  timeoutMinutes: 'Timeout (min)',
   suiteParams: 'Suite-specific Parameters',
   submitTask: 'Submit Task',
 

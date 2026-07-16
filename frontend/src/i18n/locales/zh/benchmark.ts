@@ -30,8 +30,6 @@ export default {
   customSampleCount: '自定义样本数',
   advanced: '高级 (并发 / 重复次数 / 超时)',
   maxConnections: '并发数',
-  epochs: '重复次数',
-  timeoutMinutes: '超时(分钟)',
   suiteParams: 'Suite 特有参数',
   submitTask: '提交任务',
 
