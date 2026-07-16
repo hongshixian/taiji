@@ -347,6 +347,12 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+  /* 功能性加载指示器（旋转 spinner）传达“正在处理”状态，属必要动画，
+     不随“减少动态效果”被关闭，否则用户会以为界面卡死。 */
+  .animate-spin {
+    animation-duration: 1s !important;
+    animation-iteration-count: infinite !important;
+  }
 }
 
 /* High-contrast mode — use forced-colors instead of our tokens */
