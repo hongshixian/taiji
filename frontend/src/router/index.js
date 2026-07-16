@@ -63,6 +63,12 @@ const routes = [
     meta: { requiresAuth: true, requiresPermission: 'model:read' },
   },
   {
+    path: '/benchmarks',
+    name: 'BenchmarkAssets',
+    component: () => import('../views/BenchmarkAssets.vue'),
+    meta: { requiresAuth: true, requiresPermission: 'benchmark:read' },
+  },
+  {
     path: '/users',
     name: 'UserManagement',
     component: () => import('../views/UserManagement.vue'),

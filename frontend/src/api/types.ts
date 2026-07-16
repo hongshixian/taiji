@@ -88,6 +88,17 @@ export interface SuiteDescriptor {
   notes?: string | null
 }
 
+// Benchmark 资产管理：suite 描述 + 租户启用/检测状态
+export type SuiteCheckStatus = 'unknown' | 'pending' | 'ok' | 'failed'
+export interface SuiteAsset extends SuiteDescriptor {
+  effective_enabled: boolean
+  override_enabled: boolean | null   // null=继承 yaml 默认
+  last_check_status: SuiteCheckStatus
+  last_check_error: string | null
+  last_check_at: string | null
+  last_check_ms: number | null
+}
+
 export interface BenchmarkResult {
   metrics: Record<string, number | string>
   total_samples: number

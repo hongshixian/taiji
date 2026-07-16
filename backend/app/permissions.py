@@ -30,6 +30,10 @@ class Permission:
     MODEL_WRITE = "model:write"        # 新建 / 编辑模型配置
     MODEL_DELETE = "model:delete"      # 删除模型配置
 
+    # Benchmark 资产
+    BENCHMARK_READ = "benchmark:read"    # 查看 Benchmark 资产与状态
+    BENCHMARK_WRITE = "benchmark:write"  # 管理 Benchmark 启用状态与可达性检测
+
     # 系统
     SYSTEM_AUDIT = "system:audit"      # 查看审计日志（预留）
 
@@ -49,6 +53,8 @@ PERMISSIONS_REGISTRY: dict[str, str] = {
     Permission.MODEL_READ: "查看模型配置",
     Permission.MODEL_WRITE: "新建 / 编辑模型配置",
     Permission.MODEL_DELETE: "删除模型配置",
+    Permission.BENCHMARK_READ: "查看 Benchmark 资产与状态",
+    Permission.BENCHMARK_WRITE: "管理 Benchmark 启用状态与可达性检测",
     Permission.SYSTEM_AUDIT: "查看审计日志",
 }
 
@@ -61,11 +67,13 @@ SYSTEM_ROLES: dict[str, set[str]] = {
         Permission.ROLE_DELETE,
         Permission.TASK_READ, Permission.TASK_CREATE, Permission.TASK_DELETE_ANY,
         Permission.MODEL_READ, Permission.MODEL_WRITE, Permission.MODEL_DELETE,
+        Permission.BENCHMARK_READ, Permission.BENCHMARK_WRITE,
         Permission.SYSTEM_AUDIT,
     },
     "user": {
         Permission.TASK_READ, Permission.TASK_CREATE,
         Permission.MODEL_READ, Permission.MODEL_WRITE, Permission.MODEL_DELETE,
+        Permission.BENCHMARK_READ, Permission.BENCHMARK_WRITE,
     },
     "guest": {
         Permission.TASK_READ,

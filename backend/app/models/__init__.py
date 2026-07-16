@@ -8,6 +8,7 @@ from app.models.task import Task, TaskStatus, TaskType
 from app.models.benchmark_task import BenchmarkTask
 from app.models.red_team_task import RedTeamTask
 from app.models.model_config import ModelConfig
+from app.models.benchmark_suite_state import BenchmarkSuiteState
 from app.models.role import Role, Permission, role_permissions
 from app.models.system_setting import SystemSetting
 from app.models.audit_log import AuditLog
@@ -18,6 +19,7 @@ __all__ = [
     "Task", "TaskStatus", "TaskType",
     "BenchmarkTask", "RedTeamTask",
     "ModelConfig",
+    "BenchmarkSuiteState",
     "Role", "Permission", "role_permissions",
     "SystemSetting", "AuditLog",
 ]

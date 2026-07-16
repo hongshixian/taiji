@@ -6,9 +6,19 @@ from app.benchmark.engine.registry import engine_registry
 
 
 def _enabled_suite_keys() -> list[str]:
-    """启用的 suite key 白名单（从引擎注册表动态取）。"""
+    """启用的 suite key 白名单。
 
-    keys = engine_registry.enabled_suite_keys()
+    有请求上下文（g.tenant_id）时按租户有效启用过滤；否则（CLI/测试）
+    回退到 yaml 全局启用集。
+    """
+
+    from flask import g, has_request_context
+
+    if has_request_context() and getattr(g, "tenant_id", None) is not None:
+        from app.services.benchmark_state_service import enabled_suite_keys_for_tenant
+        keys = enabled_suite_keys_for_tenant()
+    else:
+        keys = engine_registry.enabled_suite_keys()
     return keys or ["_placeholder_"]  # 引擎未加载时给个占位，避免 OneOf 空列表
 
 

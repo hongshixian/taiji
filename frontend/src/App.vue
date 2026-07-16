@@ -149,7 +149,7 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   PanelLeft, PanelLeftClose, Sun, Moon, ChevronDown, Settings, LogOut, Languages,
   Home, Trophy, ListChecks, BarChart3, ShieldAlert, Cpu, Users, KeyRound,
-  ScrollText, Wrench, Building2, SlidersHorizontal,
+  ScrollText, Wrench, Building2, SlidersHorizontal, Boxes,
 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from './stores/auth'
@@ -180,7 +180,11 @@ function toggleLocale() {
 
 const collapsed = ref(window.innerWidth < 900)
 const isDark = ref(isDarkActive())
-const openGroups = ref<string[]>(route.path.startsWith('/tasks') ? ['tasks'] : [])
+const openGroups = ref<string[]>(
+  route.path.startsWith('/tasks')
+    ? ['tasks']
+    : (/^\/(models|benchmarks)/.test(route.path) ? ['assets'] : []),
+)
 
 interface MenuChild { to: string; label: string; icon: Component }
 interface MenuItem { key: string; label: string; icon: Component; to?: string; children?: MenuChild[]; show?: boolean }
@@ -196,7 +200,14 @@ const menu = computed<MenuItem[]>(() =>
         { to: TASK_TYPE_ROUTES[RED_TEAM_TASK_TYPE], label: t('nav.redteam'), icon: ShieldAlert },
       ],
     },
-    { key: 'models', label: t('nav.models'), icon: Cpu, to: '/models', show: has('model:read') },
+    {
+      key: 'assets', label: t('nav.assets'), icon: Boxes,
+      show: has('model:read') || has('benchmark:read'),
+      children: [
+        ...(has('model:read') ? [{ to: '/models', label: t('nav.models'), icon: Cpu }] : []),
+        ...(has('benchmark:read') ? [{ to: '/benchmarks', label: t('nav.benchmarkAssets'), icon: BarChart3 }] : []),
+      ],
+    },
     { key: 'users', label: t('nav.users'), icon: Users, to: '/users', show: has('user:read') },
     { key: 'roles', label: t('nav.roles'), icon: KeyRound, to: '/roles', show: has('role:read') },
     { key: 'audit', label: t('nav.audit'), icon: ScrollText, to: '/audit-logs', show: has('system:audit') },

@@ -1,0 +1,33 @@
+export default {
+  eyebrow: '资产管理',
+  title: 'Benchmark 管理',
+  lede: '查看评测集属性、检测数据集是否可访问、管理其启用状态。仅启用的评测集会出现在创建任务的下拉中。',
+  loadFailed: '加载评测集失败',
+  toggleFailed: '切换启用状态失败',
+  checkStarted: '可访问性检测已启动',
+  checkFailed: '启动检测失败',
+  overridden: '已覆盖',
+  restoreDefault: '恢复默认',
+  checkBtn: '检测',
+  recheckBtn: '重新检测',
+  detailBtn: '详情',
+  col: {
+    name: '评测集',
+    category: '类别',
+    needsJudge: '需评委',
+    enabled: '启用',
+    readiness: '就绪状态',
+  },
+  status: {
+    unknown: '未检测',
+    pending: '检测中',
+    ok: '可访问',
+    failed: '不可访问',
+  },
+  check: {
+    title: '数据集可访问性检测',
+    latency: '耗时',
+    at: '检测时间',
+    errorInfo: '错误信息',
+  },
+}

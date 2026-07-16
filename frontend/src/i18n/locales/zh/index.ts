@@ -4,6 +4,7 @@ import taskStatus from './taskStatus'
 import auth from './auth'
 import home from './home'
 import benchmark from './benchmark'
+import benchmarkAssets from './benchmarkAssets'
 import redteam from './redteam'
 import model from './model'
 import admin from './admin'
@@ -18,6 +19,7 @@ export default {
   auth,
   home,
   benchmark,
+  benchmarkAssets,
   redteam,
   model,
   admin,

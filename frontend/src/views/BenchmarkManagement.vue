@@ -194,7 +194,7 @@ import {
   retryBenchmark,
   deleteBenchmark,
   stopBenchmark,
-  listBenchmarkSuites,
+  listEnabledBenchmarkSuites,
 } from '@/api/benchmark'
 import { listModels } from '@/api/model'
 import type { BenchmarkTask, BenchmarkStats, SuiteDescriptor, ModelConfig } from '@/api/types'
@@ -344,7 +344,7 @@ async function loadModels() {
 
 async function loadSuites() {
   try {
-    const { data } = await listBenchmarkSuites()
+    const { data } = await listEnabledBenchmarkSuites()
     suites.value = data.data.items || []
   } catch {
     toast.error(t('benchmark.loadSuitesFailed'))

@@ -194,21 +194,9 @@ class InspectEvalsEngine(BenchmarkEngine):
     def _prepare_env(self, ctx: TaskExecutionContext, params: BenchmarkParams) -> dict:
         """构造要覆盖的环境变量（HF 缓存路径、HF token、镜像）。"""
 
-        env = {
-            "HF_HOME": str(ctx.hf_cache_dir),
-            "HF_DATASETS_CACHE": str(ctx.hf_cache_dir / "datasets"),
-            "HUGGINGFACE_HUB_CACHE": str(ctx.hf_cache_dir / "hub"),
-        }
-        # HF 镜像
-        hf_endpoint = os.environ.get("HF_ENDPOINT", "https://hf-mirror.com")
-        env["HF_ENDPOINT"] = hf_endpoint
-        # HF token（gated 数据集用）
-        if params.hf_token:
-            env["HF_TOKEN"] = params.hf_token
-            env["HUGGING_FACE_HUB_TOKEN"] = params.hf_token
-        # ctx 里可能有额外注入
-        env.update(ctx.extra_env or {})
-        return env
+        from app.benchmark.engine.inspect_evals.env import build_hf_env
+
+        return build_hf_env(ctx.hf_cache_dir, params.hf_token, ctx.extra_env or {})
 
     def _build_task_args(self, params: BenchmarkParams) -> dict:
         """把评委模型 spec 塞进 task_args；再合并用户提交的 suite_config。"""

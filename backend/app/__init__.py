@@ -127,10 +127,15 @@ def create_app(config_obj=Config):
     flask_app.register_blueprint(audit_bp, url_prefix=f"{API_V1}/audit-logs")
     flask_app.register_blueprint(model_config_bp, url_prefix=f"{API_V1}/models")
     flask_app.register_blueprint(benchmark_meta_bp, url_prefix=f"{API_V1}/benchmarks")
+    from app.api.benchmark_mgmt import benchmark_mgmt_bp
+    flask_app.register_blueprint(benchmark_mgmt_bp, url_prefix=f"{API_V1}/benchmarks")
 
     # ── 加载评测引擎（一期只有 inspect_evals） ──
     from app.benchmark.engine.registry import discover as _discover_engines
     _discover_engines()
+
+    # 注册独立 Celery 任务（benchmark 可达性检测），确保 worker 侧也能发现
+    import app.tasks.benchmark_check  # noqa: F401
 
     # 加载所有任务处理器并注册对应蓝图
     from app.handlers.registry import registry

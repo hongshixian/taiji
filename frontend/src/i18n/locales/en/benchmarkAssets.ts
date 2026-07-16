@@ -1,0 +1,33 @@
+export default {
+  eyebrow: 'Assets',
+  title: 'Benchmark Management',
+  lede: 'View benchmark attributes, test dataset accessibility, and manage enablement. Only enabled benchmarks appear in the task-creation dropdown.',
+  loadFailed: 'Failed to load benchmarks',
+  toggleFailed: 'Failed to toggle enablement',
+  checkStarted: 'Accessibility check started',
+  checkFailed: 'Failed to start check',
+  overridden: 'Overridden',
+  restoreDefault: 'Restore default',
+  checkBtn: 'Check',
+  recheckBtn: 'Re-check',
+  detailBtn: 'Details',
+  col: {
+    name: 'Benchmark',
+    category: 'Category',
+    needsJudge: 'Judge',
+    enabled: 'Enabled',
+    readiness: 'Readiness',
+  },
+  status: {
+    unknown: 'Not checked',
+    pending: 'Checking',
+    ok: 'Accessible',
+    failed: 'Inaccessible',
+  },
+  check: {
+    title: 'Dataset Accessibility Check',
+    latency: 'Latency',
+    at: 'Checked at',
+    errorInfo: 'Error',
+  },
+}
