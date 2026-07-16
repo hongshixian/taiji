@@ -17,13 +17,6 @@
       v-if="loading || models.length"
       class="flex flex-col gap-6 rounded-lg border border-line bg-surface p-6 shadow-xs"
     >
-      <div class="flex items-center gap-4">
-        <label class="flex cursor-pointer items-center gap-2">
-          <UiSwitch v-model="showInactive" @update:model-value="handleFilterChange" />
-          <span class="text-xs text-fg-tertiary">{{ t('model.showInactive') }}</span>
-        </label>
-      </div>
-
       <UiTable :columns="columns" :data="models" row-key="id" stripe :loading="loading">
         <template #cell-display_name="{ row }">
           <span class="font-medium text-fg">{{ (row as ModelItem).display_name }}</span>
@@ -287,7 +280,7 @@ const loading = ref(false)
 const page = ref(1)
 const perPage = 20
 const total = ref(0)
-const showInactive = ref(false)
+
 
 const dialogVisible = ref(false)
 const editMode = ref(false)
@@ -309,7 +302,7 @@ const columns = computed<TableColumn[]>(() => [
   { key: 'model_name', label: t('model.col.modelName'), minWidth: 160 },
   { key: 'api_protocol', label: t('model.col.protocol'), width: 110 },
   { key: 'api_base_url', label: t('model.col.apiUrl'), minWidth: 220 },
-  { key: 'is_active', label: t('common.status'), width: 90 },
+  { key: 'is_active', label: t('common.enabled'), width: 90 },
   { key: 'created_at', label: t('common.createdAt'), minWidth: 160 },
   { key: 'actions', label: t('common.actions'), width: 150, fixed: 'right' },
 ])
@@ -402,7 +395,7 @@ function openEditDialog(row: ModelItem) {
 async function fetchModels() {
   loading.value = true
   try {
-    const { data } = await listModels(page.value, perPage, showInactive.value)
+    const { data } = await listModels(page.value, perPage, true)
     models.value = data.data.items
     total.value = data.data.total
   } catch {
@@ -412,10 +405,6 @@ async function fetchModels() {
   }
 }
 
-function handleFilterChange() {
-  page.value = 1
-  fetchModels()
-}
 
 function onPageChange(p: number) {
   page.value = p

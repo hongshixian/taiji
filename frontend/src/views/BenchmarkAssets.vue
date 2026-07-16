@@ -22,9 +22,6 @@
             <span class="font-mono text-2xs text-fg-tertiary">{{ (row as SuiteAsset).key }}</span>
           </div>
         </template>
-        <template #cell-category="{ row }">
-          <UiBadge :tone="categoryTone((row as SuiteAsset).category)">{{ categoryLabel((row as SuiteAsset).category) }}</UiBadge>
-        </template>
         <template #cell-data_source="{ row }">
           <UiBadge :tone="dataSourceTone((row as SuiteAsset).data_source)" :label="dataSourceLabel((row as SuiteAsset).data_source)" />
         </template>
@@ -44,11 +41,6 @@
               :model-value="(row as SuiteAsset).effective_enabled"
               :disabled="!canWrite || (row as SuiteAsset).needs_sandbox || togglingKeys.has((row as SuiteAsset).key)"
               @update:model-value="(v) => onToggle(row as SuiteAsset, v)"
-            />
-            <UiBadge
-              v-if="(row as SuiteAsset).override_enabled !== null"
-              tone="info"
-              :label="t('benchmarkAssets.overridden')"
             />
           </div>
         </template>
@@ -75,9 +67,6 @@
             >
               {{ (row as SuiteAsset).last_check_status === 'ok' || (row as SuiteAsset).last_check_status === 'failed' ? t('benchmarkAssets.recheckBtn') : t('benchmarkAssets.checkBtn') }}
             </UiButton>
-            <UiButton variant="text" size="sm" @click="openDetail(row as SuiteAsset)">
-              {{ t('benchmarkAssets.detailBtn') }}
-            </UiButton>
             <UiDropdown v-if="canWrite && (row as SuiteAsset).override_enabled !== null">
               <template #trigger>
                 <UiButton variant="text" size="sm"><ChevronDown class="size-4" /></UiButton>
@@ -90,32 +79,6 @@
         </template>
       </UiTable>
     </section>
-
-    <!-- 检测详情弹窗 -->
-    <UiDialog v-model="detailVisible" :title="t('benchmarkAssets.check.title')" width="560px">
-      <div v-if="detailRow" class="flex flex-col gap-4">
-        <div class="flex items-center gap-3">
-          <StatusPill :tone="checkTone(detailRow.last_check_status)" :label="checkLabel(detailRow.last_check_status)" />
-          <span class="font-mono text-sm text-fg-tertiary">{{ detailRow.key }}</span>
-          <UiBadge v-if="detailRow.gated" tone="warning" :label="t('benchmarkAssets.gated')" />
-        </div>
-        <div class="flex flex-wrap gap-x-8 gap-y-2 text-sm">
-          <div class="flex items-center gap-2"><span class="text-fg-tertiary">{{ t('benchmarkAssets.check.sampleCount') }}</span><span class="font-mono">{{ detailRow.sample_count != null ? detailRow.sample_count.toLocaleString() : '—' }}</span></div>
-          <div class="flex items-center gap-2"><span class="text-fg-tertiary">{{ t('benchmarkAssets.check.at') }}</span><span class="font-mono">{{ fmtTime(detailRow.last_check_at) }}</span></div>
-        </div>
-        <div v-if="detailRow.last_check_error">
-          <div class="text-xs uppercase tracking-wide text-fg-tertiary">{{ t('benchmarkAssets.check.errorInfo') }}</div>
-          <pre class="mt-1 max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-sm border border-danger/30 bg-danger-soft p-4 font-mono text-xs text-danger">{{ detailRow.last_check_error }}</pre>
-        </div>
-        <p v-if="detailRow.notes" class="text-xs text-fg-secondary">{{ detailRow.notes }}</p>
-      </div>
-      <template #footer>
-        <UiButton v-if="canWrite && detailRow && !detailRow.needs_sandbox" :loading="detailRow.last_check_status === 'pending'" @click="onCheck(detailRow)">
-          {{ t('benchmarkAssets.recheckBtn') }}
-        </UiButton>
-        <UiButton variant="secondary" @click="detailVisible = false">{{ t('common.close') }}</UiButton>
-      </template>
-    </UiDialog>
   </div>
 </template>
 
@@ -132,7 +95,6 @@ import UiButton from '@/components/ui/Button.vue'
 import UiBadge from '@/components/ui/Badge.vue'
 import UiSwitch from '@/components/ui/Switch.vue'
 import UiTable, { type TableColumn } from '@/components/ui/Table.vue'
-import UiDialog from '@/components/ui/Dialog.vue'
 import UiDropdown from '@/components/ui/Dropdown.vue'
 import UiDropdownItem from '@/components/ui/DropdownItem.vue'
 
@@ -143,12 +105,9 @@ const canWrite = computed(() => has('benchmark:write'))
 const rows = ref<SuiteAsset[]>([])
 const loading = ref(false)
 const togglingKeys = ref<Set<string>>(new Set())
-const detailVisible = ref(false)
-const detailRow = ref<SuiteAsset | null>(null)
 
 const columns = computed<TableColumn[]>(() => [
   { key: 'display_name', label: t('benchmarkAssets.col.name'), minWidth: 200 },
-  { key: 'category', label: t('benchmarkAssets.col.category'), width: 110 },
   { key: 'data_source', label: t('benchmarkAssets.col.source'), width: 130 },
   { key: 'needs_judge', label: t('benchmarkAssets.col.needsJudge'), width: 90 },
   { key: 'needs_sandbox', label: t('benchmarkAssets.col.sandbox'), width: 100 },
@@ -235,17 +194,6 @@ async function onCheck(row: SuiteAsset) {
   }
 }
 
-function openDetail(row: SuiteAsset) {
-  detailRow.value = row
-  detailVisible.value = true
-}
-
-function categoryLabel(c: string): string {
-  return { capability: t('benchmark.categoryCapability'), safety: t('benchmark.categorySafety'), alignment: t('benchmark.categoryAlignment') }[c] || c
-}
-function categoryTone(c: string): 'brand' | 'warning' | 'info' | 'neutral' {
-  return { capability: 'brand', safety: 'warning', alignment: 'info' }[c] as 'brand' | 'warning' | 'info' || 'neutral'
-}
 function dataSourceLabel(s?: string): string {
   const key = (s || 'hf') as 'hf' | 'github' | 'bundled'
   return t(`benchmarkAssets.dataSource.${key}`)
@@ -258,8 +206,5 @@ function checkTone(s: SuiteCheckStatus): 'success' | 'danger' | 'warning' | 'neu
 }
 function checkLabel(s: SuiteCheckStatus): string {
   return t(`benchmarkAssets.status.${s}`)
-}
-function fmtTime(t?: string | null) {
-  return t ? new Date(t).toLocaleString() : '—'
 }
 </script>

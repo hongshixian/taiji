@@ -6,8 +6,7 @@ export default {
   toggleFailed: '切换启用状态失败',
   checkStarted: '可访问性检测已启动',
   checkFailed: '启动检测失败',
-  overridden: '已覆盖',
-  gated: '受限',
+  gated: 'Gated',
   dataSource: {
     hf: 'HuggingFace',
     github: 'GitHub',
@@ -16,10 +15,8 @@ export default {
   restoreDefault: '恢复默认',
   checkBtn: '检测',
   recheckBtn: '重新检测',
-  detailBtn: '详情',
   col: {
     name: '评测集',
-    category: '类别',
     source: '数据来源',
     needsJudge: '需评委',
     sandbox: 'Sandbox',
@@ -32,11 +29,5 @@ export default {
     pending: '检测中',
     ok: '可访问',
     failed: '不可访问',
-  },
-  check: {
-    title: '数据集可访问性检测',
-    sampleCount: '样本数量',
-    at: '检测时间',
-    errorInfo: '错误信息',
   },
 }

@@ -3,7 +3,6 @@ export default {
   title: '模型管理',
   add: '添加模型',
   lede: '配置被测模型的 API 信息，供测评任务直接调用。数据归属当前租户，其他租户不可见。',
-  showInactive: '显示已停用',
 
   testBtn: '检测',
 

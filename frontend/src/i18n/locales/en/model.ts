@@ -3,7 +3,6 @@ export default {
   title: 'Model Management',
   add: 'Add Model',
   lede: 'Configure the API details of the models under test so evaluation tasks can call them directly. Data belongs to the current tenant and is not visible to others.',
-  showInactive: 'Show disabled',
 
   testBtn: 'Check',
 

@@ -50,7 +50,6 @@ suites:
     engine_ref: inspect_evals/lab_bench_dbqa
     gated: true
     sample_count: 520
-    notes: "数据集在 HF gated（需 HF_TOKEN 并接受条款）"
 
   - key: lab_bench_litqa
     display_name: LAB-Bench LitQA
@@ -58,7 +57,6 @@ suites:
     engine_ref: inspect_evals/lab_bench_litqa
     gated: true
     sample_count: 199
-    notes: "数据集在 HF gated（需 HF_TOKEN 并接受条款）"
 
   - key: wmdp_bio
     display_name: WMDP Bio
@@ -225,7 +223,7 @@ suites:
     judge_arg_extra: semantic_judge
     gated: true
     sample_count: 176
-    notes: "使用双评委（refusal + semantic），此评委将同时用于两处；数据集在 HF gated"
+    notes: "使用双评委（refusal + semantic），此评委将同时用于两处"
 
   - key: agentharm_benign
     display_name: AgentHarm Benign
@@ -236,7 +234,7 @@ suites:
     judge_arg_extra: semantic_judge
     gated: true
     sample_count: 176
-    notes: "使用双评委（refusal + semantic），此评委将同时用于两处；数据集在 HF gated"
+    notes: "使用双评委（refusal + semantic），此评委将同时用于两处"
 
   - key: make_me_pay
     display_name: Make Me Pay
@@ -270,7 +268,6 @@ suites:
     engine_ref: inspect_evals/tac
     gated: true
     sample_count: 52
-    notes: "数据集在 HF gated（sentientfutures/tac）"
 
   - key: uccb
     display_name: UCCB

@@ -6,7 +6,6 @@ export default {
   toggleFailed: 'Failed to toggle enablement',
   checkStarted: 'Accessibility check started',
   checkFailed: 'Failed to start check',
-  overridden: 'Overridden',
   gated: 'Gated',
   dataSource: {
     hf: 'HuggingFace',
@@ -16,10 +15,8 @@ export default {
   restoreDefault: 'Restore default',
   checkBtn: 'Check',
   recheckBtn: 'Re-check',
-  detailBtn: 'Details',
   col: {
     name: 'Benchmark',
-    category: 'Category',
     source: 'Source',
     needsJudge: 'Judge',
     sandbox: 'Sandbox',
@@ -32,11 +29,5 @@ export default {
     pending: 'Checking',
     ok: 'Accessible',
     failed: 'Inaccessible',
-  },
-  check: {
-    title: 'Dataset Accessibility Check',
-    sampleCount: 'Samples',
-    at: 'Checked at',
-    errorInfo: 'Error',
   },
 }
