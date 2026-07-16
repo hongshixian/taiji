@@ -54,6 +54,8 @@ class SuiteDescriptor:
     disabled: bool = False
     disabled_reason: str | None = None
     gated: bool = False             # 数据集是否为 HF gated（需 token + 接受条款）
+    data_source: str = "hf"         # 数据来源：hf / github / bundled（gated 由 gated 字段表达，不进此枚举）
+    sample_count: int | None = None # 数据集样本数（静态调研值，非运行时统计）
     notes: str | None = None        # 前端 tooltip
 
     def to_dict(self) -> dict:
@@ -70,6 +72,8 @@ class SuiteDescriptor:
             "disabled": self.disabled,
             "disabled_reason": self.disabled_reason,
             "gated": self.gated,
+            "data_source": self.data_source,
+            "sample_count": self.sample_count,
             "notes": self.notes,
         }
 

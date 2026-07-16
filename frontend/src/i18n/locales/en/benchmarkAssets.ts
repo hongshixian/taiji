@@ -8,6 +8,11 @@ export default {
   checkFailed: 'Failed to start check',
   overridden: 'Overridden',
   gated: 'Gated',
+  dataSource: {
+    hf: 'HuggingFace',
+    github: 'GitHub',
+    bundled: 'Bundled',
+  },
   restoreDefault: 'Restore default',
   checkBtn: 'Check',
   recheckBtn: 'Re-check',
@@ -15,7 +20,9 @@ export default {
   col: {
     name: 'Benchmark',
     category: 'Category',
+    source: 'Source',
     needsJudge: 'Judge',
+    sandbox: 'Sandbox',
     sampleCount: 'Samples',
     enabled: 'Enabled',
     readiness: 'Readiness',

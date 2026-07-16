@@ -25,9 +25,17 @@
         <template #cell-category="{ row }">
           <UiBadge :tone="categoryTone((row as SuiteAsset).category)">{{ categoryLabel((row as SuiteAsset).category) }}</UiBadge>
         </template>
+        <template #cell-data_source="{ row }">
+          <UiBadge :tone="dataSourceTone((row as SuiteAsset).data_source)" :label="dataSourceLabel((row as SuiteAsset).data_source)" />
+        </template>
         <template #cell-needs_judge="{ row }">
           <span :class="(row as SuiteAsset).needs_judge ? 'text-fg' : 'text-fg-tertiary'">
             {{ (row as SuiteAsset).needs_judge ? t('common.yes') : t('common.no') }}
+          </span>
+        </template>
+        <template #cell-needs_sandbox="{ row }">
+          <span :class="(row as SuiteAsset).needs_sandbox ? 'text-fg' : 'text-fg-tertiary'">
+            {{ (row as SuiteAsset).needs_sandbox ? t('common.yes') : t('common.no') }}
           </span>
         </template>
         <template #cell-enabled="{ row }">
@@ -141,7 +149,9 @@ const detailRow = ref<SuiteAsset | null>(null)
 const columns = computed<TableColumn[]>(() => [
   { key: 'display_name', label: t('benchmarkAssets.col.name'), minWidth: 200 },
   { key: 'category', label: t('benchmarkAssets.col.category'), width: 110 },
+  { key: 'data_source', label: t('benchmarkAssets.col.source'), width: 130 },
   { key: 'needs_judge', label: t('benchmarkAssets.col.needsJudge'), width: 90 },
+  { key: 'needs_sandbox', label: t('benchmarkAssets.col.sandbox'), width: 100 },
   { key: 'sample_count', label: t('benchmarkAssets.col.sampleCount'), width: 100, align: 'right' },
   { key: 'enabled', label: t('benchmarkAssets.col.enabled'), width: 140 },
   { key: 'readiness', label: t('benchmarkAssets.col.readiness'), width: 130 },
@@ -235,6 +245,13 @@ function categoryLabel(c: string): string {
 }
 function categoryTone(c: string): 'brand' | 'warning' | 'info' | 'neutral' {
   return { capability: 'brand', safety: 'warning', alignment: 'info' }[c] as 'brand' | 'warning' | 'info' || 'neutral'
+}
+function dataSourceLabel(s?: string): string {
+  const key = (s || 'hf') as 'hf' | 'github' | 'bundled'
+  return t(`benchmarkAssets.dataSource.${key}`)
+}
+function dataSourceTone(s?: string): 'brand' | 'info' | 'neutral' {
+  return ({ hf: 'brand', github: 'info', bundled: 'neutral' } as const)[(s || 'hf') as 'hf' | 'github' | 'bundled'] || 'neutral'
 }
 function checkTone(s: SuiteCheckStatus): 'success' | 'danger' | 'warning' | 'neutral' {
   return { ok: 'success', failed: 'danger', pending: 'warning', unknown: 'neutral' }[s] as 'success' | 'danger' | 'warning' | 'neutral'

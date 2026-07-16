@@ -71,7 +71,10 @@ def _states_by_key() -> dict[str, BenchmarkSuiteState]:
 
 
 def list_suites_with_state() -> list[dict]:
-    """管理页数据：全部 suite（含 disabled）+ 租户 state 合并。"""
+    """管理页数据：全部 suite（含 disabled）+ 租户 state 合并。
+
+    sample_count 取自 suite.to_dict() 的静态调研值（suites.yaml），不再用检测时的动态值。
+    """
     states = _states_by_key()
     items: list[dict] = []
     for suite in engine_registry.all_suites(include_disabled=True):
@@ -84,7 +87,6 @@ def list_suites_with_state() -> list[dict]:
             "last_check_error": (state.last_check_error if state else None),
             "last_check_at": (state.last_check_at.isoformat() if state and state.last_check_at else None),
             "last_check_ms": (state.last_check_ms if state else None),
-            "sample_count": (state.sample_count if state else None),
         })
     return items
 
@@ -125,7 +127,6 @@ def _one_item(suite_key: str) -> dict:
         "last_check_error": (state.last_check_error if state else None),
         "last_check_at": (state.last_check_at.isoformat() if state and state.last_check_at else None),
         "last_check_ms": (state.last_check_ms if state else None),
-        "sample_count": (state.sample_count if state else None),
     }
 
 

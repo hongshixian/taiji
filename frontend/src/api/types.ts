@@ -86,6 +86,8 @@ export interface SuiteDescriptor {
   disabled: boolean
   disabled_reason?: string | null
   gated?: boolean
+  data_source?: string
+  sample_count?: number | null
   notes?: string | null
 }
 

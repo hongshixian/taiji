@@ -13,6 +13,9 @@
 #   config_schema      : 前端 dynamic form 用的字段描述
 #   disabled           : 是否禁用；一期把无法映射的、需 sandbox 的 mark disabled
 #   disabled_reason    : 禁用原因（前端 tooltip）
+#   gated              : 数据集是否为 HF gated（需 HF_TOKEN 并接受条款）
+#   data_source        : 数据来源 hf / github / bundled（默认 hf 可省略；gated 由 gated 字段表达）
+#   sample_count       : 数据集样本数（静态调研值，非运行时统计；默认配置口径）
 #   notes              : 前端 tooltip 说明
 # ==================================================================
 
@@ -39,12 +42,14 @@ suites:
     display_name: MedQA
     category: capability
     engine_ref: inspect_evals/medqa
+    sample_count: 1273
 
   - key: lab_bench_dbqa
     display_name: LAB-Bench DBQA
     category: capability
     engine_ref: inspect_evals/lab_bench_dbqa
     gated: true
+    sample_count: 520
     notes: "数据集在 HF gated（需 HF_TOKEN 并接受条款）"
 
   - key: lab_bench_litqa
@@ -52,22 +57,26 @@ suites:
     category: capability
     engine_ref: inspect_evals/lab_bench_litqa
     gated: true
+    sample_count: 199
     notes: "数据集在 HF gated（需 HF_TOKEN 并接受条款）"
 
   - key: wmdp_bio
     display_name: WMDP Bio
     category: capability
     engine_ref: inspect_evals/wmdp_bio
+    sample_count: 1273
 
   - key: wmdp_chem
     display_name: WMDP Chem
     category: capability
     engine_ref: inspect_evals/wmdp_chem
+    sample_count: 408
 
   - key: wmdp_cyber
     display_name: WMDP Cyber
     category: capability
     engine_ref: inspect_evals/wmdp_cyber
+    sample_count: 1987
 
   - key: simpleqa_verified
     display_name: SimpleQA Verified
@@ -75,6 +84,7 @@ suites:
     engine_ref: inspect_evals/simpleqa_verified
     needs_judge: true
     judge_role_bindings: [grader]
+    sample_count: 1000
 
   # ---------- 安全评测 ----------
   - key: air_bench
@@ -82,14 +92,17 @@ suites:
     category: safety
     engine_ref: inspect_evals/air_bench
     needs_judge: false
+    sample_count: 5694
     notes: "评测使用被测模型自评（inspect_evals 内建行为）"
 
   - key: healthbench
     display_name: HealthBench
     category: safety
     engine_ref: inspect_evals/healthbench
+    data_source: github
     needs_judge: true
     judge_arg: judge_model
+    sample_count: 5000
 
   - key: sosbench
     display_name: SoSBench
@@ -97,14 +110,17 @@ suites:
     engine_ref: inspect_evals/sosbench
     needs_judge: true
     judge_role_bindings: [grader]
+    sample_count: 3000
 
   - key: strong_reject
     display_name: StrongREJECT
     category: safety
     engine_ref: inspect_evals/strong_reject
+    data_source: github
     needs_judge: true
     judge_arg: judge_llm
     judge_role_bindings: [grader]
+    sample_count: 313
 
   - key: xstest
     display_name: XSTest
@@ -112,21 +128,26 @@ suites:
     engine_ref: inspect_evals/xstest
     needs_judge: true
     judge_arg: scorer_model
+    sample_count: 250
 
   - key: cyse2_prompt_injection
     display_name: CyberSecEval2 Prompt Injection
     category: safety
     engine_ref: inspect_evals/cyse2_prompt_injection
+    data_source: github
     needs_judge: true
     judge_arg: judge_llm
+    sample_count: 250
 
   - key: cyse4_mitre
     display_name: CyberSecEval4 MITRE
     category: safety
     engine_ref: inspect_evals/cyse4_mitre
+    data_source: github
     needs_judge: true
     judge_arg: judge_llm
     judge_role_bindings: [grader]
+    sample_count: 1000
     notes: "依赖较重（semgrep/pdf2image），首次构建耗时"
 
   # ---------- 一期未收录（禁用） ----------
@@ -155,6 +176,7 @@ suites:
     display_name: SafetyBench
     category: safety
     engine_ref: taiji_evals/safetybench
+    sample_count: 35
     notes: "平台自有接入（taiji_evals）。POC 用 dev split（35 题带答案，中英双语多选题）；test 集 11435 题官方隐藏答案，暂不判分"
 
   - key: safety_prompts
@@ -171,23 +193,28 @@ suites:
     engine_ref: inspect_evals/coconot
     needs_judge: true
     judge_arg: grader
+    sample_count: 1001
 
   - key: sycophancy
     display_name: Sycophancy Eval
     category: alignment
     engine_ref: inspect_evals/sycophancy
+    data_source: github
     needs_judge: true
     judge_arg: scorer_model
+    sample_count: 4882
 
   - key: truthfulqa
     display_name: TruthfulQA
     category: alignment
     engine_ref: inspect_evals/truthfulqa
+    sample_count: 817
 
   - key: stereoset
     display_name: StereoSet
     category: alignment
     engine_ref: inspect_evals/stereoset
+    sample_count: 2115
 
   - key: agentharm
     display_name: AgentHarm
@@ -197,6 +224,7 @@ suites:
     judge_arg: refusal_judge
     judge_arg_extra: semantic_judge
     gated: true
+    sample_count: 176
     notes: "使用双评委（refusal + semantic），此评委将同时用于两处；数据集在 HF gated"
 
   - key: agentharm_benign
@@ -207,34 +235,41 @@ suites:
     judge_arg: refusal_judge
     judge_arg_extra: semantic_judge
     gated: true
+    sample_count: 176
     notes: "使用双评委（refusal + semantic），此评委将同时用于两处；数据集在 HF gated"
 
   - key: make_me_pay
     display_name: Make Me Pay
     category: alignment
     engine_ref: inspect_evals/make_me_pay
+    data_source: bundled
     needs_judge: true
     judge_role_bindings: [mark]
+    sample_count: 20
     notes: "被测模型扮演骗子（conartist），评委模型扮演受害者（mark）"
 
   - key: makemesay
     display_name: Make Me Say
     category: alignment
     engine_ref: inspect_evals/makemesay
+    data_source: github
     needs_judge: true
     judge_role_bindings: [judge, manipulatee]
+    sample_count: 50
     notes: "被测模型扮演诱导者（manipulator），评委模型同时扮演被诱导者与评委"
 
   - key: pre_flight
     display_name: Pre-Flight
     category: alignment
     engine_ref: inspect_evals/pre_flight
+    sample_count: 300
 
   - key: tac
     display_name: TAC
     category: alignment
     engine_ref: inspect_evals/tac
     gated: true
+    sample_count: 52
     notes: "数据集在 HF gated（sentientfutures/tac）"
 
   - key: uccb
@@ -243,72 +278,95 @@ suites:
     engine_ref: inspect_evals/uccb
     needs_judge: true
     judge_arg: scorer_model
+    sample_count: 1039
 
   - key: agent_threat_bench_autonomy_hijack
     display_name: AgentThreatBench - Autonomy Hijack
     category: alignment
     engine_ref: inspect_evals/agent_threat_bench_autonomy_hijack
+    data_source: bundled
+    sample_count: 6
 
   - key: agent_threat_bench_data_exfil
     display_name: AgentThreatBench - Data Exfil
     category: alignment
     engine_ref: inspect_evals/agent_threat_bench_data_exfil
+    data_source: bundled
+    sample_count: 8
 
   - key: agent_threat_bench_memory_poison
     display_name: AgentThreatBench - Memory Poison
     category: alignment
     engine_ref: inspect_evals/agent_threat_bench_memory_poison
+    data_source: bundled
+    sample_count: 10
 
   - key: persistbench_beneficial_memory
     display_name: PersistBench - Beneficial Memory
     category: alignment
     engine_ref: inspect_evals/persistbench_beneficial_memory
+    data_source: bundled
     needs_judge: true
     judge_role_bindings: [grader]
+    sample_count: 100
 
   - key: persistbench_cross_domain
     display_name: PersistBench - Cross Domain
     category: alignment
     engine_ref: inspect_evals/persistbench_cross_domain
+    data_source: bundled
     needs_judge: true
     judge_role_bindings: [grader]
+    sample_count: 200
 
   - key: persistbench_sycophancy
     display_name: PersistBench - Sycophancy
     category: alignment
     engine_ref: inspect_evals/persistbench_sycophancy
+    data_source: bundled
     needs_judge: true
     judge_role_bindings: [grader]
+    sample_count: 200
 
   # ---------- SAD 系列（拆成 5 个独立 suite）----------
   - key: sad_facts_llms
     display_name: SAD - Facts LLMs
     category: alignment
     engine_ref: inspect_evals/sad_facts_llms
+    data_source: github
+    sample_count: 249
     notes: "首次运行前需执行 sad/download_data.py 预下载数据"
 
   - key: sad_facts_human_defaults
     display_name: SAD - Facts Human Defaults
     category: alignment
     engine_ref: inspect_evals/sad_facts_human_defaults
+    data_source: github
+    sample_count: 1200
     notes: "首次运行前需执行 sad/download_data.py 预下载数据"
 
   - key: sad_influence
     display_name: SAD - Influence
     category: alignment
     engine_ref: inspect_evals/sad_influence
+    data_source: github
+    sample_count: 255
     notes: "首次运行前需执行 sad/download_data.py 预下载数据"
 
   - key: sad_stages_full
     display_name: SAD - Stages Full
     category: alignment
     engine_ref: inspect_evals/sad_stages_full
+    data_source: github
+    sample_count: 800
     notes: "首次运行前需执行 sad/download_data.py 预下载数据"
 
   - key: sad_stages_oversight
     display_name: SAD - Stages Oversight
     category: alignment
     engine_ref: inspect_evals/sad_stages_oversight
+    data_source: github
+    sample_count: 400
     notes: "首次运行前需执行 sad/download_data.py 预下载数据"
 
   # ---------- 未收录（禁用） ----------

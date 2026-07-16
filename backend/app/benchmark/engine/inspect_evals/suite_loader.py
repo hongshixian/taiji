@@ -45,6 +45,8 @@ def load_suites() -> list[SuiteDescriptor]:
             disabled=raw.get("disabled", False),
             disabled_reason=raw.get("disabled_reason"),
             gated=raw.get("gated", False),
+            data_source=raw.get("data_source", "hf"),
+            sample_count=raw.get("sample_count"),
             notes=raw.get("notes"),
         ))
     return result

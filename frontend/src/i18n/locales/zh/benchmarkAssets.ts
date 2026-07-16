@@ -8,6 +8,11 @@ export default {
   checkFailed: '启动检测失败',
   overridden: '已覆盖',
   gated: '受限',
+  dataSource: {
+    hf: 'HuggingFace',
+    github: 'GitHub',
+    bundled: '内置',
+  },
   restoreDefault: '恢复默认',
   checkBtn: '检测',
   recheckBtn: '重新检测',
@@ -15,7 +20,9 @@ export default {
   col: {
     name: '评测集',
     category: '类别',
+    source: '数据来源',
     needsJudge: '需评委',
+    sandbox: 'Sandbox',
     sampleCount: '样本数量',
     enabled: '启用',
     readiness: '就绪状态',
