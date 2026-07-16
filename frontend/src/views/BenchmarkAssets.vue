@@ -14,8 +14,11 @@
     <section class="flex flex-col gap-6 rounded-lg border border-line bg-surface p-6 shadow-xs">
       <UiTable :columns="columns" :data="rows" row-key="key" stripe :loading="loading">
         <template #cell-display_name="{ row }">
-          <div class="flex flex-col">
-            <span class="font-medium text-fg">{{ (row as SuiteAsset).display_name }}</span>
+          <div class="flex flex-col gap-0.5">
+            <div class="flex items-center gap-2">
+              <span class="font-medium text-fg">{{ (row as SuiteAsset).display_name }}</span>
+              <UiBadge v-if="(row as SuiteAsset).gated" tone="warning" :label="t('benchmarkAssets.gated')" />
+            </div>
             <span class="font-mono text-2xs text-fg-tertiary">{{ (row as SuiteAsset).key }}</span>
           </div>
         </template>
@@ -41,17 +44,16 @@
             />
           </div>
         </template>
+        <template #cell-sample_count="{ row }">
+          <span v-if="(row as SuiteAsset).sample_count != null" class="font-mono text-sm text-fg">{{ (row as SuiteAsset).sample_count!.toLocaleString() }}</span>
+          <span v-else class="text-fg-tertiary">—</span>
+        </template>
         <template #cell-readiness="{ row }">
-          <div class="flex items-center gap-2">
-            <StatusPill
-              :tone="checkTone((row as SuiteAsset).last_check_status)"
-              :label="checkLabel((row as SuiteAsset).last_check_status)"
-              :dot="(row as SuiteAsset).last_check_status === 'pending'"
-            />
-            <span v-if="(row as SuiteAsset).last_check_ms" class="font-mono text-2xs text-fg-tertiary">
-              {{ (row as SuiteAsset).last_check_ms }}ms
-            </span>
-          </div>
+          <StatusPill
+            :tone="checkTone((row as SuiteAsset).last_check_status)"
+            :label="checkLabel((row as SuiteAsset).last_check_status)"
+            :dot="(row as SuiteAsset).last_check_status === 'pending'"
+          />
         </template>
         <template #cell-actions="{ row }">
           <div class="flex items-center gap-1">
@@ -87,9 +89,10 @@
         <div class="flex items-center gap-3">
           <StatusPill :tone="checkTone(detailRow.last_check_status)" :label="checkLabel(detailRow.last_check_status)" />
           <span class="font-mono text-sm text-fg-tertiary">{{ detailRow.key }}</span>
+          <UiBadge v-if="detailRow.gated" tone="warning" :label="t('benchmarkAssets.gated')" />
         </div>
         <div class="flex flex-wrap gap-x-8 gap-y-2 text-sm">
-          <div class="flex items-center gap-2"><span class="text-fg-tertiary">{{ t('benchmarkAssets.check.latency') }}</span><span class="font-mono">{{ detailRow.last_check_ms != null ? detailRow.last_check_ms + ' ms' : '—' }}</span></div>
+          <div class="flex items-center gap-2"><span class="text-fg-tertiary">{{ t('benchmarkAssets.check.sampleCount') }}</span><span class="font-mono">{{ detailRow.sample_count != null ? detailRow.sample_count.toLocaleString() : '—' }}</span></div>
           <div class="flex items-center gap-2"><span class="text-fg-tertiary">{{ t('benchmarkAssets.check.at') }}</span><span class="font-mono">{{ fmtTime(detailRow.last_check_at) }}</span></div>
         </div>
         <div v-if="detailRow.last_check_error">
@@ -139,8 +142,9 @@ const columns = computed<TableColumn[]>(() => [
   { key: 'display_name', label: t('benchmarkAssets.col.name'), minWidth: 200 },
   { key: 'category', label: t('benchmarkAssets.col.category'), width: 110 },
   { key: 'needs_judge', label: t('benchmarkAssets.col.needsJudge'), width: 90 },
+  { key: 'sample_count', label: t('benchmarkAssets.col.sampleCount'), width: 100, align: 'right' },
   { key: 'enabled', label: t('benchmarkAssets.col.enabled'), width: 140 },
-  { key: 'readiness', label: t('benchmarkAssets.col.readiness'), width: 160 },
+  { key: 'readiness', label: t('benchmarkAssets.col.readiness'), width: 130 },
   { key: 'actions', label: t('common.actions'), width: 200, fixed: 'right' },
 ])
 

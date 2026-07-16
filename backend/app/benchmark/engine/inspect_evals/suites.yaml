@@ -44,12 +44,14 @@ suites:
     display_name: LAB-Bench DBQA
     category: capability
     engine_ref: inspect_evals/lab_bench_dbqa
+    gated: true
     notes: "数据集在 HF gated（需 HF_TOKEN 并接受条款）"
 
   - key: lab_bench_litqa
     display_name: LAB-Bench LitQA
     category: capability
     engine_ref: inspect_evals/lab_bench_litqa
+    gated: true
     notes: "数据集在 HF gated（需 HF_TOKEN 并接受条款）"
 
   - key: wmdp_bio
@@ -195,6 +197,7 @@ suites:
     needs_judge: true
     judge_arg: refusal_judge
     judge_arg_extra: semantic_judge
+    gated: true
     notes: "使用双评委（refusal + semantic），此评委将同时用于两处；数据集在 HF gated"
 
   - key: agentharm_benign
@@ -204,6 +207,7 @@ suites:
     needs_judge: true
     judge_arg: refusal_judge
     judge_arg_extra: semantic_judge
+    gated: true
     notes: "使用双评委（refusal + semantic），此评委将同时用于两处；数据集在 HF gated"
 
   - key: make_me_pay
@@ -231,6 +235,7 @@ suites:
     display_name: TAC
     category: alignment
     engine_ref: inspect_evals/tac
+    gated: true
     notes: "数据集在 HF gated（sentientfutures/tac）"
 
   - key: uccb

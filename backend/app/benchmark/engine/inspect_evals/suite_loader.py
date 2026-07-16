@@ -44,6 +44,7 @@ def load_suites() -> list[SuiteDescriptor]:
             config_schema=raw.get("config_schema", {}) or {},
             disabled=raw.get("disabled", False),
             disabled_reason=raw.get("disabled_reason"),
+            gated=raw.get("gated", False),
             notes=raw.get("notes"),
         ))
     return result

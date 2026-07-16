@@ -85,6 +85,7 @@ export interface SuiteDescriptor {
   config_schema: { fields?: SuiteConfigField[] }
   disabled: boolean
   disabled_reason?: string | null
+  gated?: boolean
   notes?: string | null
 }
 
@@ -97,6 +98,7 @@ export interface SuiteAsset extends SuiteDescriptor {
   last_check_error: string | null
   last_check_at: string | null
   last_check_ms: number | null
+  sample_count: number | null
 }
 
 export interface BenchmarkResult {

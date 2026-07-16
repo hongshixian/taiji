@@ -53,6 +53,7 @@ class SuiteDescriptor:
     config_schema: dict = field(default_factory=dict)  # 供前端 dynamic form 使用
     disabled: bool = False
     disabled_reason: str | None = None
+    gated: bool = False             # 数据集是否为 HF gated（需 token + 接受条款）
     notes: str | None = None        # 前端 tooltip
 
     def to_dict(self) -> dict:
@@ -68,6 +69,7 @@ class SuiteDescriptor:
             "config_schema": self.config_schema,
             "disabled": self.disabled,
             "disabled_reason": self.disabled_reason,
+            "gated": self.gated,
             "notes": self.notes,
         }
 

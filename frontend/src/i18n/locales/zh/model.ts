@@ -5,7 +5,7 @@ export default {
   lede: '配置被测模型的 API 信息，供测评任务直接调用。数据归属当前租户，其他租户不可见。',
   showInactive: '显示已停用',
 
-  testBtn: '测试',
+  testBtn: '检测',
 
   col: {
     displayName: '显示名称',
@@ -52,7 +52,7 @@ export default {
   },
 
   test: {
-    title: '模型连通性测试',
+    title: '模型连通性检测',
     sending: '正在向模型发送测试请求…',
     modelLabel: '模型：{name}',
     pass: '通过',

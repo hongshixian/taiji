@@ -29,6 +29,8 @@ class BenchmarkSuiteState(db.Model, TenantMixin):
     last_check_error = db.Column(db.Text)
     last_check_at = db.Column(db.DateTime)
     last_check_ms = db.Column(db.Integer)
+    # 数据集样本总数（检测时从 eval log 的 dataset.samples 拿到；None=未知）
+    sample_count = db.Column(db.Integer)
     created_at = db.Column(db.DateTime, nullable=False, default=_utcnow)
     updated_at = db.Column(db.DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
 

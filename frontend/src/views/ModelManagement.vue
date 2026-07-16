@@ -37,8 +37,12 @@
         <template #cell-api_base_url="{ value }">
           <span class="t-mono block break-all text-xs text-fg-secondary">{{ value }}</span>
         </template>
-        <template #cell-is_active="{ value }">
-          <UiBadge :tone="value ? 'success' : 'danger'">{{ value ? t('common.enabled') : t('common.disabled') }}</UiBadge>
+        <template #cell-is_active="{ row }">
+          <UiSwitch
+            :model-value="(row as ModelItem).is_active"
+            :disabled="!has('model:write') || togglingIds.has((row as ModelItem).id)"
+            @update:model-value="() => toggleActive(row as ModelItem)"
+          />
         </template>
         <template #cell-created_at="{ value }">
           <span class="t-mono">{{ formatTime(value as string | null) }}</span>
@@ -57,22 +61,12 @@
               size="sm"
               @click="openEditDialog(row as ModelItem)"
             >{{ t('common.edit') }}</UiButton>
-            <UiDropdown v-if="has('model:write') || has('model:delete')">
-              <template #trigger>
-                <UiButton variant="text" size="sm">{{ t('common.more') }}<ChevronDown class="size-4" /></UiButton>
-              </template>
-              <template #default="{ close }">
-                <UiDropdownItem
-                  v-if="has('model:write')"
-                  @select="close(); toggleActive(row as ModelItem)"
-                >{{ (row as ModelItem).is_active ? t('common.disabled') : t('common.enabled') }}</UiDropdownItem>
-                <UiDropdownItem
-                  v-if="has('model:delete')"
-                  danger
-                  @select="close(); handleDelete(row as ModelItem)"
-                >{{ t('common.delete') }}</UiDropdownItem>
-              </template>
-            </UiDropdown>
+            <UiButton
+              v-if="has('model:delete')"
+              variant="danger-text"
+              size="sm"
+              @click="handleDelete(row as ModelItem)"
+            >{{ t('common.delete') }}</UiButton>
           </div>
         </template>
       </UiTable>
@@ -242,7 +236,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Plus, ChevronDown } from 'lucide-vue-next'
+import { Plus } from 'lucide-vue-next'
 import { listModels, createModel, updateModel, deleteModel, testModel } from '@/api/model'
 import { usePermission } from '@/composables/usePermission'
 import { toast } from '@/lib/toast'
@@ -256,8 +250,6 @@ import UiInputNumber from '@/components/ui/InputNumber.vue'
 import UiSelect from '@/components/ui/Select.vue'
 import UiFormItem from '@/components/ui/FormItem.vue'
 import UiDialog from '@/components/ui/Dialog.vue'
-import UiDropdown from '@/components/ui/Dropdown.vue'
-import UiDropdownItem from '@/components/ui/DropdownItem.vue'
 import UiPagination from '@/components/ui/Pagination.vue'
 import UiSpinner from '@/components/ui/Spinner.vue'
 import UiTable, { type TableColumn } from '@/components/ui/Table.vue'
@@ -304,6 +296,7 @@ const submitting = ref(false)
 
 // 测试相关
 const testingId = ref<number | null>(null)
+const togglingIds = ref<Set<number>>(new Set())
 const testDialogVisible = ref(false)
 const testResult = ref<TestResult | null>(null)
 const testTargetName = ref('')
@@ -481,6 +474,8 @@ async function handleSubmit() {
 }
 
 async function toggleActive(row: ModelItem) {
+  if (togglingIds.value.has(row.id)) return
+  togglingIds.value.add(row.id)
   try {
     await updateModel(row.id, { is_active: !row.is_active })
     row.is_active = !row.is_active
@@ -488,6 +483,8 @@ async function toggleActive(row: ModelItem) {
   } catch (err: unknown) {
     const e = err as ApiError
     toast.error(e.response?.data?.message || t('common.operationFailed'))
+  } finally {
+    togglingIds.value.delete(row.id)
   }
 }
 

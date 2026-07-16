@@ -84,6 +84,7 @@ def list_suites_with_state() -> list[dict]:
             "last_check_error": (state.last_check_error if state else None),
             "last_check_at": (state.last_check_at.isoformat() if state and state.last_check_at else None),
             "last_check_ms": (state.last_check_ms if state else None),
+            "sample_count": (state.sample_count if state else None),
         })
     return items
 
@@ -124,6 +125,7 @@ def _one_item(suite_key: str) -> dict:
         "last_check_error": (state.last_check_error if state else None),
         "last_check_at": (state.last_check_at.isoformat() if state and state.last_check_at else None),
         "last_check_ms": (state.last_check_ms if state else None),
+        "sample_count": (state.sample_count if state else None),
     }
 
 
@@ -169,11 +171,14 @@ def mark_check_pending(tenant_id: int, suite_key: str) -> None:
     db.session.commit()
 
 
-def record_check_result(tenant_id: int, suite_key: str, ok: bool, error: str | None, ms: int) -> None:
+def record_check_result(tenant_id: int, suite_key: str, ok: bool, error: str | None, ms: int,
+                         sample_count: int | None = None) -> None:
     state = _get_or_create_state(tenant_id, suite_key)
     state.last_check_status = "ok" if ok else "failed"
     state.last_check_error = (error or None) if not ok else None
     state.last_check_at = _utcnow()
     state.last_check_ms = ms
+    if sample_count is not None:
+        state.sample_count = sample_count
     state.updated_at = _utcnow()
     db.session.commit()

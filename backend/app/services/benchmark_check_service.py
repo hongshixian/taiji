@@ -27,8 +27,8 @@ _CHECK_LIMIT = 1
 _MOCK_MODEL = "mockllm/model"
 
 
-def run_accessibility_check(suite_key: str) -> tuple[bool, str | None, int]:
-    """跑一次 mockllm limit=1，返回 (ok, error, elapsed_ms)。须在 app context 内调用。"""
+def run_accessibility_check(suite_key: str) -> tuple[bool, str | None, int, int | None]:
+    """跑一次 mockllm limit=1，返回 (ok, error, elapsed_ms, sample_count)。须在 app context 内调用。"""
 
     started = time.monotonic()
 
@@ -38,20 +38,21 @@ def run_accessibility_check(suite_key: str) -> tuple[bool, str | None, int]:
             suite = s
             break
     if suite is None:
-        return False, f"未知 suite：{suite_key}", 0
+        return False, f"未知 suite：{suite_key}", 0, None
     if not suite.engine_ref:
-        return False, f"suite {suite_key} 未配置 engine_ref", 0
+        return False, f"suite {suite_key} 未配置 engine_ref", 0, None
     if suite.needs_sandbox:
-        return False, "该 suite 需要 Docker sandbox，暂不支持可达性检测", 0
+        return False, "该 suite 需要 Docker sandbox，暂不支持可达性检测", 0, None
 
     hf_token = get_setting_value("integrations.hf_token") or None
     log_dir = _hf_cache_root() / "_access_checks" / suite_key
     env = build_hf_env(_hf_cache_root(), hf_token)
 
     prev_env = {k: os.environ.get(k) for k in env}
+    sample_count: int | None = None
     try:
         os.environ.update(env)
-        ok, error = _invoke(suite, str(log_dir))
+        ok, error, sample_count = _invoke(suite, str(log_dir))
     except Exception as exc:  # noqa: BLE001
         logger.warning("可达性检测异常 %s: %s", suite_key, exc)
         ok, error = False, f"{type(exc).__name__}: {exc}"[:800]
@@ -62,7 +63,7 @@ def run_accessibility_check(suite_key: str) -> tuple[bool, str | None, int]:
             else:
                 os.environ[k] = prev
 
-    return ok, error, int((time.monotonic() - started) * 1000)
+    return ok, error, int((time.monotonic() - started) * 1000), sample_count
 
 
 def _invoke(suite, log_dir: str) -> tuple[bool, str | None]:
@@ -96,8 +97,18 @@ def _invoke(suite, log_dir: str) -> tuple[bool, str | None]:
 
     logs = inspect_eval(**kwargs)
     if not logs:
-        return False, "未产生 eval log"
+        return False, "未产生 eval log", None
     log = logs[0]
+
+    # 数据集样本总数：即使 limit=1，eval log 的 dataset.samples 记录了完整数据集大小
+    sample_count: int | None = None
+    try:
+        ds = getattr(getattr(log, "eval", None), "dataset", None)
+        n = getattr(ds, "samples", None) if ds is not None else None
+        if isinstance(n, int) and n > 0:
+            sample_count = n
+    except Exception:  # noqa: BLE001
+        pass
 
     # 判定标准是「数据集能否加载」，而非「整体评测成功」。
     # mockllm 返回固定文本，某些 suite 的 grader（如 tool-call 评分）会在 scoring
@@ -109,12 +120,12 @@ def _invoke(suite, log_dir: str) -> tuple[bool, str | None]:
         for s in samples
     )
     if samples and produced:
-        return True, None
+        return True, None, sample_count
 
     status = getattr(log, "status", None)
     err = getattr(log, "error", None)
     if err:
-        return False, str(err)[:800]
+        return False, str(err)[:800], sample_count
     if not samples:
-        return False, "数据集未加载出任何样本"
-    return False, f"状态：{status}"
+        return False, "数据集未加载出任何样本", sample_count
+    return False, f"状态：{status}", sample_count

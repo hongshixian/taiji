@@ -25,11 +25,11 @@ def benchmark_check_task(self, tenant_id: int, suite_key: str):
         with celery.flask_app.app_context():
             with bypass_tenant_filter():
                 try:
-                    ok, error, ms = run_accessibility_check(suite_key)
-                    record_check_result(tenant_id, suite_key, ok, error, ms)
+                    ok, error, ms, sample_count = run_accessibility_check(suite_key)
+                    record_check_result(tenant_id, suite_key, ok, error, ms, sample_count)
                 except Exception as exc:  # noqa: BLE001
                     log.exception(f"可达性检测异常 suite={suite_key}")
-                    record_check_result(tenant_id, suite_key, False, f"{type(exc).__name__}: {exc}"[:800], 0)
+                    record_check_result(tenant_id, suite_key, False, f"{type(exc).__name__}: {exc}"[:800], 0, None)
             db.session.remove()
     except Exception:  # noqa: BLE001
         log.exception(f"可达性检测任务致命异常 suite={suite_key}")
