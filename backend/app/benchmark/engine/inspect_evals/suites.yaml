@@ -129,27 +129,29 @@ suites:
     judge_role_bindings: [grader]
     notes: "依赖较重（semgrep/pdf2image），首次构建耗时"
 
-  # ---------- 一期未收录（禁用） ----------
+  # ---------- 自定义接入（inspect_evals 未收录） ----------
   - key: beavertails
     display_name: BeaverTails
     category: safety
-    engine_ref: ""
-    disabled: true
-    disabled_reason: "inspect_evals 尚未收录"
+    engine_ref: custom/beavertails
+    needs_judge: true
+    judge_arg: grader
+    notes: "自定义接入（PKU-Alignment/BeaverTails-Evaluation，CC-BY-NC 仅研究用）；生成回复后由 judge 判定 14 类危害，原 QA-Moderation 分类器用 LLM judge 代替"
 
   - key: longsafety
     display_name: LongSafety
     category: safety
-    engine_ref: ""
-    disabled: true
-    disabled_reason: "inspect_evals 尚未收录"
+    engine_ref: custom/longsafety
+    needs_judge: true
+    judge_arg: grader
+    notes: "自定义接入（thu-coai/LongSafety，MIT 许可）；长上下文安全场景，生成后由 judge 判定是否安全"
 
   - key: pku_saferlhf
     display_name: PKU-SafeRLHF
     category: safety
     engine_ref: ""
     disabled: true
-    disabled_reason: "inspect_evals 尚未收录"
+    disabled_reason: "inspect_evals 未收录；偏好训练数据，需自定义评测协议"
 
   - key: safetybench
     display_name: SafetyBench
@@ -160,9 +162,10 @@ suites:
   - key: safety_prompts
     display_name: Safety-Prompts
     category: safety
-    engine_ref: ""
-    disabled: true
-    disabled_reason: "inspect_evals 尚未收录"
+    engine_ref: custom/safety_prompts
+    needs_judge: true
+    judge_arg: grader
+    notes: "自定义接入（thu-coai/Safety-Prompts，Apache-2.0）；中文安全场景，生成后由 judge 判定是否安全"
 
   # ---------- 对齐/行为评测 ----------
   - key: coconot
