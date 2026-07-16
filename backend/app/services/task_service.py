@@ -97,10 +97,28 @@ def mark_success(task: Task) -> None:
 
 
 def mark_failed(task: Task, message: str) -> None:
-    task.status = TaskStatus.FAILED.value
-    task.error_message = message
-    task.completed_at = datetime.now(timezone.utc)
-    db.session.commit()
+    """标记任务失败。
+
+    该函数常在异常处理路径里被调用，此时 session 可能已因前一次
+    commit 失败进入 rollback-only 脏状态（例如写 result 时命中 NaN）。
+    直接 commit 会二次抛错、任务永卡 running。故 commit 失败时先
+    rollback 清理脏 session，重新取任务并写入失败状态后再提交。
+    """
+    def _apply(t: Task) -> None:
+        t.status = TaskStatus.FAILED.value
+        t.error_message = message
+        t.completed_at = datetime.now(timezone.utc)
+
+    _apply(task)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        fresh = db.session.get(Task, task.id)
+        if fresh is None:
+            return
+        _apply(fresh)
+        db.session.commit()
 
 
 def mark_stopped(task: Task) -> None:

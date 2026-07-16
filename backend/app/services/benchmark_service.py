@@ -24,6 +24,7 @@ from app.services.task_service import (
     task_base_to_dict,
 )
 from app.utils.errors import BusinessError, ErrorCode
+from app.utils.json_safe import json_safe
 from app.utils.logger import get_logger
 
 
@@ -145,7 +146,8 @@ def execute_benchmark(task_id: int) -> None:
 
         result = engine.run(params, ctx)
 
-        detail.result = result.to_dict()
+        # NaN/Inf 清洗：PostgreSQL 的 ::JSON 列不接受 NaN，否则 commit 失败、任务卡死
+        detail.result = json_safe(result.to_dict())
         db.session.commit()
 
         if result.status == "failed":

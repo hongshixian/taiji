@@ -40,6 +40,7 @@ from app.benchmark.engine.inspect_evals.suite_loader import (
 from app.benchmark.engine.inspect_evals.translate import (
     build_generate_config,
     model_spec_to_inspect_model,
+    uses_openai_compatible,
     with_model_env,
 )
 
@@ -280,16 +281,43 @@ class InspectEvalsEngine(BenchmarkEngine):
             "retry_on_error": 1,      # sample 级别重试一次
             "display": "plain",
         }
+
+        # 流式请求：被测模型走 openai 兼容通道时，通过 model_args 开启 stream。
+        # 长推理 / 多轮 suite 下，非流式一次性 create() 需在 timeout 内拿到完整
+        # 响应，易被误判超时并累积重试；流式按 chunk 间隔判活，更稳。
+        if uses_openai_compatible(params.target_model):
+            kwargs["model_args"] = {"stream": True}
+
         if task_args:
             kwargs["task_args"] = task_args
         if model_roles:
-            kwargs["model_roles"] = model_roles
+            # model_roles 里的评委也尽量流式：openai 兼容通道的换成带 stream 的
+            # Model 实例（model_roles 接受 str | Model）；其余保持字符串。
+            kwargs["model_roles"] = self._streamify_roles(model_roles, params)
         if limit is not None:
             kwargs["limit"] = limit
         for k, v in generate_cfg.items():
             kwargs[k] = v
 
         return inspect_eval(**kwargs)
+
+    def _streamify_roles(self, model_roles: dict, params: BenchmarkParams) -> dict:
+        """把 model_roles 里走 openai 兼容通道的评委换成带 stream=True 的 Model 实例。
+
+        评委 spec 与 params.judge_model 一致（_build_model_roles 里绑定的都是它），
+        仅当评委走 openai 兼容通道时才注入 stream；否则原样保留字符串。
+        """
+        judge = params.judge_model
+        if judge is None or not uses_openai_compatible(judge):
+            return model_roles
+        from inspect_ai.model import get_model
+
+        judge_spec = model_spec_to_inspect_model(judge)
+        try:
+            judge_model = get_model(judge_spec, stream=True)
+        except Exception:
+            return model_roles  # 构造失败则退回字符串（非流式），不阻断评测
+        return {role: judge_model for role in model_roles}
 
     def _pick_first_log(self, log_dir: Path) -> Path | None:
         # 取最近修改的 .eval（防止同目录多份 log 时误读旧文件）

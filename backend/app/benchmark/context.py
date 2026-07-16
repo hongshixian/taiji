@@ -79,17 +79,24 @@ class _DbProgressReporter:
 
         from app import db
         from app.models.task import Task
+        from app.utils.json_safe import json_safe
 
         task = db.session.get(Task, self._task_id)
         if task is None:
             return
-        task.progress = {
+        # NaN/Inf 清洗：current_metrics 可能含 NaN，PG 的 JSON 列会拒绝
+        task.progress = json_safe({
             "completed": completed,
             "total": total,
             "current_metrics": current_metrics or {},
             "sample_grid": sample_grid or [],
-        }
-        db.session.commit()
+        })
+        try:
+            db.session.commit()
+        except Exception:
+            # 进度写库失败不能拖垮整个评测：回滚脏 session，让后续步骤仍可提交
+            db.session.rollback()
+            return
 
         self._logger.info(
             step="run",

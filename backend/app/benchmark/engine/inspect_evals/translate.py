@@ -45,6 +45,16 @@ def model_spec_to_inspect_model(spec: ModelSpec) -> str:
     return f"openai-api/{service}/{spec.model_name}"
 
 
+def uses_openai_compatible(spec: ModelSpec) -> bool:
+    """该 spec 是否走 openai-api（OpenAI-compatible /chat/completions）通道。
+
+    只有这个通道的 provider 才接受 `stream` 初始化参数（openai_compatible.py）。
+    anthropic / gemini / mockllm 有各自机制，不注入 stream。
+    """
+    protocol = (spec.api_protocol or "").lower()
+    return protocol not in ("mockllm", "anthropic", "gemini")
+
+
 def env_overrides_for_spec(spec: ModelSpec) -> dict[str, str]:
     """返回该 spec 需要设置的鉴权环境变量键值对。"""
 
