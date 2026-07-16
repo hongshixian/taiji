@@ -13,13 +13,12 @@ export default {
   benchmark: {
     eyebrow: '评测集成',
     title: 'Benchmark 集成设置',
-    desc: 'HuggingFace 访问令牌用于加载 gated 数据集；默认评委模型会在需要评委的评测集里预填。',
+    desc: 'HuggingFace 访问令牌用于加载 gated 数据集。',
     hfToken: 'HuggingFace Token',
     hfTokenHint: '留空则不修改；保存后不会再回显。',
     hfTokenPlaceholderSet: '已保存（不回显；留空保持不变）',
     hfTokenPlaceholderUnset: '例：hf_xxxxxxxx（可选）',
-    judgeModel: '默认评委模型',
-    judgeModelPlaceholder: '选择一个模型作为默认评委',
+    hfTokenEmptyWarn: '请输入 HuggingFace Token 后再保存。',
   },
 
   superuser: {

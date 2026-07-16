@@ -58,17 +58,6 @@
             <UiInput v-model="form.hfToken" type="password" :placeholder="hfTokenPlaceholder" />
           </div>
         </UiFormItem>
-        <UiFormItem :label="t('systemSettings.benchmark.judgeModel')">
-          <div class="max-w-[420px]">
-            <UiSelect
-              v-model="form.defaultJudgeModelId"
-              :options="judgeModelOptions"
-              filterable
-              clearable
-              :placeholder="t('systemSettings.benchmark.judgeModelPlaceholder')"
-            />
-          </div>
-        </UiFormItem>
         <div>
           <UiButton :loading="savingBenchmark" @click="saveBenchmarkSettings">{{ t('common.save') }}</UiButton>
         </div>
@@ -141,7 +130,6 @@ import {
   removeSuperuser,
   updateSystemSettings,
 } from '@/api/superadmin'
-import { listModels } from '@/api/model'
 import { toast } from '@/lib/toast'
 import { confirm } from '@/lib/confirm'
 import UiButton from '@/components/ui/Button.vue'
@@ -154,17 +142,12 @@ import UiTable, { type TableColumn } from '@/components/ui/Table.vue'
 
 const DEFAULT_REGISTRATION_TENANT_KEY = 'public.default_registration_tenant_slug'
 const HF_TOKEN_KEY = 'integrations.hf_token'
-const DEFAULT_JUDGE_MODEL_ID_KEY = 'benchmark.default_judge_model_id'
 
 interface Tenant {
   id: number
   name: string
   slug: string
   is_active: boolean
-}
-interface JudgeModel {
-  id: number
-  display_name: string
 }
 interface Membership {
   id: number
@@ -193,16 +176,13 @@ const superusers = ref<Superuser[]>([])
 const superusersLoading = ref(false)
 const addingSuperuser = ref(false)
 const superuserIdentifier = ref('')
-const judgeModelCandidates = ref<JudgeModel[]>([])
 const hfTokenAlreadySet = ref(false)
 const form = reactive<{
   defaultRegistrationTenantSlug: string
   hfToken: string
-  defaultJudgeModelId: string | number | null
 }>({
   defaultRegistrationTenantSlug: '',
   hfToken: '',
-  defaultJudgeModelId: null,
 })
 
 const superuserColumns = computed<TableColumn[]>(() => [
@@ -216,9 +196,6 @@ const activeTenants = computed(() => tenants.value.filter((t) => t.is_active))
 const tenantOptions = computed(() =>
   activeTenants.value.map((t) => ({ label: `${t.name} (${t.slug})`, value: t.slug })),
 )
-const judgeModelOptions = computed(() =>
-  judgeModelCandidates.value.map((m) => ({ label: m.display_name, value: m.id })),
-)
 const hfTokenPlaceholder = computed(() =>
   hfTokenAlreadySet.value
     ? t('systemSettings.benchmark.hfTokenPlaceholderSet')
@@ -228,13 +205,11 @@ const hfTokenPlaceholder = computed(() =>
 async function fetchData() {
   loading.value = true
   try {
-    const [settingsResp, tenantsResp, modelsResp] = await Promise.all([
+    const [settingsResp, tenantsResp] = await Promise.all([
       listSystemSettings(),
       listTenants(),
-      listModels(1, 200, false).catch(() => ({ data: { data: { items: [] } } })),
     ])
     tenants.value = tenantsResp.data.data || []
-    judgeModelCandidates.value = modelsResp.data.data.items || []
     const settings: SystemSetting[] = settingsResp.data.data || []
     const defaultTenant = settings.find((s) => s.key === DEFAULT_REGISTRATION_TENANT_KEY)
     form.defaultRegistrationTenantSlug = defaultTenant?.value || 'guest'
@@ -242,9 +217,6 @@ async function fetchData() {
     const hfSetting = settings.find((s) => s.key === HF_TOKEN_KEY)
     hfTokenAlreadySet.value = !!hfSetting?.value
     form.hfToken = ''
-
-    const judgeSetting = settings.find((s) => s.key === DEFAULT_JUDGE_MODEL_ID_KEY)
-    form.defaultJudgeModelId = judgeSetting?.value ?? null
   } catch (err: unknown) {
     const e = err as ApiError
     toast.error(e.response?.data?.message || t('common.loadFailed'))
@@ -273,15 +245,14 @@ async function saveSettings() {
 }
 
 async function saveBenchmarkSettings() {
-  const payload: Record<string, unknown> = {
-    [DEFAULT_JUDGE_MODEL_ID_KEY]: form.defaultJudgeModelId ?? null,
-  }
-  if (form.hfToken.trim()) {
-    payload[HF_TOKEN_KEY] = form.hfToken.trim()
+  const token = form.hfToken.trim()
+  if (!token) {
+    toast.warning(t('systemSettings.benchmark.hfTokenEmptyWarn'))
+    return
   }
   savingBenchmark.value = true
   try {
-    await updateSystemSettings(payload)
+    await updateSystemSettings({ [HF_TOKEN_KEY]: token })
     toast.success(t('common.saveSuccess'))
     form.hfToken = ''
     fetchData()

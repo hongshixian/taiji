@@ -13,13 +13,12 @@ export default {
   benchmark: {
     eyebrow: 'Evaluation Integration',
     title: 'Benchmark Integration',
-    desc: 'The HuggingFace access token is used to load gated datasets; the default judge model is pre-filled for benchmarks that require a judge.',
+    desc: 'The HuggingFace access token is used to load gated datasets.',
     hfToken: 'HuggingFace Token',
     hfTokenHint: 'Leave blank to keep unchanged; it will not be shown again after saving.',
     hfTokenPlaceholderSet: 'Saved (hidden; leave blank to keep unchanged)',
     hfTokenPlaceholderUnset: 'e.g. hf_xxxxxxxx (optional)',
-    judgeModel: 'Default Judge Model',
-    judgeModelPlaceholder: 'Pick a model as the default judge',
+    hfTokenEmptyWarn: 'Enter a HuggingFace token before saving.',
   },
 
   superuser: {
