@@ -66,17 +66,12 @@ def run_accessibility_check(suite_key: str) -> tuple[bool, str | None, int, int 
     return ok, error, int((time.monotonic() - started) * 1000), sample_count
 
 
-def _invoke(suite, log_dir: str) -> tuple[bool, str | None, int | None]:
+def _invoke(suite, log_dir: str) -> tuple[bool, str | None]:
     from inspect_ai import eval as inspect_eval
     from app.benchmark.engine.inspect_evals.suite_loader import suite_raw
-    from app.benchmark.engine.registry import engine_registry
-
-    # custom/<func> 前缀的自定义 @task 需经引擎解析成函数对象，否则 inspect 把字符串当路径
-    engine = engine_registry.find_engine_for_suite(suite.key)
-    tasks_arg = engine._resolve_tasks(suite) if engine is not None and hasattr(engine, "_resolve_tasks") else suite.engine_ref
 
     kwargs: dict = {
-        "tasks": tasks_arg,
+        "tasks": suite.engine_ref,
         "model": _MOCK_MODEL,
         "limit": _CHECK_LIMIT,
         "log_dir": log_dir,
