@@ -149,7 +149,7 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   PanelLeft, PanelLeftClose, Sun, Moon, ChevronDown, Settings, LogOut, Languages,
   Home, Trophy, ListChecks, BarChart3, ShieldAlert, Cpu, Users, KeyRound,
-  ScrollText, Wrench, Building2, SlidersHorizontal, Boxes,
+  ScrollText, Wrench, Building2, SlidersHorizontal, Boxes, ShieldCheck, Cog,
 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from './stores/auth'
@@ -183,7 +183,10 @@ const isDark = ref(isDarkActive())
 const openGroups = ref<string[]>(
   route.path.startsWith('/tasks')
     ? ['tasks']
-    : (/^\/(models|benchmarks)/.test(route.path) ? ['assets'] : []),
+    : /^\/(models|benchmarks)/.test(route.path) ? ['assets']
+    : /^\/(users|roles|tenants)/.test(route.path) ? ['perms']
+    : /^\/(audit-logs|settings|system-settings)/.test(route.path) ? ['platform']
+    : [],
 )
 
 interface MenuChild { to: string; label: string; icon: Component }
@@ -208,12 +211,24 @@ const menu = computed<MenuItem[]>(() =>
         ...(has('benchmark:read') ? [{ to: '/benchmarks', label: t('nav.benchmarkAssets'), icon: BarChart3 }] : []),
       ],
     },
-    { key: 'users', label: t('nav.users'), icon: Users, to: '/users', show: has('user:read') },
-    { key: 'roles', label: t('nav.roles'), icon: KeyRound, to: '/roles', show: has('role:read') },
-    { key: 'audit', label: t('nav.audit'), icon: ScrollText, to: '/audit-logs', show: has('system:audit') },
-    { key: 'settings', label: t('nav.settings'), icon: Wrench, to: '/settings', show: true },
-    { key: 'tenants', label: t('nav.tenants'), icon: Building2, to: '/tenants', show: authStore.isSuperuser },
-    { key: 'sys', label: t('nav.systemSettings'), icon: SlidersHorizontal, to: '/system-settings', show: authStore.isSuperuser },
+    {
+      key: 'perms', label: t('nav.perms'), icon: ShieldCheck,
+      show: has('user:read') || has('role:read') || authStore.isSuperuser,
+      children: [
+        ...(has('user:read') ? [{ to: '/users', label: t('nav.users'), icon: Users }] : []),
+        ...(has('role:read') ? [{ to: '/roles', label: t('nav.roles'), icon: KeyRound }] : []),
+        ...(authStore.isSuperuser ? [{ to: '/tenants', label: t('nav.tenants'), icon: Building2 }] : []),
+      ],
+    },
+    {
+      key: 'platform', label: t('nav.platform'), icon: Cog,
+      show: true,
+      children: [
+        ...(has('system:audit') ? [{ to: '/audit-logs', label: t('nav.audit'), icon: ScrollText }] : []),
+        { to: '/settings', label: t('nav.settings'), icon: Wrench },
+        ...(authStore.isSuperuser ? [{ to: '/system-settings', label: t('nav.systemSettings'), icon: SlidersHorizontal }] : []),
+      ],
+    },
   ] as MenuItem[]).filter((m) => m.show !== false),
 )
 
