@@ -54,12 +54,26 @@
             />
           </UiFormItem>
           <UiAlert v-if="selectedSuite?.notes" type="info" :title="selectedSuite.notes" />
+          <template v-if="selectedSuite">
+            <UiFormItem :label="t('benchmark.sampleCount')" inline>
+              <UiSegmented v-model="limitPreset" :options="limitPresetOptions" @update:model-value="onLimitPresetChange" />
+            </UiFormItem>
+            <UiFormItem v-if="limitPreset === 'partial'" :label="t('benchmark.customSampleCount')" inline>
+              <div class="flex items-center gap-3">
+                <UiInputNumber v-model="form.executionConfig.limit" :min="1" :max="suiteMaxSamples ?? 20000" />
+                <span v-if="suiteMaxSamples != null" class="text-xs text-fg-tertiary">{{ t('benchmark.maxSampleHint', { n: suiteMaxSamples.toLocaleString() }) }}</span>
+              </div>
+            </UiFormItem>
+          </template>
         </section>
 
         <section class="flex flex-col gap-4 border-b border-line pb-5">
           <div class="font-semibold text-fg">{{ t('benchmark.sectionTarget') }}</div>
           <UiFormItem :label="t('benchmark.model')" required inline>
             <UiSelect v-model="form.targetModelId" :options="modelOptions" :placeholder="t('benchmark.targetModelPlaceholder')" filterable />
+          </UiFormItem>
+          <UiFormItem :label="t('benchmark.maxConnections')" inline>
+            <UiInputNumber v-model="form.executionConfig.max_connections" :min="1" :max="100" />
           </UiFormItem>
         </section>
 
@@ -71,21 +85,6 @@
           <p class="flex items-center gap-2 text-xs text-fg-tertiary">
             <Info class="size-4" /> {{ t('benchmark.judgeModelHint') }}
           </p>
-        </section>
-
-        <section class="flex flex-col gap-4 border-b border-line pb-5">
-          <div class="font-semibold text-fg">{{ t('benchmark.sectionExecution') }}</div>
-          <UiFormItem :label="t('benchmark.sampleCount')" inline>
-            <UiSegmented v-model="limitPreset" :options="limitPresetOptions" @update:model-value="onLimitPresetChange" />
-          </UiFormItem>
-          <UiFormItem v-if="limitPreset === 'partial'" :label="t('benchmark.customSampleCount')" inline>
-            <UiInputNumber v-model="form.executionConfig.limit" :min="1" :max="20000" />
-          </UiFormItem>
-          <UiCollapse :title="t('benchmark.advanced')">
-            <div class="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
-              <UiFormItem :label="t('benchmark.maxConnections')"><UiInputNumber v-model="form.executionConfig.max_connections" :min="1" :max="100" block /></UiFormItem>
-            </div>
-          </UiCollapse>
         </section>
 
         <section v-if="selectedSuite?.config_schema?.fields?.length" class="flex flex-col gap-4">
@@ -205,7 +204,7 @@ import UiSelect, { type SelectOption, type SelectGroupDef } from '@/components/u
 import UiDialog from '@/components/ui/Dialog.vue'
 import UiFormItem from '@/components/ui/FormItem.vue'
 import UiAlert from '@/components/ui/Alert.vue'
-import UiCollapse from '@/components/ui/Collapse.vue'
+
 import UiSegmented from '@/components/ui/SegmentedControl.vue'
 import UiProgress from '@/components/ui/Progress.vue'
 import UiEmpty from '@/components/ui/Empty.vue'
@@ -262,6 +261,7 @@ const columns = computed<TableColumn[]>(() => [
 
 const enabledSuites = computed(() => suites.value.filter((s) => !s.disabled))
 const selectedSuite = computed(() => suites.value.find((s) => s.key === form.suiteKey) || null)
+const suiteMaxSamples = computed(() => selectedSuite.value?.sample_count ?? null)
 // 当前页里未终结的任务（用于轮询刷新进度/状态）
 const activeTasks = computed(() => tasks.value.filter((t) => t.status === 'pending' || t.status === 'running'))
 
@@ -378,11 +378,18 @@ function openCreateDialog() {
 function onSuiteChange() {
   if (!selectedSuite.value?.needs_judge) form.judgeModelId = null
   form.suiteConfig = {}
+  // 切换 benchmark 后，若为部分执行且当前值超过该集最大样本数，则钳到上限
+  const max = suiteMaxSamples.value
+  if (limitPreset.value === 'partial' && max != null && (form.executionConfig.limit ?? 0) > max) {
+    form.executionConfig.limit = max
+  }
 }
 
 function onLimitPresetChange(v: string | number | null) {
-  if (v === 'full') form.executionConfig.limit = null
-  else form.executionConfig.limit = form.executionConfig.limit ?? 20
+  if (v === 'full') { form.executionConfig.limit = null; return }
+  const max = suiteMaxSamples.value
+  const base = form.executionConfig.limit ?? Math.min(20, max ?? 20)
+  form.executionConfig.limit = max != null ? Math.min(base, max) : base
 }
 
 async function onSubmit() {

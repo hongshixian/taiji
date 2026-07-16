@@ -1,7 +1,7 @@
 export default {
   pending: '等待中',
   running: '执行中',
-  success: '成功',
+  success: '完成',
   failed: '失败',
   stopped: '已停止',
   timeout: '仍在执行',

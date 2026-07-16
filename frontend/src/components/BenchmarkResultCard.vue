@@ -71,7 +71,6 @@
             <span class="flex items-center gap-1.5"><i class="size-3 rounded-[3px]" style="background:var(--color-danger-fg)" />{{ t('benchmark.sampleError') }} {{ counts.error }}</span>
             <span class="flex items-center gap-1.5"><i class="size-3 rounded-[3px]" style="background:var(--color-warning-fg)" />{{ t('benchmark.sampleNone') }} {{ counts.none }}</span>
           </div>
-          <UiButton variant="text" size="sm" @click="$emit('view-log')">{{ t('benchmark.viewFullLog') }}</UiButton>
         </div>
       </div>
       <div class="flex flex-wrap gap-[3px]">
@@ -119,7 +118,6 @@ import { useI18n } from 'vue-i18n'
 import { BarChart3 } from 'lucide-vue-next'
 import StatusPill from './StatusPill.vue'
 import UiAlert from './ui/Alert.vue'
-import UiButton from './ui/Button.vue'
 import UiDialog from './ui/Dialog.vue'
 import { cn } from '@/lib/utils'
 import { getSamplePreview } from '@/api/benchmark'

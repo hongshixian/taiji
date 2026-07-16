@@ -1,7 +1,7 @@
 export default {
   pending: 'Pending',
   running: 'Running',
-  success: 'Success',
+  success: 'Completed',
   failed: 'Failed',
   stopped: 'Stopped',
   timeout: 'Still running',
