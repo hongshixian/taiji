@@ -22,7 +22,6 @@ export default {
   sectionTarget: '被测模型',
   model: '模型',
   targetModelPlaceholder: '选择已配置的模型',
-  targetModelHint: '生成参数（temperature / max_tokens 等）来自模型管理页面，本次评测使用其固定值。',
   sectionJudge: '评委模型',
   judgeModelPlaceholder: '选择评委模型',
   judgeModelHint: '该评测集需要一个模型作为评委来判断答案质量。',
@@ -37,10 +36,8 @@ export default {
   submitTask: '提交任务',
 
   // 样本数量预设
-  presetSmoke: '快速冒烟 (20)',
-  presetStandard: '标准 (200)',
   presetFull: '完整',
-  presetCustom: '自定义',
+  presetPartial: '部分执行',
 
   // Suite 分组
   categoryCapability: '能力评测',

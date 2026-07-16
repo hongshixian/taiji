@@ -61,9 +61,6 @@
           <UiFormItem :label="t('benchmark.model')" required inline>
             <UiSelect v-model="form.targetModelId" :options="modelOptions" :placeholder="t('benchmark.targetModelPlaceholder')" filterable />
           </UiFormItem>
-          <p class="flex items-center gap-2 text-xs text-fg-tertiary">
-            <Info class="size-4" /> {{ t('benchmark.targetModelHint') }}
-          </p>
         </section>
 
         <section v-if="selectedSuite?.needs_judge" class="flex flex-col gap-4 border-b border-line pb-5">
@@ -81,7 +78,7 @@
           <UiFormItem :label="t('benchmark.sampleCount')" inline>
             <UiSegmented v-model="limitPreset" :options="limitPresetOptions" @update:model-value="onLimitPresetChange" />
           </UiFormItem>
-          <UiFormItem v-if="limitPreset === 'custom'" :label="t('benchmark.customSampleCount')" inline>
+          <UiFormItem v-if="limitPreset === 'partial'" :label="t('benchmark.customSampleCount')" inline>
             <UiInputNumber v-model="form.executionConfig.limit" :min="1" :max="20000" />
           </UiFormItem>
           <UiCollapse :title="t('benchmark.advanced')">
@@ -247,13 +244,11 @@ const form = reactive({
   executionConfig: { limit: 20 as number | null, max_connections: 10, epochs: 1, timeout_minutes: 60 },
   suiteConfig: {} as Record<string, unknown>,
 })
-const limitPreset = ref<string | number | null>('20')
+const limitPreset = ref<string | number | null>('partial')
 
 const limitPresetOptions = computed(() => [
-  { label: t('benchmark.presetSmoke'), value: '20' },
-  { label: t('benchmark.presetStandard'), value: '200' },
   { label: t('benchmark.presetFull'), value: 'full' },
-  { label: t('benchmark.presetCustom'), value: 'custom' },
+  { label: t('benchmark.presetPartial'), value: 'partial' },
 ])
 
 const columns = computed<TableColumn[]>(() => [
@@ -378,7 +373,7 @@ function openCreateDialog() {
   form.judgeModelId = null
   form.executionConfig = { limit: 20, max_connections: 10, epochs: 1, timeout_minutes: 60 }
   form.suiteConfig = {}
-  limitPreset.value = '20'
+  limitPreset.value = 'partial'
   showDialog.value = true
 }
 
@@ -388,9 +383,8 @@ function onSuiteChange() {
 }
 
 function onLimitPresetChange(v: string | number | null) {
-  if (v === 'custom') form.executionConfig.limit = form.executionConfig.limit ?? 100
-  else if (v === 'full') form.executionConfig.limit = null
-  else form.executionConfig.limit = Number(v)
+  if (v === 'full') form.executionConfig.limit = null
+  else form.executionConfig.limit = form.executionConfig.limit ?? 20
 }
 
 async function onSubmit() {

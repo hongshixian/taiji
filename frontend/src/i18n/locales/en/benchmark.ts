@@ -22,7 +22,6 @@ export default {
   sectionTarget: 'Target Model',
   model: 'Model',
   targetModelPlaceholder: 'Select a configured model',
-  targetModelHint: 'Generation parameters (temperature / max_tokens, etc.) come from the model management page and are fixed for this evaluation.',
   sectionJudge: 'Judge Model',
   judgeModelPlaceholder: 'Select a judge model',
   judgeModelHint: 'This suite needs a model to act as judge and assess answer quality.',
@@ -37,10 +36,8 @@ export default {
   submitTask: 'Submit Task',
 
   // Sample count presets
-  presetSmoke: 'Quick Smoke (20)',
-  presetStandard: 'Standard (200)',
   presetFull: 'Full',
-  presetCustom: 'Custom',
+  presetPartial: 'Partial',
 
   // Suite groups
   categoryCapability: 'Capability',
