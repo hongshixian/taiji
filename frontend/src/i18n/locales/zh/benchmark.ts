@@ -28,7 +28,7 @@ export default {
   sectionExecution: '执行控制',
   sampleCount: '样本数量',
   customSampleCount: '自定义样本数',
-  advanced: '高级 (并发 / 重复次数 / 超时)',
+  advanced: '高级 (并发)',
   maxConnections: '并发数',
   suiteParams: 'Suite 特有参数',
   submitTask: '提交任务',

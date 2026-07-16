@@ -28,7 +28,7 @@ export default {
   sectionExecution: 'Execution Control',
   sampleCount: 'Sample Count',
   customSampleCount: 'Custom Sample Count',
-  advanced: 'Advanced (Concurrency / Epochs / Timeout)',
+  advanced: 'Advanced (Concurrency)',
   maxConnections: 'Concurrency',
   suiteParams: 'Suite-specific Parameters',
   submitTask: 'Submit Task',
