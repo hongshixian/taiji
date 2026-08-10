@@ -1,6 +1,6 @@
 # Taiji IAM 拆分与迁移方案
 
-> 状态：设计稿，等待开发授权  
+> 状态：开发中（Phase 1、Phase 2 已完成）
 > 目标版本：IAM V1  
 > 最后更新：2026-08-10  
 > 约束：本文只描述 `taiji` 仓库内的设计和后续实现，不涉及同级 `agent-iam` 仓库。
@@ -670,6 +670,13 @@ PUT  /api/v1/auth/password
 - 可重复运行迁移而不产生重复用户、Organization 或 membership。
 
 ## 18. 实施阶段
+
+当前进度：
+
+- Phase 1 已完成并提交：Keycloak、独立逻辑数据库、Realm、Theme、扩展骨架和 NATS JetStream。
+- Phase 2 已完成并提交：稳定 ID、个人空间、企业租户、固定角色、成员软停用、邀请、Bootstrap admin、受控 REST API 和事务提交后事件。
+- Phase 3 开发中：太极 OIDC BFF、Redis 会话、本地投影、对账和租户隔离加固。
+- Phase 4、Phase 5 尚未开始。
 
 ### Phase 1：基础设施与扩展骨架
 

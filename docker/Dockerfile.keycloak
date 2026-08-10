@@ -24,5 +24,6 @@ FROM quay.io/keycloak/keycloak:${KEYCLOAK_VERSION}
 COPY --from=keycloak-build /opt/keycloak/ /opt/keycloak/
 COPY --chown=keycloak:root iam/realm/ /opt/keycloak/data/import/
 COPY --chown=keycloak:root iam/themes/ /opt/keycloak/themes/
+COPY --chown=keycloak:root --chmod=755 scripts/iam-bootstrap-admin.sh /opt/keycloak/bin/taiji-iam-bootstrap.sh
 
 ENTRYPOINT ["/opt/keycloak/bin/kc.sh"]

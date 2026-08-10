@@ -8,10 +8,11 @@ import org.keycloak.models.KeycloakSessionFactory;
 
 public final class TaijiIamEventListenerProviderFactory implements EventListenerProviderFactory {
     public static final String PROVIDER_ID = "taiji-iam-events";
+    private final IamEventPublisher publisher = IamEventPublisher.shared();
 
     @Override
     public EventListenerProvider create(KeycloakSession session) {
-        return new TaijiIamEventListenerProvider();
+        return new TaijiIamEventListenerProvider(session, publisher);
     }
 
     @Override
@@ -24,6 +25,7 @@ public final class TaijiIamEventListenerProviderFactory implements EventListener
 
     @Override
     public void close() {
+        publisher.close();
     }
 
     @Override

@@ -64,6 +64,7 @@ services:
 
   # ─── Keycloak IAM ──────────────────────────────
   keycloak:
+    image: taiji-keycloak:${KEYCLOAK_VERSION:-26.7.0}
     build:
       context: .
       dockerfile: docker/Dockerfile.keycloak
@@ -106,6 +107,27 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+  # ─── IAM 业务管理员一次性初始化 ─────────────────
+  iam-bootstrap:
+    image: taiji-keycloak:${KEYCLOAK_VERSION:-26.7.0}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.keycloak
+      args:
+        KEYCLOAK_VERSION: ${KEYCLOAK_VERSION:-26.7.0}
+    entrypoint: ["/opt/keycloak/bin/taiji-iam-bootstrap.sh"]
+    environment:
+      - IAM_BOOTSTRAP_ENABLED=${IAM_BOOTSTRAP_ENABLED:-true}
+      - IAM_REALM=fangcun
+      - IAM_BOOTSTRAP_ADMIN_EMAIL=${IAM_BOOTSTRAP_ADMIN_EMAIL:-admin@taiji.local}
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080
+      - KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME=${KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:-kcadmin}
+      - KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD=${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:-dev-only-change-me}
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    restart: "no"
+
   # ─── Flask 后端 ────────────────────────────────
   backend:
     build:
@@ -128,6 +150,8 @@ services:
       - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@taiji.local}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
     depends_on:
+      iam-bootstrap:
+        condition: service_completed_successfully
       postgres:
         condition: service_healthy
       redis:
