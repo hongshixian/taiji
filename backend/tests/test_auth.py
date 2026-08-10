@@ -303,8 +303,8 @@ class TestRBAC:
                            json={"username": "rbacadmin", "password": "adminpass"})
         user_data = resp.get_json()["data"]["user"]
         assert "permissions" in user_data
-        assert "user:read" in user_data["permissions"]
-        assert "user:write" in user_data["permissions"]
+        assert "member:read" in user_data["permissions"]
+        assert "member:write" in user_data["permissions"]
 
     def test_user_role_has_limited_permissions(self, client):
         """user 角色拥有当前固定的业务使用权限。"""
@@ -313,6 +313,7 @@ class TestRBAC:
         user_data = resp.get_json()["data"]
         assert set(user_data["permissions"]) == {
             "task:read", "task:create",
+            "task:delete:any",
             "model:read", "model:write", "model:delete",
-            "benchmark:read", "benchmark:write",
+            "benchmark:read",
         }

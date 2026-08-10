@@ -28,6 +28,79 @@ class IamClient:
             access_token=access_token,
         )
 
+    def list_members(self, access_token: str, tenant_id: str) -> dict:
+        return self._request(
+            "GET",
+            f"{self.realm_url}/taiji-iam/v1/tenants/{tenant_id}/members",
+            access_token=access_token,
+        )
+
+    def add_member(self, access_token: str, tenant_id: str, payload: dict) -> dict:
+        return self._request(
+            "POST",
+            f"{self.realm_url}/taiji-iam/v1/tenants/{tenant_id}/members",
+            access_token=access_token,
+            payload=payload,
+        )
+
+    def update_member(
+        self, access_token: str, tenant_id: str, user_id: str, payload: dict
+    ) -> dict:
+        return self._request(
+            "PATCH",
+            f"{self.realm_url}/taiji-iam/v1/tenants/{tenant_id}/members/{user_id}",
+            access_token=access_token,
+            payload=payload,
+        )
+
+    def deactivate_member(self, access_token: str, tenant_id: str, user_id: str) -> dict:
+        return self._request(
+            "DELETE",
+            f"{self.realm_url}/taiji-iam/v1/tenants/{tenant_id}/members/{user_id}",
+            access_token=access_token,
+        )
+
+    def create_tenant(
+        self, access_token: str, payload: dict, idempotency_key: str
+    ) -> dict:
+        return self._request(
+            "POST",
+            f"{self.realm_url}/taiji-iam/v1/tenants",
+            access_token=access_token,
+            payload=payload,
+            extra_headers={"Idempotency-Key": idempotency_key},
+        )
+
+    def update_tenant(self, access_token: str, tenant_id: str, payload: dict) -> dict:
+        return self._request(
+            "PATCH",
+            f"{self.realm_url}/taiji-iam/v1/tenants/{tenant_id}",
+            access_token=access_token,
+            payload=payload,
+        )
+
+    def list_platform_admins(self, access_token: str) -> dict:
+        return self._request(
+            "GET",
+            f"{self.realm_url}/taiji-iam/v1/platform-admins",
+            access_token=access_token,
+        )
+
+    def grant_platform_admin(self, access_token: str, identifier: str) -> dict:
+        return self._request(
+            "POST",
+            f"{self.realm_url}/taiji-iam/v1/platform-admins",
+            access_token=access_token,
+            payload={"identifier": identifier},
+        )
+
+    def revoke_platform_admin(self, access_token: str, user_id: str) -> dict:
+        return self._request(
+            "DELETE",
+            f"{self.realm_url}/taiji-iam/v1/platform-admins/{user_id}",
+            access_token=access_token,
+        )
+
     def refresh_token(self, refresh_token: str) -> dict:
         try:
             response = requests.post(
@@ -51,12 +124,23 @@ class IamClient:
             )
         return response.json()
 
-    def _request(self, method: str, url: str, *, access_token: str) -> dict:
+    def _request(
+        self,
+        method: str,
+        url: str,
+        *,
+        access_token: str,
+        payload: dict | None = None,
+        extra_headers: dict[str, str] | None = None,
+    ) -> dict:
+        headers = {"Authorization": f"Bearer {access_token}"}
+        headers.update(extra_headers or {})
         try:
             response = requests.request(
                 method,
                 url,
-                headers={"Authorization": f"Bearer {access_token}"},
+                headers=headers,
+                json=payload,
                 timeout=self.timeout,
             )
         except requests.RequestException as exc:
@@ -68,13 +152,34 @@ class IamClient:
                 payload.get("code", "iam_request_failed"),
                 payload.get("message", "身份服务请求失败"),
             )
-        return response.json()
+        if response.status_code == 204 or not response.content:
+            return {}
+        value = response.json()
+        if not isinstance(value, dict):
+            raise IamHttpError(502, "invalid_iam_response", "身份服务返回了无效响应")
+        return value
 
 
 def as_business_error(error: IamHttpError) -> BusinessError:
-    if error.status in {401, 403}:
+    if error.status == 401:
         return BusinessError(ErrorCode.SESSION_EXPIRED, "身份会话已失效，请重新登录")
-    return BusinessError(ErrorCode.IAM_UNAVAILABLE)
+    if error.status == 403:
+        return BusinessError(ErrorCode.PERMISSION_DENIED, error.message)
+    if error.status >= 500:
+        return BusinessError(ErrorCode.IAM_UNAVAILABLE)
+    if error.code == "user_not_found":
+        return BusinessError(ErrorCode.USER_NOT_FOUND, error.message)
+    if error.code == "tenant_not_found":
+        return BusinessError(ErrorCode.TENANT_NOT_FOUND, error.message)
+    if error.code in {"identity_conflict", "idempotency_conflict"}:
+        return BusinessError(ErrorCode.IDENTITY_CONFLICT, error.message)
+    if error.code in {"personal_tenant_immutable", "last_tenant_admin", "last_platform_admin"}:
+        return BusinessError(ErrorCode.IAM_CONFLICT, error.message)
+    if error.status == 404:
+        return BusinessError(ErrorCode.NOT_FOUND, error.message)
+    if error.status == 409:
+        return BusinessError(ErrorCode.IAM_CONFLICT, error.message)
+    return BusinessError(ErrorCode.VALIDATION_ERROR, error.message)
 
 
 def _json_or_empty(response) -> dict:

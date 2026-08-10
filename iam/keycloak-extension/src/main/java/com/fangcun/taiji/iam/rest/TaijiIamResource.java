@@ -78,6 +78,37 @@ public final class TaijiIamResource {
         });
     }
 
+    @GET
+    @Path("v1/platform-admins")
+    public Response listPlatformAdmins() {
+        return execute(() -> {
+            requirePlatformAdmin();
+            return Response.ok(Map.of("platform_admins", service().listPlatformAdmins())).build();
+        });
+    }
+
+    @POST
+    @Path("v1/platform-admins")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response grantPlatformAdmin(GrantPlatformAdminRequest request) {
+        return execute(() -> {
+            requirePlatformAdmin();
+            if (request == null) {
+                throw new IamApiException(400, "empty_body", "请求体不能为空");
+            }
+            return Response.ok(service().grantPlatformAdmin(request.identifier())).build();
+        });
+    }
+
+    @DELETE
+    @Path("v1/platform-admins/{userId}")
+    public Response revokePlatformAdmin(@PathParam("userId") String userId) {
+        return execute(() -> {
+            UserModel actor = requirePlatformAdmin();
+            return Response.ok(service().revokePlatformAdmin(userId, actor)).build();
+        });
+    }
+
     @POST
     @Path("v1/tenants")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -367,5 +398,8 @@ public final class TaijiIamResource {
     }
 
     public record MigrateMembershipRequest(String role, boolean active) {
+    }
+
+    public record GrantPlatformAdminRequest(String identifier) {
     }
 }

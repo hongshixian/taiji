@@ -1,7 +1,7 @@
 """管理员接口（需相应权限）"""
 
 from flask import Blueprint, request
-from app.auth_context import current_user_id, login_required
+from app.auth_context import current_user_id, login_required, oidc_mode
 
 from app.services.auth_service import (
     list_users,
@@ -24,18 +24,25 @@ admin_bp = Blueprint("admin", __name__)
 
 @admin_bp.route("/users", methods=["GET"])
 @login_required()
-@require_permission(Permission.USER_READ)
+@require_permission(Permission.MEMBER_READ)
 def get_users():
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
-    users, total = list_users(page, per_page)
+    if oidc_mode():
+        from app.services.iam_management_service import list_members
+        users, total = list_members(page, per_page)
+    else:
+        users, total = list_users(page, per_page)
     return paginated(items=users, total=total, page=page, per_page=per_page)
 
 
 @admin_bp.route("/users/<int:user_id>", methods=["GET"])
 @login_required()
-@require_permission(Permission.USER_READ)
+@require_permission(Permission.MEMBER_READ)
 def get_user(user_id):
+    if oidc_mode():
+        from app.services.iam_management_service import get_member
+        return ok(get_member(user_id))
     user = get_user_by_id(user_id)
     if not user:
         raise BusinessError(ErrorCode.USER_NOT_FOUND)
@@ -44,12 +51,22 @@ def get_user(user_id):
 
 @admin_bp.route("/users", methods=["POST"])
 @login_required()
-@require_permission(Permission.USER_WRITE)
+@require_permission(Permission.MEMBER_WRITE)
 @limiter.limit("20 per minute")
 def add_user():
     data = request.get_json()
     if not data:
         raise BusinessError(ErrorCode.EMPTY_BODY)
+
+    if oidc_mode():
+        identifier = (data.get("identifier") or "").strip()
+        if not identifier:
+            raise BusinessError(ErrorCode.VALIDATION_ERROR, "完整用户名或邮箱不能为空")
+        from app.services.iam_management_service import add_member
+        result = add_member(identifier, data.get("role", "member"))
+        if result.get("kind") == "invitation":
+            return ok(result, message="邀请已发送", status=202)
+        return created(result, message="成员已加入")
 
     username = data.get("username", "").strip()
     email = data.get("email", "").strip()
@@ -69,11 +86,22 @@ def add_user():
 
 @admin_bp.route("/users/<int:user_id>", methods=["PUT"])
 @login_required()
-@require_permission(Permission.USER_WRITE)
+@require_permission(Permission.MEMBER_WRITE)
 def edit_user(user_id):
     data = request.get_json()
     if not data:
         raise BusinessError(ErrorCode.EMPTY_BODY)
+
+    if oidc_mode():
+        allowed = {"role", "active", "membership_active"}
+        unsupported = set(data) - allowed
+        if unsupported:
+            raise BusinessError(
+                ErrorCode.VALIDATION_ERROR,
+                "IAM 模式只允许修改成员角色和成员状态",
+            )
+        from app.services.iam_management_service import update_member
+        return ok(update_member(user_id, data))
 
     role = data.get("role")
     if role is not None and not Role.is_valid(role):
@@ -85,8 +113,12 @@ def edit_user(user_id):
 
 @admin_bp.route("/users/<int:user_id>", methods=["DELETE"])
 @login_required()
-@require_permission(Permission.USER_DELETE)
+@require_permission(Permission.MEMBER_REMOVE)
 def remove_user(user_id):
+    if oidc_mode():
+        from app.services.iam_management_service import deactivate_member
+        deactivate_member(user_id, current_user_id())
+        return ok(message="已移出租户")
     delete_user(user_id, current_user_id())
     return ok(message="已删除")
 
@@ -95,34 +127,45 @@ def remove_user(user_id):
 
 @admin_bp.route("/roles", methods=["GET"])
 @login_required()
-@require_permission(Permission.ROLE_READ)
+@require_permission(Permission.MEMBER_READ)
 def get_roles():
+    if oidc_mode():
+        return ok(_fixed_iam_roles())
     from app.services.role_service import list_roles
     return ok(list_roles())
 
 
 @admin_bp.route("/roles/permissions", methods=["GET"])
 @login_required()
-@require_permission(Permission.ROLE_READ)
+@require_permission(Permission.MEMBER_READ)
 def get_all_permissions():
     """列出系统所有权限码（用于角色编辑页面）"""
+    if oidc_mode():
+        return ok([])
     from app.services.role_service import list_permissions
     return ok(list_permissions())
 
 
 @admin_bp.route("/roles/<int:role_id>", methods=["GET"])
 @login_required()
-@require_permission(Permission.ROLE_READ)
+@require_permission(Permission.MEMBER_READ)
 def get_role(role_id):
+    if oidc_mode():
+        role = next((item for item in _fixed_iam_roles() if item["id"] == role_id), None)
+        if role is None:
+            raise BusinessError(ErrorCode.ROLE_NOT_FOUND)
+        return ok(role)
     from app.services.role_service import get_role as get_role_svc, role_to_dict
     return ok(role_to_dict(get_role_svc(role_id)))
 
 
 @admin_bp.route("/roles", methods=["POST"])
 @login_required()
-@require_permission(Permission.ROLE_WRITE)
+@require_permission(Permission.MEMBER_WRITE)
 @limiter.limit("20 per minute")
 def add_role():
+    if oidc_mode():
+        raise BusinessError(ErrorCode.METHOD_NOT_ALLOWED, "IAM 模式使用固定角色")
     from app.services.role_service import create_role, role_to_dict
     data = request.get_json() or {}
     name = (data.get("name") or "").strip()
@@ -140,8 +183,10 @@ def add_role():
 
 @admin_bp.route("/roles/<int:role_id>", methods=["PUT"])
 @login_required()
-@require_permission(Permission.ROLE_WRITE)
+@require_permission(Permission.MEMBER_WRITE)
 def edit_role(role_id):
+    if oidc_mode():
+        raise BusinessError(ErrorCode.METHOD_NOT_ALLOWED, "IAM 模式使用固定角色")
     from app.services.role_service import update_role, role_to_dict
     data = request.get_json() or {}
     if not data:
@@ -152,8 +197,29 @@ def edit_role(role_id):
 
 @admin_bp.route("/roles/<int:role_id>", methods=["DELETE"])
 @login_required()
-@require_permission(Permission.ROLE_DELETE)
+@require_permission(Permission.MEMBER_WRITE)
 def remove_role(role_id):
+    if oidc_mode():
+        raise BusinessError(ErrorCode.METHOD_NOT_ALLOWED, "IAM 模式使用固定角色")
     from app.services.role_service import delete_role
     delete_role(role_id)
     return ok(message="角色已删除")
+
+
+def _fixed_iam_roles() -> list[dict]:
+    from app.models.role import Role as RoleModel
+
+    mapping = {"admin": "tenant_admin", "user": "member"}
+    roles = RoleModel.query.filter(
+        RoleModel.tenant_id.is_(None),
+        RoleModel.name.in_(mapping),
+    ).order_by(RoleModel.id).all()
+    return [{
+        "id": role.id,
+        "tenant_id": None,
+        "name": mapping[role.name],
+        "description": role.description,
+        "is_system": True,
+        "scope": "iam",
+        "permissions": role.permission_codes,
+    } for role in roles]

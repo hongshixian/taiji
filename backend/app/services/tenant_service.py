@@ -15,6 +15,11 @@ def tenant_to_dict(tenant: Tenant, with_stats: bool = False) -> dict:
         "name": tenant.name,
         "is_active": tenant.is_active,
         "is_system": tenant.is_system,
+        "iam_tenant_id": tenant.iam_tenant_id,
+        "keycloak_org_id": tenant.keycloak_org_id,
+        "tenant_type": tenant.tenant_type,
+        "lifecycle_status": tenant.lifecycle_status,
+        "is_protected": tenant.is_protected,
         "created_at": tenant.created_at.isoformat() if tenant.created_at else None,
     }
     if with_stats:

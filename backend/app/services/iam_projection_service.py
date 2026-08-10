@@ -25,7 +25,7 @@ def project_login(userinfo: dict, identity: dict, is_superuser: bool = False):
         raise BusinessError(ErrorCode.TENANT_NOT_FOUND, "IAM 未返回可用租户")
 
     with bypass_tenant_filter():
-        user = _project_user(userinfo, identity["user_id"], is_superuser)
+        user = _project_user(userinfo, identity["user_id"], is_superuser=is_superuser)
         selected = _select_tenant(user, tenants)
         tenant, membership = _project_tenant_membership(user, selected)
         user.last_iam_tenant_id = selected["id"]
@@ -59,7 +59,84 @@ def project_iam_tenant_membership(user: User, payload: dict):
     return _project_tenant_membership(user, payload)
 
 
-def _project_user(userinfo: dict, iam_user_id: str, is_superuser: bool) -> User:
+def project_iam_tenant(payload: dict) -> Tenant:
+    with bypass_tenant_filter():
+        tenant = _project_tenant(payload)
+        db.session.commit()
+        return tenant
+
+
+def project_iam_members(tenant: Tenant, payloads: list[dict]) -> list[tuple[User, TenantMembership]]:
+    projected = []
+    with bypass_tenant_filter():
+        for payload in payloads:
+            iam_user_id = _required(payload, "id")
+            user = _project_user(
+                {
+                    "sub": _required(payload, "keycloak_subject"),
+                    "preferred_username": payload.get("username"),
+                    "email": payload.get("email"),
+                },
+                iam_user_id,
+                is_active=bool(payload.get("enabled", True)),
+            )
+            membership = _project_member(tenant, user, payload)
+            projected.append((user, membership))
+        db.session.commit()
+    return projected
+
+
+def project_platform_admins(payloads: list[dict]) -> list[User]:
+    users = []
+    seen = set()
+    with bypass_tenant_filter():
+        for payload in payloads:
+            iam_user_id = _required(payload, "id")
+            user = _project_user(
+                {
+                    "sub": _required(payload, "keycloak_subject"),
+                    "preferred_username": payload.get("username"),
+                    "email": payload.get("email"),
+                },
+                iam_user_id,
+                is_superuser=bool(payload.get("platform_admin", True)),
+                is_active=bool(payload.get("enabled", True)),
+            )
+            users.append(user)
+            seen.add(iam_user_id)
+        stale = User.query.filter(
+            User.iam_user_id.isnot(None),
+            User.is_superuser.is_(True),
+        )
+        if seen:
+            stale = stale.filter(~User.iam_user_id.in_(seen))
+        stale.update({User.is_superuser: False}, synchronize_session=False)
+        db.session.commit()
+    return users
+
+
+def project_platform_admin(payload: dict) -> User:
+    with bypass_tenant_filter():
+        user = _project_user(
+            {
+                "sub": _required(payload, "keycloak_subject"),
+                "preferred_username": payload.get("username"),
+                "email": payload.get("email"),
+            },
+            _required(payload, "id"),
+            is_superuser=bool(payload.get("platform_admin", False)),
+            is_active=bool(payload.get("enabled", True)),
+        )
+        db.session.commit()
+        return user
+
+
+def _project_user(
+    userinfo: dict,
+    iam_user_id: str,
+    is_superuser: bool | None = None,
+    is_active: bool = True,
+) -> User:
     subject = _required(userinfo, "sub")
     username = userinfo.get("preferred_username") or userinfo.get("username") or subject
     email = userinfo.get("email") or f"{iam_user_id}@iam.invalid"
@@ -95,20 +172,28 @@ def _project_user(userinfo: dict, iam_user_id: str, is_superuser: bool) -> User:
     user.keycloak_subject = subject
     user.username = username
     user.email = email
-    user.is_active = True
-    user.is_superuser = is_superuser
+    user.is_active = is_active
+    if is_superuser is not None:
+        user.is_superuser = is_superuser
     user.last_synced_at = now
     db.session.flush()
     return user
 
 
 def _project_tenant_membership(user: User, payload: dict):
-    iam_tenant_id = _required(payload, "id")
     iam_role = _required(payload, "role")
     local_role_name = IAM_ROLE_TO_LOCAL_ROLE.get(iam_role)
     if local_role_name is None:
         raise BusinessError(ErrorCode.INVALID_ROLE, "IAM 返回了不支持的固定角色")
 
+    tenant = _project_tenant(payload)
+    membership = _project_member(tenant, user, payload)
+    db.session.flush()
+    return tenant, membership
+
+
+def _project_tenant(payload: dict) -> Tenant:
+    iam_tenant_id = _required(payload, "id")
     tenant = Tenant.query.filter_by(iam_tenant_id=iam_tenant_id).first()
     if tenant is None and payload.get("keycloak_org_id"):
         tenant = Tenant.query.filter_by(keycloak_org_id=payload["keycloak_org_id"]).first()
@@ -137,22 +222,33 @@ def _project_tenant_membership(user: User, payload: dict):
     tenant.is_protected = bool(payload.get("protected", False))
     tenant.last_synced_at = now
     db.session.flush()
+    return tenant
 
+
+def _project_member(tenant: Tenant, user: User, payload: dict) -> TenantMembership:
+    now = datetime.now(timezone.utc)
+    iam_role = payload.get("role")
+    existing = TenantMembership.query.filter_by(user_id=user.id, tenant_id=tenant.id).first()
+    if iam_role not in IAM_ROLE_TO_LOCAL_ROLE:
+        iam_role = existing.iam_role if existing and existing.iam_role in IAM_ROLE_TO_LOCAL_ROLE else "member"
+    local_role_name = IAM_ROLE_TO_LOCAL_ROLE[iam_role]
     role = Role.query.filter_by(tenant_id=None, name=local_role_name).first()
     if role is None:
         raise BusinessError(ErrorCode.INTERNAL_ERROR, f"缺少本地固定角色 {local_role_name}")
-    membership = TenantMembership.query.filter_by(user_id=user.id, tenant_id=tenant.id).first()
+    membership = existing
     if membership is None:
         membership = TenantMembership(user_id=user.id, tenant_id=tenant.id, role_id=role.id)
         db.session.add(membership)
     membership.role_id = role.id
     membership.iam_role = iam_role
-    membership.is_active = tenant.is_active
-    membership.is_owner = tenant.tenant_type == "personal"
+    membership.is_active = (
+        bool(payload.get("active", True)) and tenant.is_active and user.is_active
+    )
+    membership.is_owner = bool(payload.get("owner", tenant.tenant_type == "personal"))
     membership.sync_version = int(now.timestamp() * 1000)
     membership.last_synced_at = now
     db.session.flush()
-    return tenant, membership
+    return membership
 
 
 def _select_tenant(user: User, tenants: list[dict]) -> dict:

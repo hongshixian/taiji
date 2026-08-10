@@ -80,6 +80,20 @@ def refresh_identity(*, force: bool) -> list[dict]:
         clear_oidc_session()
         raise BusinessError(ErrorCode.TENANT_NOT_FOUND, "IAM 未返回可用租户")
 
+    is_superuser = bool(identity.get("platform_admin", False))
+    from app import db
+    from app.models.user import User
+    from app.utils.decorators import bypass_tenant_filter
+    with bypass_tenant_filter():
+        user = db.session.get(User, session["user_id"])
+        if user is None:
+            clear_oidc_session()
+            raise BusinessError(ErrorCode.USER_NOT_FOUND)
+        user.is_superuser = is_superuser
+        user.is_active = True
+        db.session.commit()
+    session["is_superuser"] = is_superuser
+
     target = next((item for item in tenants if item["id"] == session.get("iam_tenant_id")), None)
     if target is None:
         target = next((item for item in tenants if item.get("tenant_type") == "personal"), tenants[0])
@@ -105,6 +119,43 @@ def switch_to_tenant(tenant_payload: dict, *, tenants: list[dict] | None = None)
 
 def current_tenant_options() -> list[dict]:
     return tenant_options(session.get("iam_tenants", []))
+
+
+def current_iam_access_token() -> str:
+    """Return a refreshed IAM access token for server-side controlled API calls."""
+    try:
+        return _valid_token()["access_token"]
+    except IamHttpError as error:
+        if error.status in {401, 403}:
+            clear_oidc_session()
+        raise as_business_error(error) from error
+
+
+def local_session_projection_stale() -> bool:
+    """Detect controlled IAM changes reflected in the shared local projection."""
+    from app import db
+    from app.models.tenant_membership import TenantMembership
+    from app.models.user import User
+    from app.utils.decorators import bypass_tenant_filter
+
+    membership_id = session.get("membership_id")
+    user_id = session.get("user_id")
+    with bypass_tenant_filter():
+        membership = db.session.get(TenantMembership, membership_id) if membership_id else None
+        user = db.session.get(User, user_id) if user_id else None
+    if user is None or not user.is_active:
+        return True
+    if bool(user.is_superuser) != bool(session.get("is_superuser", False)):
+        return True
+    if membership is None or not membership.is_active:
+        return True
+    if membership.tenant is None or not membership.tenant.is_active:
+        return True
+    return (
+        membership.tenant_id != session.get("tenant_id")
+        or membership.iam_role != session.get("iam_role")
+        or sorted(membership.permission_codes) != sorted(session.get("permissions", []))
+    )
 
 
 def clear_oidc_session():

@@ -55,6 +55,7 @@ class ErrorCode:
     IAM_UNAVAILABLE = ErrCode(30008, "身份服务暂时不可用", http=503)
     SESSION_EXPIRED = ErrCode(30009, "登录会话已过期", http=401)
     IDENTITY_CONFLICT = ErrCode(30010, "IAM 身份与本地数据冲突", http=409)
+    IAM_CONFLICT = ErrCode(30011, "IAM 操作与当前状态冲突", http=409)
 
     # ── 模型配置 ─────────────────────────────
     MODEL_CONFIG_NOT_FOUND = ErrCode(40001, "模型配置不存在", http=404)

@@ -230,6 +230,11 @@ def create_app(config_obj=Config):
                 public_endpoints = {
                     "health", "auth.login", "auth.register", "auth.callback", "auth.logout",
                 }
+                if request.endpoint != "auth.logout":
+                    from app.services.oidc_session_service import local_session_projection_stale
+                    if local_session_projection_stale():
+                        from app.services.oidc_session_service import refresh_identity
+                        refresh_identity(force=True)
                 verified_at = int(session.get("identity_verified_at", 0))
                 if request.endpoint not in public_endpoints and (
                     now - verified_at >= flask_app.config["IAM_IDENTITY_CACHE_SECONDS"]

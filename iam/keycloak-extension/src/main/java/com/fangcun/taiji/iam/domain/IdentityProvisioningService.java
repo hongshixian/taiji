@@ -262,6 +262,58 @@ public final class IdentityProvisioningService {
                 .toList();
     }
 
+    public List<Map<String, Object>> listPlatformAdmins() {
+        RoleModel role = requirePlatformAdminRole();
+        return session.users().getRoleMembersStream(realm, role)
+                .filter(user -> user.getServiceAccountClientLink() == null)
+                .map(this::platformAdminToMap)
+                .sorted(Comparator.comparing(entry -> (String) entry.get("username")))
+                .toList();
+    }
+
+    public Map<String, Object> grantPlatformAdmin(String identifier) {
+        UserModel user = findUser(requireText(identifier, "identifier", 254));
+        if (user == null) {
+            throw new IamApiException(404, "user_not_found", "IAM 用户不存在");
+        }
+        requireHumanUser(user);
+        if (!user.isEnabled()) {
+            throw new IamApiException(409, "user_disabled", "用户账号已停用");
+        }
+        RoleModel role = requirePlatformAdminRole();
+        boolean changed = !user.hasRole(role);
+        if (changed) {
+            user.grantRole(role);
+            emit("iam.platform_admin.granted.v1", ensureStableUserId(user), Map.of());
+        }
+        return platformAdminToMap(user);
+    }
+
+    public Map<String, Object> revokePlatformAdmin(String userId, UserModel actor) {
+        String expected = requireUuid(userId, "user_id");
+        UserModel user = session.users()
+                .searchForUserByUserAttributeStream(realm, USER_GLOBAL_ID, expected)
+                .findFirst()
+                .orElseThrow(() -> new IamApiException(404, "user_not_found", "IAM 用户不存在"));
+        requireHumanUser(user);
+        if (user.getId().equals(actor.getId())) {
+            throw new IamApiException(409, "cannot_revoke_self", "不能移除自己的平台管理员权限");
+        }
+        RoleModel role = requirePlatformAdminRole();
+        if (user.hasRole(role)) {
+            long activeAdmins = session.users().getRoleMembersStream(realm, role)
+                    .filter(UserModel::isEnabled)
+                    .filter(item -> item.getServiceAccountClientLink() == null)
+                    .count();
+            if (user.isEnabled() && activeAdmins <= 1) {
+                throw new IamApiException(409, "last_platform_admin", "不能移除最后一名有效平台管理员");
+            }
+            user.deleteRoleMapping(role);
+            emit("iam.platform_admin.revoked.v1", expected, Map.of());
+        }
+        return platformAdminToMap(user);
+    }
+
     public OrganizationModel createEnterpriseTenant(
             String name,
             String initialAdminIdentifier,
@@ -336,6 +388,7 @@ public final class IdentityProvisioningService {
 
     public List<Map<String, Object>> listMembers(String tenantId) {
         OrganizationModel organization = requireTenant(tenantId);
+        requireEnterprise(organization);
         return organizations.getMembersStream(organization, Map.of(), null, null, null)
                 .map(user -> memberToMap(organization, user))
                 .sorted(Comparator.comparing(entry -> (String) entry.get("username")))
@@ -479,6 +532,18 @@ public final class IdentityProvisioningService {
         result.put("enabled", organization.isEnabled());
         result.put("protected", Boolean.parseBoolean(attribute(organization, TENANT_PROTECTED, "false")));
         result.put("role", role == null ? null : role.apiValue());
+        return result;
+    }
+
+    private Map<String, Object> platformAdminToMap(UserModel user) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("id", ensureStableUserId(user));
+        result.put("keycloak_subject", user.getId());
+        result.put("username", user.getUsername());
+        result.put("email", user.getEmail());
+        result.put("email_verified", user.isEmailVerified());
+        result.put("enabled", user.isEnabled());
+        result.put("platform_admin", user.hasRole(requirePlatformAdminRole()));
         return result;
     }
 
@@ -683,6 +748,14 @@ public final class IdentityProvisioningService {
         if (user.getServiceAccountClientLink() != null) {
             throw new IamApiException(409, "service_account_forbidden", "服务账号不能加入业务租户");
         }
+    }
+
+    private RoleModel requirePlatformAdminRole() {
+        RoleModel role = realm.getRole("platform_admin");
+        if (role == null) {
+            throw new IamApiException(500, "role_configuration_error", "Realm platform_admin 角色缺失");
+        }
+        return role;
     }
 
     private UserModel requireMemberUser(OrganizationModel organization, String globalUserId) {

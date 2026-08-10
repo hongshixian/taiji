@@ -25,10 +25,10 @@ class OidcTestConfig(TestConfig):
     TAIJI_PUBLIC_URL = "http://localhost"
 
 
-def _identity(personal_role="tenant_admin", enterprise_role="member"):
+def _identity(personal_role="tenant_admin", enterprise_role="member", platform_admin=False):
     return {
         "user_id": IAM_USER_ID,
-        "platform_admin": False,
+        "platform_admin": platform_admin,
         "tenants": [
             {
                 "id": PERSONAL_ID,

@@ -153,6 +153,45 @@ personal_code="$(curl -sS -o /tmp/taiji-iam-personal.json -w '%{http_code}' -X P
 [[ "${personal_code}" == 409 ]]
 jq -e '.code == "personal_tenant_immutable"' /tmp/taiji-iam-personal.json >/dev/null
 
+personal_list_code="$(curl -sS -o /tmp/taiji-iam-personal-list.json -w '%{http_code}' \
+  "${base_url}/realms/${realm}/taiji-iam/v1/tenants/${personal_tenant_id}/members" \
+  -H "Authorization: Bearer ${user_token}")"
+[[ "${personal_list_code}" == 409 ]]
+jq -e '.code == "personal_tenant_immutable"' /tmp/taiji-iam-personal-list.json >/dev/null
+
+platform_admin="$(curl -fsS -X POST \
+  "${base_url}/realms/${realm}/taiji-iam/v1/platform-admins" \
+  -H "Authorization: Bearer ${admin_token}" \
+  -H 'Content-Type: application/json' \
+  -d "$(jq -nc --arg identifier "${username}" '{identifier: $identifier}')")"
+[[ "$(jq -r .id <<<"${platform_admin}")" == "${global_user_id}" ]]
+jq -e '.platform_admin == true' <<<"${platform_admin}" >/dev/null
+
+platform_admins="$(curl -fsS \
+  "${base_url}/realms/${realm}/taiji-iam/v1/platform-admins" \
+  -H "Authorization: Bearer ${admin_token}")"
+jq -e --arg id "${global_user_id}" \
+  '.platform_admins | any(.id == $id and .platform_admin == true)' \
+  <<<"${platform_admins}" >/dev/null
+
+user_token_response="$(curl -sS -X POST "${base_url}/realms/${realm}/protocol/openid-connect/token" \
+  -d grant_type=password \
+  -d client_id=taiji-web \
+  -d "client_secret=${web_secret}" \
+  -d "username=${username}" \
+  -d "password=${password}")"
+user_token="$(jq -er .access_token <<<"${user_token_response}")"
+self_revoke_code="$(curl -sS -o /tmp/taiji-iam-platform-self.json -w '%{http_code}' -X DELETE \
+  "${base_url}/realms/${realm}/taiji-iam/v1/platform-admins/${global_user_id}" \
+  -H "Authorization: Bearer ${user_token}")"
+[[ "${self_revoke_code}" == 409 ]]
+jq -e '.code == "cannot_revoke_self"' /tmp/taiji-iam-platform-self.json >/dev/null
+
+platform_admin="$(curl -fsS -X DELETE \
+  "${base_url}/realms/${realm}/taiji-iam/v1/platform-admins/${global_user_id}" \
+  -H "Authorization: Bearer ${admin_token}")"
+jq -e '.platform_admin == false' <<<"${platform_admin}" >/dev/null
+
 members="$(curl -fsS \
   "${base_url}/realms/${realm}/taiji-iam/v1/tenants/${tenant_id}/members" \
   -H "Authorization: Bearer ${admin_token}")"
