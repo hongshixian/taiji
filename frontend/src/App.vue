@@ -148,7 +148,7 @@ import { ref, computed, onMounted, onUnmounted, type Component } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   PanelLeft, PanelLeftClose, Sun, Moon, ChevronDown, Settings, LogOut, Languages,
-  Home, Trophy, ListChecks, BarChart3, ShieldAlert, Cpu, Users, KeyRound,
+  Home, Trophy, ListChecks, BarChart3, ShieldAlert, Cpu, Users,
   ScrollText, Wrench, Building2, SlidersHorizontal, Boxes, ShieldCheck, Cog,
 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
@@ -184,7 +184,7 @@ const openGroups = ref<string[]>(
   route.path.startsWith('/tasks')
     ? ['tasks']
     : /^\/(models|benchmarks)/.test(route.path) ? ['assets']
-    : /^\/(users|roles|tenants)/.test(route.path) ? ['perms']
+    : /^\/(users|tenants)/.test(route.path) ? ['perms']
     : /^\/(audit-logs|settings|system-settings)/.test(route.path) ? ['platform']
     : [],
 )
@@ -213,10 +213,11 @@ const menu = computed<MenuItem[]>(() =>
     },
     {
       key: 'perms', label: t('nav.perms'), icon: ShieldCheck,
-      show: has('user:read') || has('role:read') || authStore.isSuperuser,
+      show: (has('member:read') && authStore.currentTenant?.type === 'enterprise') || authStore.isSuperuser,
       children: [
-        ...(has('user:read') ? [{ to: '/users', label: t('nav.users'), icon: Users }] : []),
-        ...(has('role:read') ? [{ to: '/roles', label: t('nav.roles'), icon: KeyRound }] : []),
+        ...(has('member:read') && authStore.currentTenant?.type === 'enterprise'
+          ? [{ to: '/users', label: t('nav.users'), icon: Users }]
+          : []),
         ...(authStore.isSuperuser ? [{ to: '/tenants', label: t('nav.tenants'), icon: Building2 }] : []),
       ],
     },
@@ -238,7 +239,10 @@ const roleLabel = computed(() => {
   const u = authStore.user
   if (!u) return ''
   if (u.is_superuser) return t('nav.superadmin')
-  return (u as { role_name?: string }).role_name || u.role || t('nav.normalUser')
+  if (authStore.currentTenant?.type === 'personal') return t('admin.rolePersonal')
+  if (u.role === 'tenant_admin') return t('admin.roleAdmin')
+  if (u.role === 'member') return t('admin.roleUser')
+  return u.role || t('nav.normalUser')
 })
 
 function isActive(path: string) {

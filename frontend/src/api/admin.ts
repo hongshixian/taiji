@@ -25,23 +25,3 @@ export function deleteUser(userId: number) {
 export function listRoles() {
   return request.get('/admin/roles')
 }
-
-export function listAllPermissions() {
-  return request.get('/admin/roles/permissions')
-}
-
-export function getRole(roleId: number) {
-  return request.get(`/admin/roles/${roleId}`)
-}
-
-export function createRole(data: Record<string, unknown>) {
-  return request.post('/admin/roles', data)
-}
-
-export function updateRole(roleId: number, data: Record<string, unknown>) {
-  return request.put(`/admin/roles/${roleId}`, data)
-}
-
-export function deleteRole(roleId: number) {
-  return request.delete(`/admin/roles/${roleId}`)
-}

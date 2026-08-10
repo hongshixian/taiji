@@ -33,7 +33,12 @@
         <template #cell-actions="{ row }">
           <div class="flex justify-end gap-1">
             <UiButton variant="text" size="sm" @click="openEditDialog(row)">{{ t('common.edit') }}</UiButton>
-            <UiButton variant="danger-text" size="sm" @click="handleDelete(row)">{{ t('common.delete') }}</UiButton>
+            <UiButton
+              variant="danger-text"
+              size="sm"
+              :disabled="row.id === authStore.user?.id"
+              @click="handleDelete(row)"
+            >{{ t('admin.tenantMemberRemove') }}</UiButton>
           </div>
         </template>
       </UiTable>
@@ -50,18 +55,12 @@
 
     <UiDialog v-model="dialogVisible" :title="editMode ? t('admin.userDialogEdit') : t('admin.userDialogAdd')" width="480px">
       <div class="flex flex-col gap-4">
-        <UiFormItem :label="t('admin.userFieldUsername')" required :error="errors.username">
-          <UiInput v-model="form.username" :disabled="editMode" :placeholder="t('admin.userPhUsername')" />
-        </UiFormItem>
-        <UiFormItem :label="t('admin.userFieldEmail')" required :error="errors.email">
-          <UiInput v-model="form.email" :placeholder="t('admin.userPhEmail')" />
-        </UiFormItem>
-        <UiFormItem :label="t('admin.userFieldPassword')">
-          <UiInput
-            v-model="form.password"
-            type="password"
-            :placeholder="editMode ? t('admin.userPhPasswordEdit') : t('admin.userPhPasswordCreate')"
-          />
+        <div v-if="editMode" class="rounded-md border border-line bg-surface-sunken px-4 py-3">
+          <div class="text-sm font-semibold text-fg">{{ selectedUser?.username }}</div>
+          <div class="mt-1 font-mono text-xs text-fg-secondary">{{ selectedUser?.email }}</div>
+        </div>
+        <UiFormItem v-else :label="t('admin.userFieldIdentifier')" required :error="errors.identifier">
+          <UiInput v-model="form.identifier" :placeholder="t('admin.userPhIdentifier')" />
         </UiFormItem>
         <UiFormItem :label="t('admin.userFieldRole')" required>
           <UiSelect v-model="form.role" :options="roleSelectOptions" :placeholder="t('admin.userPhSelectRole')" />
@@ -89,6 +88,7 @@ import { useI18n } from 'vue-i18n'
 import { Plus } from 'lucide-vue-next'
 import { toast } from '@/lib/toast'
 import { confirm } from '@/lib/confirm'
+import { useAuthStore } from '@/stores/auth'
 import { listUsers, createUser, updateUser, deleteUser, listRoles } from '@/api/admin'
 import UiTable, { type TableColumn } from '@/components/ui/Table.vue'
 import UiButton from '@/components/ui/Button.vue'
@@ -117,6 +117,7 @@ interface RoleOption {
 }
 
 const { t } = useI18n()
+const authStore = useAuthStore()
 
 const columns = computed<TableColumn[]>(() => [
   { key: 'id', label: 'ID', width: 60 },
@@ -138,16 +139,15 @@ const total = ref(0)
 const dialogVisible = ref(false)
 const editMode = ref(false)
 const editUserId = ref<number | null>(null)
+const selectedUser = ref<UserRow | null>(null)
 const submitting = ref(false)
 
 const form = reactive({
-  username: '',
-  email: '',
-  password: '',
-  role: 'user' as string,
+  identifier: '',
+  role: 'member' as string,
   is_active: true,
 })
-const errors = reactive({ username: '', email: '' })
+const errors = reactive({ identifier: '' })
 
 const roleSelectOptions = computed<SelectOption[]>(() =>
   roleOptions.value.map((r) => ({ label: r.description || r.name, value: r.name, badge: r.name })),
@@ -159,18 +159,19 @@ function formatTime(iso?: unknown) {
 
 function roleLabel(row: Record<string, unknown>) {
   const r = row as UserRow
-  // 优先用 role_name (后端 RBAC)；兜底用 role 字符串映射
-  if (r.role_name) return r.role_name
-  const map: Record<string, string> = { admin: t('admin.roleAdmin'), user: t('admin.roleUser'), guest: t('admin.roleGuest') }
-  return (r.role && map[r.role]) || r.role || t('admin.roleUnknown')
+  const role = r.role_name || r.role
+  const map: Record<string, string> = {
+    tenant_admin: t('admin.roleAdmin'),
+    member: t('admin.roleUser'),
+  }
+  return (role && map[role]) || role || t('admin.roleUnknown')
 }
 
 function roleTone(row: Record<string, unknown>): 'danger' | 'neutral' | 'info' {
-  const role = (row as UserRow).role
-  if (role === 'admin') return 'danger'
-  if (role === 'guest') return 'neutral'
-  if (role === 'user') return 'neutral'
-  return 'info' // 自定义角色 — 紫色 info
+  const value = row as UserRow
+  const role = value.role_name || value.role
+  if (role === 'tenant_admin') return 'danger'
+  return 'neutral'
 }
 
 function memberActive(row: Record<string, unknown>) {
@@ -201,39 +202,30 @@ async function fetchRoles() {
   } catch {
     // 没权限或失败：回退默认两个
     roleOptions.value = [
-      { name: 'user', description: t('admin.roleUser') },
-      { name: 'admin', description: t('admin.roleAdmin') },
+      { name: 'member', description: t('admin.roleUser') },
+      { name: 'tenant_admin', description: t('admin.roleAdmin') },
     ]
   }
 }
 
 function resetForm() {
-  form.username = ''
-  form.email = ''
-  form.password = ''
-  form.role = 'user'
+  form.identifier = ''
+  form.role = 'member'
   form.is_active = true
-  errors.username = ''
-  errors.email = ''
+  errors.identifier = ''
 }
 
 function validate(): boolean {
-  errors.username = ''
-  errors.email = ''
-  if (!editMode.value) {
-    const name = form.username.trim()
-    if (!name) errors.username = t('admin.userValUsernameRequired')
-    else if (name.length < 3 || name.length > 80) errors.username = t('admin.userValUsernameLength')
-  }
-  const email = form.email.trim()
-  if (!email) errors.email = t('admin.userValEmailRequired')
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = t('admin.userValEmailInvalid')
-  return !errors.username && !errors.email
+  errors.identifier = !editMode.value && !form.identifier.trim()
+    ? t('admin.tenantValMemberIdentifierRequired')
+    : ''
+  return !errors.identifier
 }
 
 function openCreateDialog() {
   editMode.value = false
   editUserId.value = null
+  selectedUser.value = null
   resetForm()
   dialogVisible.value = true
 }
@@ -242,13 +234,11 @@ function openEditDialog(row: Record<string, unknown>) {
   const r = row as UserRow
   editMode.value = true
   editUserId.value = r.id
-  form.username = r.username
-  form.email = r.email
-  form.password = ''
-  form.role = r.role ?? 'user'
+  selectedUser.value = r
+  form.identifier = ''
+  form.role = r.role ?? 'member'
   form.is_active = r.membership_active ?? r.is_active ?? true
-  errors.username = ''
-  errors.email = ''
+  errors.identifier = ''
   dialogVisible.value = true
 }
 
@@ -259,18 +249,14 @@ async function handleSubmit() {
   try {
     if (editMode.value) {
       const payload: Record<string, unknown> = {
-        email: form.email,
         role: form.role,
         membership_active: form.is_active,
       }
-      if (form.password) payload.password = form.password
       await updateUser(editUserId.value as number, payload)
       toast.success(t('admin.toastUpdated'))
     } else {
       await createUser({
-        username: form.username,
-        email: form.email,
-        password: form.password,
+        identifier: form.identifier.trim(),
         role: form.role,
       })
       toast.success(t('admin.toastCreated'))
@@ -288,15 +274,15 @@ async function handleSubmit() {
 async function handleDelete(row: Record<string, unknown>) {
   const r = row as UserRow
   const ok = await confirm({
-    title: t('admin.confirmDeleteTitle'),
+    title: t('admin.tenantRemoveMemberTitle'),
     message: t('admin.userDeleteMsg', { name: r.username }),
     tone: 'danger',
-    confirmText: t('common.delete'),
+    confirmText: t('admin.tenantMemberRemove'),
   })
   if (!ok) return
   try {
     await deleteUser(r.id)
-    toast.success(t('common.deleteSuccess'))
+    toast.success(t('admin.tenantMemberRemoved'))
     fetchUsers()
   } catch (err: unknown) {
     const e = err as { response?: { data?: { message?: string } } }

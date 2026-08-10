@@ -10,7 +10,7 @@ export default {
   models: 'Models',
   benchmarkAssets: 'Benchmarks',
   perms: 'Access Control',
-  users: 'Users',
+  users: 'Members',
   roles: 'Roles',
   audit: 'Audit Logs',
   settings: 'Settings',
@@ -24,7 +24,7 @@ export default {
   toggleLang: 'Switch language',
   collapseSidebar: 'Collapse sidebar',
   expandSidebar: 'Expand sidebar',
-  superadmin: 'Superadmin',
+  superadmin: 'Platform Administrator',
   normalUser: 'User',
   version: 'v0.1',
 }

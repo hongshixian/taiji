@@ -2,6 +2,7 @@
 
 from datetime import datetime, timezone
 import secrets
+from urllib.parse import urlencode
 
 from authlib.integrations.base_client.errors import OAuthError
 from flask import Blueprint, current_app, redirect, request, session
@@ -158,8 +159,20 @@ def switch_current_tenant():
 @login_required()
 def logout():
     if oidc_mode():
+        id_token = (session.get("iam_token") or {}).get("id_token")
+        params = {
+            "client_id": current_app.config["OIDC_CLIENT_ID"],
+            "post_logout_redirect_uri": f"{current_app.config['TAIJI_PUBLIC_URL']}/#/login",
+        }
+        if id_token:
+            params["id_token_hint"] = id_token
+        realm = current_app.config["IAM_REALM"]
+        logout_url = (
+            f"{current_app.config['IAM_PUBLIC_URL']}/realms/{realm}"
+            f"/protocol/openid-connect/logout?{urlencode(params)}"
+        )
         clear_oidc_session()
-        return ok(message="已退出登录")
+        return ok({"logout_url": logout_url}, message="已退出登录")
     payload = current_claims()
     ttl = max(0, payload["exp"] - int(datetime.now(timezone.utc).timestamp()))
     revoke_jti(payload["jti"], ttl)

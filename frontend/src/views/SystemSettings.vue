@@ -8,34 +8,6 @@
       </p>
     </header>
 
-    <!-- 注册策略 -->
-    <section class="relative flex flex-col gap-7 rounded-lg border border-line bg-surface p-8 shadow-xs">
-      <div
-        v-if="loading"
-        class="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-surface/60 backdrop-blur-[1px]"
-      >
-        <UiSpinner :size="28" />
-      </div>
-      <header class="flex flex-col gap-3">
-        <span class="t-eyebrow">{{ t('systemSettings.registration.eyebrow') }}</span>
-        <h2 class="m-0 text-2xl font-bold tracking-tight text-fg">{{ t('systemSettings.registration.title') }}</h2>
-        <p class="m-0 max-w-[56ch] text-sm text-fg-secondary">
-          {{ t('systemSettings.registration.desc') }}
-        </p>
-      </header>
-
-      <div class="flex max-w-[620px] flex-col gap-5">
-        <UiFormItem :label="t('systemSettings.registration.defaultTenant')">
-          <div class="max-w-[420px]">
-            <UiSelect v-model="form.defaultRegistrationTenantSlug" :options="tenantOptions" filterable />
-          </div>
-        </UiFormItem>
-        <div>
-          <UiButton :loading="saving" @click="saveSettings">{{ t('common.save') }}</UiButton>
-        </div>
-      </div>
-    </section>
-
     <!-- Benchmark 集成 -->
     <section class="relative flex flex-col gap-7 rounded-lg border border-line bg-surface p-8 shadow-xs">
       <div
@@ -125,7 +97,6 @@ import { useAuthStore } from '@/stores/auth'
 import {
   addSuperuser,
   listSuperusers,
-  listTenants,
   listSystemSettings,
   removeSuperuser,
   updateSystemSettings,
@@ -135,20 +106,12 @@ import { confirm } from '@/lib/confirm'
 import UiButton from '@/components/ui/Button.vue'
 import UiBadge from '@/components/ui/Badge.vue'
 import UiInput from '@/components/ui/Input.vue'
-import UiSelect from '@/components/ui/Select.vue'
 import UiFormItem from '@/components/ui/FormItem.vue'
 import UiSpinner from '@/components/ui/Spinner.vue'
 import UiTable, { type TableColumn } from '@/components/ui/Table.vue'
 
-const DEFAULT_REGISTRATION_TENANT_KEY = 'public.default_registration_tenant_slug'
 const HF_TOKEN_KEY = 'integrations.hf_token'
 
-interface Tenant {
-  id: number
-  name: string
-  slug: string
-  is_active: boolean
-}
 interface Membership {
   id: number
   tenant_name: string
@@ -169,19 +132,15 @@ type ApiError = { response?: { data?: { message?: string } }; message?: string }
 const authStore = useAuthStore()
 const { t } = useI18n()
 const loading = ref(false)
-const saving = ref(false)
 const savingBenchmark = ref(false)
-const tenants = ref<Tenant[]>([])
 const superusers = ref<Superuser[]>([])
 const superusersLoading = ref(false)
 const addingSuperuser = ref(false)
 const superuserIdentifier = ref('')
 const hfTokenAlreadySet = ref(false)
 const form = reactive<{
-  defaultRegistrationTenantSlug: string
   hfToken: string
 }>({
-  defaultRegistrationTenantSlug: '',
   hfToken: '',
 })
 
@@ -192,10 +151,6 @@ const superuserColumns = computed<TableColumn[]>(() => [
   { key: 'actions', label: t('common.actions'), width: 110, fixed: 'right' },
 ])
 
-const activeTenants = computed(() => tenants.value.filter((t) => t.is_active))
-const tenantOptions = computed(() =>
-  activeTenants.value.map((t) => ({ label: `${t.name} (${t.slug})`, value: t.slug })),
-)
 const hfTokenPlaceholder = computed(() =>
   hfTokenAlreadySet.value
     ? t('systemSettings.benchmark.hfTokenPlaceholderSet')
@@ -205,15 +160,8 @@ const hfTokenPlaceholder = computed(() =>
 async function fetchData() {
   loading.value = true
   try {
-    const [settingsResp, tenantsResp] = await Promise.all([
-      listSystemSettings(),
-      listTenants(),
-    ])
-    tenants.value = tenantsResp.data.data || []
+    const settingsResp = await listSystemSettings()
     const settings: SystemSetting[] = settingsResp.data.data || []
-    const defaultTenant = settings.find((s) => s.key === DEFAULT_REGISTRATION_TENANT_KEY)
-    form.defaultRegistrationTenantSlug = defaultTenant?.value || 'guest'
-
     const hfSetting = settings.find((s) => s.key === HF_TOKEN_KEY)
     hfTokenAlreadySet.value = !!hfSetting?.value
     form.hfToken = ''
@@ -222,25 +170,6 @@ async function fetchData() {
     toast.error(e.response?.data?.message || t('common.loadFailed'))
   } finally {
     loading.value = false
-  }
-}
-
-async function saveSettings() {
-  if (!form.defaultRegistrationTenantSlug) {
-    toast.warning(t('systemSettings.toast.selectTenant'))
-    return
-  }
-  saving.value = true
-  try {
-    await updateSystemSettings({
-      [DEFAULT_REGISTRATION_TENANT_KEY]: form.defaultRegistrationTenantSlug,
-    })
-    toast.success(t('common.saveSuccess'))
-  } catch (err: unknown) {
-    const e = err as ApiError
-    toast.error(e.response?.data?.message || t('systemSettings.toast.saveFailed'))
-  } finally {
-    saving.value = false
   }
 }
 

@@ -1,120 +1,101 @@
+import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import {
-  login as loginApi,
-  register as registerApi,
-  getMe,
-  switchTenant as switchTenantApi,
-  logout as logoutApi,
-} from '../api/auth'
 import router from '../router'
+import {
+  getMe,
+  LOGIN_URL,
+  logout as logoutApi,
+  REGISTER_URL,
+  switchTenant as switchTenantApi,
+} from '../api/auth'
+import { setCsrfToken } from '../api/request'
 import type { User } from '../api/types'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
-  const isLoggedIn = ref(!!localStorage.getItem('accessToken'))
+  const initialized = ref(false)
+  const initializing = ref<Promise<void> | null>(null)
 
-  /* 当前用户是否管理员（当前租户 membership 角色） */
-  const isAdmin = () => user.value?.role === 'admin'
-
-  /* 当前用户是否平台超级管理员（可跨 tenant 操作） */
+  const isLoggedIn = computed(() => user.value !== null)
+  const isAdmin = computed(() => user.value?.role === 'tenant_admin')
   const isSuperuser = computed(() => user.value?.is_superuser === true)
+  const currentTenant = computed(() => user.value?.current_tenant ?? null)
+  const tenants = computed(() => user.value?.tenants ?? [])
 
-  /* 当前会话指向的租户（来自 JWT claim 对应的 membership） */
-  const currentTenant = computed(() => {
-    if (!user.value) return null
-    if (user.value.current_tenant) {
-      return {
-        id: user.value.current_tenant.id,
-        slug: user.value.current_tenant.slug,
-        name: user.value.current_tenant.name,
-      }
-    }
-    return null
-  })
-
-  /* 登录时进入的租户 id（用于一键切回） */
-  const originalTenantId = computed(() => {
-    const stored = localStorage.getItem('originalTenantId')
-    return stored ? parseInt(stored, 10) : currentTenant.value?.id ?? null
-  })
-
-  async function login(payload: { username: string; password: string }) {
-    // payload: { username, password }
-    const { data } = await loginApi(payload)
-    const { access_token, refresh_token, user: userInfo } = data.data
-    localStorage.setItem('accessToken', access_token)
-    localStorage.setItem('refreshToken', refresh_token)
-    if (userInfo?.current_tenant?.id != null) {
-      localStorage.setItem('originalTenantId', String(userInfo.current_tenant.id))
-    }
-    user.value = userInfo
-    isLoggedIn.value = true
-    return userInfo
+  function applyUser(value: User) {
+    user.value = value
+    setCsrfToken(value.csrf_token)
   }
 
-  async function register(username: string, email: string, password: string) {
-    const { data } = await registerApi({ username, email, password })
-    return data.data
+  function clearSession() {
+    user.value = null
+    setCsrfToken(null)
   }
 
   async function fetchUser() {
-    try {
-      const { data } = await getMe()
-      user.value = data.data
-      isLoggedIn.value = true
-      if (!localStorage.getItem('originalTenantId') && user.value?.current_tenant?.id != null) {
-        localStorage.setItem('originalTenantId', String(user.value.current_tenant.id))
-      }
-    } catch {
-      logout()
-    }
+    const { data } = await getMe()
+    applyUser(data.data)
+    return data.data as User
   }
 
-  /**
-   * 切换当前操作的租户。
-   * 拿到新 access token 后替换 localStorage，再 fetchUser() 更新身份。
-   * 调用方负责刷新当前页面数据（或全局 window.location.reload）。
-   */
-  async function switchTenant(tenantId: number) {
-    const { data } = await switchTenantApi(tenantId)
-    const { access_token } = data.data
-    localStorage.setItem('accessToken', access_token)
-    // originalTenantId 不更新，保留登录时进入的租户
+  async function initialize() {
+    if (initialized.value) return
+    if (initializing.value) return initializing.value
+    initializing.value = fetchUser()
+      .then(() => undefined)
+      .catch(() => { clearSession() })
+      .finally(() => {
+        initialized.value = true
+        initializing.value = null
+      })
+    return initializing.value
+  }
+
+  function login() {
+    window.location.assign(LOGIN_URL)
+  }
+
+  function register() {
+    window.location.assign(REGISTER_URL)
+  }
+
+  async function switchTenant(iamTenantId: string) {
+    const { data } = await switchTenantApi(iamTenantId)
+    setCsrfToken(data.data.csrf_token)
     await fetchUser()
   }
 
-  /** 切回用户自己原本归属的租户 */
-  async function resetTenant() {
-    const origId = originalTenantId.value
-    if (origId == null) return
-    await switchTenant(origId)
-  }
-
-  /**
-   * 退出登录：先调后端 logout 把 jti 加黑名单，
-   * 即使后端失败也清本地状态跳登录页。
-   */
   async function logout() {
+    let logoutUrl: string | undefined
     try {
-      if (localStorage.getItem('accessToken')) {
-        await logoutApi()
-      }
+      const { data } = await logoutApi()
+      logoutUrl = data.data?.logout_url
     } catch {
-      // 后端撤销失败也不阻断登出流程
+      // Local state must still be cleared when the server session has expired.
     }
-    localStorage.removeItem('accessToken')
-    localStorage.removeItem('refreshToken')
-    localStorage.removeItem('originalTenantId')
-    user.value = null
-    isLoggedIn.value = false
-    router.push('/login')
+    clearSession()
+    initialized.value = true
+    if (logoutUrl) {
+      window.location.assign(logoutUrl)
+    } else {
+      await router.push('/login')
+    }
   }
 
   return {
-    user, isLoggedIn,
-    isAdmin, isSuperuser, currentTenant, originalTenantId,
-    login, register, fetchUser, logout,
-    switchTenant, resetTenant,
+    user,
+    initialized,
+    isLoggedIn,
+    isAdmin,
+    isSuperuser,
+    currentTenant,
+    tenants,
+    initialize,
+    fetchUser,
+    clearSession,
+    login,
+    register,
+    logout,
+    switchTenant,
   }
 })

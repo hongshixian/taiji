@@ -12,8 +12,8 @@ export default {
   // Login — form panel
   loginKicker: 'Sign in',
   loginTitle: 'Welcome back',
-  loginSubtitle: 'Enter your credentials to access the workspace.',
-  loginButton: 'Sign in',
+  loginSubtitle: 'Sign in securely through Fangcun IAM. Identity tokens are never stored in the browser.',
+  loginButton: 'Continue with IAM',
   noAccount: "Don't have an account?",
   registerLink: 'Sign up',
 
@@ -22,7 +22,7 @@ export default {
   registerBrandTitleLine2: 'make your ',
   registerBrandTitleEm: 'first',
   registerBrandTitleEnd: ' submission.',
-  registerBrandDesc: 'After registering you join the guest tenant by default. A superadmin can add you to other tenants at any time.',
+  registerBrandDesc: 'Fangcun IAM manages your account and creates a personal workspace when you register.',
   registerStep1: 'Fill in username / email / password',
   registerStep2: 'Configure a target model and submit a benchmark evaluation',
   registerStep3: 'View evaluation results and the leaderboard',
@@ -30,8 +30,8 @@ export default {
   // Register — form panel
   registerKicker: 'Sign up',
   registerTitle: 'Create account',
-  registerSubtitle: 'Username 3–80 characters, password at least 6 characters.',
-  registerButton: 'Sign up',
+  registerSubtitle: 'Continue to the identity service to create your account and personal workspace.',
+  registerButton: 'Register with IAM',
   haveAccount: 'Already have an account?',
   loginLink: 'Back to sign in',
 

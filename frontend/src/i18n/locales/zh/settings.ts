@@ -2,7 +2,7 @@ export default {
   // 页头
   kicker: '个人 · 偏好',
   title: '通用设置',
-  subtitle: '外观、安全、关于。修改密码后会自动退出登录。',
+  subtitle: '外观、统一身份账号与项目信息。',
 
   // 外观
   appearanceKicker: '外观',
@@ -14,7 +14,8 @@ export default {
   securityKicker: '安全',
   passwordTitle: '登录密码',
   changePassword: '修改密码',
-  changePasswordDesc: '修改后所有现有 token 立即失效，需要重新登录。',
+  manageAccount: '管理 IAM 账号',
+  changePasswordDesc: '在方寸 IAM 中管理密码、邮箱与其他全局账号资料。',
 
   // 修改密码弹窗
   oldPasswordLabel: '当前密码',
@@ -44,4 +45,5 @@ export default {
   // 提示
   changeSuccess: '密码已修改，即将退出登录',
   changeFailed: '修改失败',
+  accountOpenFailed: '无法打开 IAM 账号管理',
 }

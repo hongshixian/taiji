@@ -3,8 +3,8 @@
  *
  * 用法：
  *   const { has, hasAny, hasAll } = usePermission()
- *   if (has('user:write')) { ... }
- *   v-if="has('role:write')"
+ *   if (has('member:write')) { ... }
+ *   v-if="has('system:audit')"
  */
 
 import { computed } from 'vue'

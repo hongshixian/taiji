@@ -2,7 +2,7 @@ export default {
   // Header
   kicker: 'Personal · Preferences',
   title: 'General settings',
-  subtitle: 'Appearance, security, about. You will be signed out after changing your password.',
+  subtitle: 'Appearance, unified identity account, and project information.',
 
   // Appearance
   appearanceKicker: 'Appearance',
@@ -14,7 +14,8 @@ export default {
   securityKicker: 'Security',
   passwordTitle: 'Login password',
   changePassword: 'Change password',
-  changePasswordDesc: 'All existing tokens are revoked immediately and you must sign in again.',
+  manageAccount: 'Manage IAM account',
+  changePasswordDesc: 'Manage your password, email, and other global account details in Fangcun IAM.',
 
   // Change password dialog
   oldPasswordLabel: 'Current password',
@@ -44,4 +45,5 @@ export default {
   // Toasts
   changeSuccess: 'Password changed. Signing you out…',
   changeFailed: 'Change failed',
+  accountOpenFailed: 'Unable to open IAM account management',
 }

@@ -10,7 +10,9 @@ export function getTenant(tenantId: number) {
 }
 
 export function createTenant(data: Record<string, unknown>) {
-  return request.post('/superadmin/tenants', data)
+  return request.post('/superadmin/tenants', data, {
+    headers: { 'Idempotency-Key': crypto.randomUUID() },
+  })
 }
 
 export function updateTenant(tenantId: number, data: Record<string, unknown>) {
@@ -60,9 +62,4 @@ export function addTenantMember(tenantId: number, data: Record<string, unknown>)
 
 export function removeTenantMember(tenantId: number, userId: number) {
   return request.delete(`/superadmin/tenants/${tenantId}/members/${userId}`)
-}
-
-// ─── 切换当前操作的租户 ─────────────────────────────
-export function switchTenant(tenantId: number) {
-  return request.post('/superadmin/switch-tenant', { tenant_id: tenantId })
 }

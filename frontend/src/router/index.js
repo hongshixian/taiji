@@ -72,13 +72,11 @@ const routes = [
     path: '/users',
     name: 'UserManagement',
     component: () => import('../views/UserManagement.vue'),
-    meta: { requiresAuth: true, requiresPermission: 'user:read' },
+    meta: { requiresAuth: true, requiresPermission: 'member:read', requiresEnterpriseTenant: true },
   },
   {
     path: '/roles',
-    name: 'RoleManagement',
-    component: () => import('../views/RoleManagement.vue'),
-    meta: { requiresAuth: true, requiresPermission: 'role:read' },
+    redirect: '/users',
   },
   {
     path: '/audit-logs',
@@ -113,22 +111,14 @@ const router = createRouter({
 
 router.beforeEach(async (to, _from, next) => {
   const authStore = useAuthStore()
-  const hasToken = !!localStorage.getItem('accessToken')
+  await authStore.initialize()
 
-  if (to.meta.requiresAuth && !hasToken) {
+  if (to.meta.requiresAuth && !authStore.isLoggedIn) {
     return next('/login')
   }
 
-  if (to.meta.guest && hasToken) {
+  if (to.meta.guest && authStore.isLoggedIn) {
     return next('/')
-  }
-
-  if (hasToken && !authStore.user) {
-    try {
-      await authStore.fetchUser()
-    } catch {
-      return next('/login')
-    }
   }
 
   if (to.meta.requiresPermission) {
@@ -139,6 +129,10 @@ router.beforeEach(async (to, _from, next) => {
   }
 
   if (to.meta.requiresSuperuser && !authStore.user?.is_superuser) {
+    return next('/')
+  }
+
+  if (to.meta.requiresEnterpriseTenant && authStore.currentTenant?.type !== 'enterprise') {
     return next('/')
   }
 

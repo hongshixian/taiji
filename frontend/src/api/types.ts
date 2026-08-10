@@ -16,10 +16,24 @@ export interface Paginated<T> {
 // ── 认证 / 用户 ──
 export interface Tenant {
   id: number
+  iam_id?: string
   slug: string
   name: string
+  type?: 'personal' | 'enterprise'
   is_active?: boolean
   is_system?: boolean
+}
+
+export interface TenantOption {
+  id: string
+  local_id?: number | null
+  keycloak_org_id?: string
+  alias?: string
+  name: string
+  tenant_type: 'personal' | 'enterprise'
+  lifecycle_status: string
+  enabled: boolean
+  role: 'tenant_admin' | 'member'
 }
 
 export interface User {
@@ -29,8 +43,12 @@ export interface User {
   role?: string
   is_superuser?: boolean
   is_active?: boolean
+  auth_mode?: 'oidc' | 'legacy'
+  csrf_token?: string
   current_tenant?: Tenant
   memberships?: Array<{ id: number; tenant_name: string; role_name?: string }>
+  tenants?: TenantOption[]
+  permissions?: string[]
   created_at?: string
 }
 
@@ -137,7 +155,7 @@ export interface BenchmarkStats {
   total: number    // 全部状态之和
 }
 
-export type TaskStatus = 'pending' | 'running' | 'success' | 'failed'
+export type TaskStatus = 'pending' | 'running' | 'success' | 'failed' | 'stopped'
 
 export interface BenchmarkTask {
   id: number

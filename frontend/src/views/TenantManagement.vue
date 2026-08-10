@@ -44,7 +44,12 @@
             >
               {{ t('admin.tenantActionSwitch') }}
             </UiButton>
-            <UiButton variant="text" size="sm" @click="openMembersDialog(row)">{{ t('admin.tenantActionMembers') }}</UiButton>
+            <UiButton
+              variant="text"
+              size="sm"
+              :disabled="row.tenant_type === 'personal'"
+              @click="openMembersDialog(row)"
+            >{{ t('admin.tenantActionMembers') }}</UiButton>
             <UiDropdown>
               <template #trigger>
                 <UiButton variant="text" size="sm">
@@ -55,10 +60,10 @@
                 <UiDropdownItem @select="close(); openEditDialog(row)">{{ t('common.edit') }}</UiDropdownItem>
                 <UiDropdownItem
                   danger
-                  :disabled="!!row.is_system"
+                  :disabled="!!row.is_protected || row.tenant_type === 'personal'"
                   @select="close(); handleDelete(row)"
                 >
-                  {{ t('common.delete') }}
+                  {{ t('common.disabled') }}
                 </UiDropdownItem>
               </template>
             </UiDropdown>
@@ -69,15 +74,11 @@
 
     <UiDialog v-model="dialogVisible" :title="editMode ? t('admin.tenantDialogEdit') : t('admin.tenantDialogAdd')" width="480px">
       <div class="flex flex-col gap-4">
-        <UiFormItem :label="t('admin.tenantFieldSlug')" required :error="errors.slug" :hint="editMode ? t('admin.tenantHintSlug') : ''">
-          <UiInput
-            v-model="form.slug"
-            :disabled="editMode"
-            :placeholder="t('admin.tenantPhSlug')"
-          />
-        </UiFormItem>
         <UiFormItem :label="t('admin.tenantFieldName')" required :error="errors.name">
           <UiInput v-model="form.name" :placeholder="t('admin.tenantPhName')" />
+        </UiFormItem>
+        <UiFormItem v-if="!editMode" :label="t('admin.tenantFieldInitialAdmin')" required :error="errors.initial_admin">
+          <UiInput v-model="form.initial_admin" :placeholder="t('admin.tenantPhInitialAdmin')" />
         </UiFormItem>
         <UiFormItem v-if="editMode" :label="t('common.status')">
           <div class="flex items-center gap-2">
@@ -116,7 +117,7 @@
           <span class="t-mono">{{ row.email }}</span>
         </template>
         <template #cell-role="{ row }">
-          <UiBadge tone="neutral">{{ row.role_name || row.role }}</UiBadge>
+          <UiBadge tone="neutral">{{ memberRoleLabel(row) }}</UiBadge>
         </template>
         <template #cell-superuser="{ row }">
           <UiBadge v-if="row.is_superuser" tone="danger">{{ t('common.yes') }}</UiBadge>
@@ -170,10 +171,13 @@ const { t } = useI18n()
 
 interface TenantRow {
   id: number
+  iam_tenant_id?: string
   slug: string
   name: string
   is_active?: boolean
   is_system?: boolean
+  is_protected?: boolean
+  tenant_type?: 'personal' | 'enterprise'
   user_count?: number
   task_count?: number
   created_at?: string
@@ -228,15 +232,15 @@ const addingMember = ref(false)
 const roleOptions = ref<RoleOption[]>([])
 
 const form = reactive({
-  slug: '',
   name: '',
+  initial_admin: '',
   is_active: true,
 })
 const memberForm = reactive({
   identifier: '',
-  role: 'user' as string,
+  role: 'member' as string,
 })
-const errors = reactive({ slug: '', name: '' })
+const errors = reactive({ name: '', initial_admin: '' })
 
 const roleSelectOptions = computed<SelectOption[]>(() =>
   roleOptions.value.map((r) => ({ label: r.description || r.name, value: r.name })),
@@ -246,28 +250,29 @@ function formatTime(iso?: unknown) {
   return iso ? new Date(iso as string).toLocaleString('zh-CN') : ''
 }
 
+function memberRoleLabel(row: Record<string, unknown>) {
+  const value = row as MemberRow
+  const role = value.role_name || value.role
+  if (role === 'tenant_admin') return t('admin.roleAdmin')
+  if (role === 'member') return t('admin.roleUser')
+  return role || t('admin.roleUnknown')
+}
+
 function canSwitchTo(row: Record<string, unknown>) {
   const id = (row as TenantRow).id
-  const memberships = ((authStore.user as { memberships?: unknown[] } | null)?.memberships ?? []) as Array<{
-    tenant_id?: number
-    is_active?: boolean
-  }>
-  return memberships.some((m) => m.tenant_id === id && m.is_active)
+  return authStore.tenants.some((tenant) => tenant.local_id === id && tenant.enabled)
 }
 
 function validate(): boolean {
-  errors.slug = ''
   errors.name = ''
-  if (!editMode.value) {
-    const slug = form.slug.trim()
-    if (!slug) errors.slug = t('admin.tenantValSlugRequired')
-    else if (!/^[a-z0-9-]+$/.test(slug)) errors.slug = t('admin.tenantValSlugFormat')
-    else if (slug.length < 2 || slug.length > 50) errors.slug = t('admin.tenantValSlugLength')
-  }
+  errors.initial_admin = ''
   const name = form.name.trim()
   if (!name) errors.name = t('admin.tenantValNameRequired')
   else if (name.length > 100) errors.name = t('admin.tenantValNameLength')
-  return !errors.slug && !errors.name
+  if (!editMode.value && !form.initial_admin.trim()) {
+    errors.initial_admin = t('admin.tenantValInitialAdminRequired')
+  }
+  return !errors.name && !errors.initial_admin
 }
 
 async function fetchTenants() {
@@ -294,11 +299,11 @@ async function fetchRoles(tenantId: number | null = null) {
 }
 
 function resetForm() {
-  form.slug = ''
   form.name = ''
+  form.initial_admin = ''
   form.is_active = true
-  errors.slug = ''
   errors.name = ''
+  errors.initial_admin = ''
 }
 
 function openCreateDialog() {
@@ -312,11 +317,11 @@ function openEditDialog(row: Record<string, unknown>) {
   const r = row as TenantRow
   editMode.value = true
   editTenantId.value = r.id
-  form.slug = r.slug
   form.name = r.name
+  form.initial_admin = ''
   form.is_active = r.is_active ?? true
-  errors.slug = ''
   errors.name = ''
+  errors.initial_admin = ''
   dialogVisible.value = true
 }
 
@@ -326,10 +331,10 @@ async function handleSubmit() {
   submitting.value = true
   try {
     if (editMode.value) {
-      await updateTenant(editTenantId.value as number, { name: form.name, is_active: form.is_active })
+      await updateTenant(editTenantId.value as number, { name: form.name.trim(), enabled: form.is_active })
       toast.success(t('common.saveSuccess'))
     } else {
-      await createTenant({ slug: form.slug, name: form.name })
+      await createTenant({ name: form.name.trim(), initial_admin: form.initial_admin.trim() })
       toast.success(t('admin.toastCreated'))
     }
     dialogVisible.value = false
@@ -344,7 +349,7 @@ async function handleSubmit() {
 
 async function handleDelete(row: Record<string, unknown>) {
   const r = row as TenantRow
-  if (r.is_system) {
+  if (r.is_protected || r.tenant_type === 'personal') {
     toast.warning(t('admin.tenantSystemCannotDelete'))
     return
   }
@@ -352,12 +357,12 @@ async function handleDelete(row: Record<string, unknown>) {
     title: t('admin.confirmDeleteTitle'),
     message: t('admin.tenantDeleteMsg', { name: r.name, slug: r.slug }),
     tone: 'danger',
-    confirmText: t('common.delete'),
+    confirmText: t('common.disabled'),
   })
   if (!ok) return
   try {
     await deleteTenant(r.id)
-    toast.success(t('common.deleteSuccess'))
+    toast.success(t('admin.tenantDisabled'))
     fetchTenants()
   } catch (err: unknown) {
     const e = err as { response?: { data?: { message?: string } } }
@@ -374,7 +379,8 @@ async function handleSwitchTo(row: Record<string, unknown>) {
   })
   if (!ok) return
   try {
-    await authStore.switchTenant(r.id)
+    if (!r.iam_tenant_id) throw new Error('Tenant is not projected from IAM')
+    await authStore.switchTenant(r.iam_tenant_id)
     toast.success(t('admin.tenantSwitchedTo', { name: r.name }))
     setTimeout(() => window.location.reload(), 300)
   } catch (err: unknown) {
@@ -385,7 +391,7 @@ async function handleSwitchTo(row: Record<string, unknown>) {
 
 function resetMemberForm() {
   memberForm.identifier = ''
-  memberForm.role = 'user'
+  memberForm.role = 'member'
 }
 
 async function openMembersDialog(row: Record<string, unknown>) {

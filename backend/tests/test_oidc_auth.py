@@ -65,6 +65,7 @@ def oidc_app(monkeypatch):
     token = {
         "access_token": "server-only-access-token",
         "refresh_token": "server-only-refresh-token",
+        "id_token": "server-only-id-token",
         "expires_at": 4102444800,
         "userinfo": {
             "sub": "keycloak-sub-alice",
@@ -105,6 +106,7 @@ def test_callback_creates_server_session_and_only_projects_selected_tenant(oidc_
     cookie = response.headers.get("Set-Cookie", "")
     assert "server-only-access-token" not in cookie
     assert "server-only-refresh-token" not in cookie
+    assert "server-only-id-token" not in cookie
     with oidc_app.app_context():
         assert User.query.filter_by(iam_user_id=IAM_USER_ID).count() == 1
         assert Tenant.query.filter_by(iam_tenant_id=PERSONAL_ID).count() == 1
@@ -164,6 +166,22 @@ def test_absolute_session_timeout_fails_closed(oidc_client):
 
     response = oidc_client.get("/api/v1/auth/me")
     assert response.status_code == 401
+
+
+def test_logout_clears_session_and_returns_keycloak_end_session_url(oidc_client):
+    csrf = _login(oidc_client)
+
+    response = oidc_client.post(
+        "/api/v1/auth/logout",
+        headers={"X-CSRF-Token": csrf},
+    )
+
+    assert response.status_code == 200
+    logout_url = response.get_json()["data"]["logout_url"]
+    assert "/protocol/openid-connect/logout?" in logout_url
+    assert "id_token_hint=server-only-id-token" in logout_url
+    assert "post_logout_redirect_uri=" in logout_url
+    assert oidc_client.get("/api/v1/auth/me").status_code == 401
 
 
 def test_runtime_projection_never_claims_unmigrated_local_account(oidc_client, oidc_app):

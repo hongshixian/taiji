@@ -10,7 +10,7 @@ export default {
   models: '模型管理',
   benchmarkAssets: '评测集管理',
   perms: '权限管理',
-  users: '用户管理',
+  users: '成员管理',
   roles: '角色管理',
   audit: '审计日志',
   settings: '通用设置',
@@ -25,7 +25,7 @@ export default {
   toggleLang: '切换语言',
   collapseSidebar: '收起侧边栏',
   expandSidebar: '展开侧边栏',
-  superadmin: '超级管理员',
+  superadmin: '平台管理员',
   normalUser: '普通用户',
   version: 'v0.1',
 }
