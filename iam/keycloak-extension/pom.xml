@@ -15,6 +15,7 @@
         <keycloak.version>26.7.0</keycloak.version>
         <junit.version>5.12.2</junit.version>
         <jnats.version>2.26.1</jnats.version>
+        <bouncycastle.version>1.84</bouncycastle.version>
     </properties>
 
     <dependencies>
@@ -74,6 +75,11 @@
                     <artifactId>jspecify</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk18on</artifactId>
+            <version>${bouncycastle.version}</version>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>

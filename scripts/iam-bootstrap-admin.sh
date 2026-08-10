@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ "${IAM_BOOTSTRAP_ENABLED:-true}" != "true" ]]; then
-  echo "IAM business administrator bootstrap is disabled."
+if [[ "${IAM_BOOTSTRAP_ENABLED:-true}" != "true" \
+      && "${IAM_REALM_RECONCILE_ENABLED:-true}" != "true" ]]; then
+  echo "IAM bootstrap and realm reconciliation are disabled."
   exit 0
 fi
 
@@ -19,6 +20,42 @@ kcadm="/opt/keycloak/bin/kcadm.sh"
   --realm master \
   --user "${infra_user}" \
   --password "${infra_password}" >/dev/null
+
+if [[ "${IAM_REALM_RECONCILE_ENABLED:-true}" == "true" ]]; then
+  "${kcadm}" update users/profile -r "${realm}" \
+    -f /opt/keycloak/conf/taiji/user-profile.json >/dev/null
+  echo "IAM user profile reconciled."
+
+  migrator_secret="${TAIJI_MIGRATOR_CLIENT_SECRET:?missing migrator client secret}"
+  migrator_id="$("${kcadm}" get clients -r "${realm}" \
+    -q clientId=taiji-migrator --fields id --format csv --noquotes | sed -n '1p')"
+  if [[ -z "${migrator_id}" ]]; then
+    "${kcadm}" create clients -r "${realm}" \
+      -s clientId=taiji-migrator \
+      -s 'name=太极一次性 IAM 迁移工具' \
+      -s enabled=true \
+      -s publicClient=false \
+      -s serviceAccountsEnabled=true \
+      -s standardFlowEnabled=false \
+      -s directAccessGrantsEnabled=false \
+      -s "secret=${migrator_secret}" >/dev/null
+    echo "IAM migrator client created."
+  else
+    "${kcadm}" update "clients/${migrator_id}" -r "${realm}" \
+      -s enabled=true \
+      -s publicClient=false \
+      -s serviceAccountsEnabled=true \
+      -s standardFlowEnabled=false \
+      -s directAccessGrantsEnabled=false \
+      -s "secret=${migrator_secret}" >/dev/null
+    echo "IAM migrator client reconciled."
+  fi
+fi
+
+if [[ "${IAM_BOOTSTRAP_ENABLED:-true}" != "true" ]]; then
+  echo "IAM business administrator bootstrap is disabled."
+  exit 0
+fi
 
 realm_attributes="$("${kcadm}" get "realms/${realm}")"
 if grep -Eq '"fc_bootstrap_completed"[[:space:]]*:[[:space:]]*"?true"?' <<<"${realm_attributes}"; then

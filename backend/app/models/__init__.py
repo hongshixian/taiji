@@ -12,6 +12,7 @@ from app.models.benchmark_suite_state import BenchmarkSuiteState
 from app.models.role import Role, Permission, role_permissions
 from app.models.system_setting import SystemSetting
 from app.models.audit_log import AuditLog
+from app.models.iam_migration_record import IamMigrationRecord
 
 __all__ = [
     "Tenant", "TenantMixin",
@@ -21,5 +22,5 @@ __all__ = [
     "ModelConfig",
     "BenchmarkSuiteState",
     "Role", "Permission", "role_permissions",
-    "SystemSetting", "AuditLog",
+    "SystemSetting", "AuditLog", "IamMigrationRecord",
 ]

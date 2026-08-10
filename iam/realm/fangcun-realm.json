@@ -95,6 +95,18 @@
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "implicitFlowEnabled": false
+    },
+    {
+      "clientId": "taiji-migrator",
+      "name": "太极一次性 IAM 迁移工具",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${TAIJI_MIGRATOR_CLIENT_SECRET}",
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false
     }
   ]
 }

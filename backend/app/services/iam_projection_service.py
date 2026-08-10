@@ -54,6 +54,11 @@ def tenant_options(tenants: list[dict]) -> list[dict]:
     return [dict(item, local_id=local.get(item["id"])) for item in tenants]
 
 
+def project_iam_tenant_membership(user: User, payload: dict):
+    """Project one trusted IAM response without committing the caller's transaction."""
+    return _project_tenant_membership(user, payload)
+
+
 def _project_user(userinfo: dict, iam_user_id: str, is_superuser: bool) -> User:
     subject = _required(userinfo, "sub")
     username = userinfo.get("preferred_username") or userinfo.get("username") or subject

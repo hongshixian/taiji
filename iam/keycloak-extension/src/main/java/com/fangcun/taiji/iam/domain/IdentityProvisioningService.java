@@ -34,10 +34,13 @@ import org.keycloak.models.RealmModel;
 import org.keycloak.models.RoleModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.KeycloakSession;
+import org.keycloak.models.credential.PasswordCredentialModel;
 import org.keycloak.organization.InvitationManager;
 import org.keycloak.organization.OrganizationProvider;
+import org.keycloak.common.util.Time;
 
 import com.fangcun.taiji.iam.events.IamEventPublisher;
+import com.fangcun.taiji.iam.password.TaijiLegacyPasswordHashProvider;
 
 public final class IdentityProvisioningService {
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
@@ -46,6 +49,7 @@ public final class IdentityProvisioningService {
     private final RealmModel realm;
     private final OrganizationProvider organizations;
     private final IamEventPublisher publisher;
+    private final Map<String, Map<String, List<String>>> attributeSnapshots = new HashMap<>();
 
     public IdentityProvisioningService(KeycloakSession session) {
         this(session, null);
@@ -101,6 +105,147 @@ public final class IdentityProvisioningService {
     public void provisionRegisteredUser(UserModel user) {
         ensurePersonalTenant(user);
         acceptPendingInvitations(user);
+    }
+
+    public Map<String, Object> migrateUser(
+            String requestedGlobalId,
+            String username,
+            String email,
+            boolean enabled,
+            boolean platformAdmin,
+            boolean linkExisting,
+            String legacyPasswordHash) {
+        String globalId = requireUuid(requestedGlobalId, "user_id");
+        String normalizedUsername = requireText(username, "username", 80);
+        String normalizedEmail = requireText(email, "email", 254);
+        if (!EMAIL_PATTERN.matcher(normalizedEmail).matches()) {
+            throw new IamApiException(400, "validation_error", "email 格式无效");
+        }
+
+        UserModel user = session.users()
+                .searchForUserByUserAttributeStream(realm, USER_GLOBAL_ID, globalId)
+                .findFirst()
+                .orElse(null);
+        boolean linkedExisting = false;
+        if (user == null) {
+            UserModel byUsername = session.users().getUserByUsername(realm, normalizedUsername);
+            UserModel byEmail = session.users().getUserByEmail(realm, normalizedEmail);
+            if (byUsername != null && byEmail != null && !byUsername.getId().equals(byEmail.getId())) {
+                throw new IamApiException(409, "identity_conflict", "用户名和邮箱属于不同 IAM 用户");
+            }
+            user = byUsername != null ? byUsername : byEmail;
+            if (user != null && !linkExisting) {
+                throw new IamApiException(409, "identity_conflict", "IAM 中已存在同名用户，必须显式确认绑定");
+            }
+            if (user != null) {
+                requireHumanUser(user);
+                String existingGlobalId = user.getFirstAttribute(USER_GLOBAL_ID);
+                if (existingGlobalId != null && !existingGlobalId.isBlank()) {
+                    globalId = existingGlobalId;
+                } else {
+                    user.setSingleAttribute(USER_GLOBAL_ID, globalId);
+                }
+                linkedExisting = true;
+            }
+        }
+        boolean created = user == null;
+        if (created) {
+            user = session.users().addUser(realm, normalizedUsername);
+            user.setSingleAttribute(USER_GLOBAL_ID, globalId);
+        }
+        requireHumanUser(user);
+        user.setUsername(normalizedUsername);
+        user.setEmail(normalizedEmail);
+        user.setEmailVerified(false);
+        user.setEnabled(enabled);
+
+        boolean passwordImported = importLegacyPasswordIfMissing(user, legacyPasswordHash);
+        RoleModel role = realm.getRole("platform_admin");
+        if (role == null) {
+            throw new IamApiException(500, "role_configuration_error", "Realm platform_admin 角色缺失");
+        }
+        if (platformAdmin) {
+            user.grantRole(role);
+        } else if (user.hasRole(role)) {
+            user.deleteRoleMapping(role);
+        }
+        OrganizationModel personal = ensurePersonalTenant(user);
+        emit(created ? "iam.user.created.v1" : "iam.user.updated.v1", globalId, Map.of(
+                "enabled", enabled,
+                "migration", true));
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("id", globalId);
+        result.put("keycloak_subject", user.getId());
+        result.put("username", user.getUsername());
+        result.put("created", created);
+        result.put("linked_existing", linkedExisting);
+        result.put("password_imported", passwordImported);
+        result.put("personal_tenant", tenantToMap(personal, TenantRole.TENANT_ADMIN));
+        return result;
+    }
+
+    public Map<String, Object> migrateEnterpriseTenant(
+            String requestedGlobalId, String name, boolean enabled, boolean protectedTenant) {
+        String globalId = requireUuid(requestedGlobalId, "tenant_id");
+        String normalizedName = requireText(name, "name", 100);
+        OrganizationModel organization = organizations.getAllStream()
+                .filter(item -> globalId.equals(attribute(item, TENANT_GLOBAL_ID, null)))
+                .findFirst()
+                .orElse(null);
+        boolean created = organization == null;
+        if (created) {
+            String alias = "enterprise-" + globalId;
+            organization = organizations.getByAlias(alias);
+            if (organization != null) {
+                String existingGlobalId = attribute(organization, TENANT_GLOBAL_ID, null);
+                if (existingGlobalId != null && !globalId.equals(existingGlobalId)) {
+                    throw new IamApiException(409, "identity_conflict", "IAM 租户 alias 已被占用");
+                }
+            } else {
+                organization = organizations.create(normalizedName, alias);
+            }
+        }
+        setAttribute(organization, TENANT_GLOBAL_ID, globalId);
+        setAttribute(organization, TENANT_TYPE, TYPE_ENTERPRISE);
+        setAttribute(organization, TENANT_STATUS, enabled ? STATUS_ACTIVE : STATUS_DISABLED);
+        setAttribute(organization, TENANT_PROTECTED, Boolean.toString(protectedTenant));
+        organization.setName(normalizedName);
+        organization.setEnabled(enabled);
+        emit(created ? "iam.tenant.created.v1" : "iam.tenant.updated.v1", globalId, Map.of(
+                "tenant_type", TYPE_ENTERPRISE,
+                "lifecycle_status", enabled ? STATUS_ACTIVE : STATUS_DISABLED,
+                "migration", true));
+        return tenantToMap(organization, null);
+    }
+
+    public Map<String, Object> migrateMembership(
+            String tenantId, String userId, TenantRole role, boolean active) {
+        OrganizationModel organization = requireTenant(tenantId);
+        requireEnterprise(organization);
+        UserModel user = session.users()
+                .searchForUserByUserAttributeStream(
+                        realm, USER_GLOBAL_ID, requireUuid(userId, "user_id"))
+                .findFirst()
+                .orElseThrow(() -> new IamApiException(404, "user_not_found", "IAM 用户不存在"));
+        requireHumanUser(user);
+        boolean existing = organizations.isMember(organization, user);
+        if (!existing) {
+            organizations.addMember(organization, user);
+        }
+        leaveMembershipGroups(organization, user);
+        if (active) {
+            user.joinGroup(roleGroup(organization, role));
+        } else {
+            user.joinGroup(group(organization, GROUP_DISABLED, null));
+        }
+        emitMembership(
+                active ? (existing ? "iam.membership.updated.v1" : "iam.membership.created.v1")
+                        : "iam.membership.disabled.v1",
+                organization,
+                user,
+                active ? role : null);
+        return memberToMap(organization, user);
     }
 
     public List<Map<String, Object>> listUserTenants(UserModel user) {
@@ -500,6 +645,40 @@ public final class IdentityProvisioningService {
         return byUsername != null ? byUsername : byEmail;
     }
 
+    private boolean importLegacyPasswordIfMissing(UserModel user, String legacyPasswordHash) {
+        if (legacyPasswordHash == null || legacyPasswordHash.isBlank()) {
+            return false;
+        }
+        if (!TaijiLegacyPasswordHashProvider.isSupportedFormat(legacyPasswordHash)) {
+            throw new IamApiException(400, "legacy_hash_invalid", "旧密码哈希格式不受支持");
+        }
+        boolean hasPassword = user.credentialManager()
+                .getStoredCredentialsByTypeStream(PasswordCredentialModel.TYPE)
+                .findAny()
+                .isPresent();
+        if (hasPassword) {
+            return false;
+        }
+        PasswordCredentialModel credential = PasswordCredentialModel.createFromValues(
+                TaijiLegacyPasswordHashProvider.ID,
+                new byte[0],
+                0,
+                legacyPasswordHash);
+        credential.setCreatedDate(Time.currentTimeMillis());
+        credential.setUserLabel("Migrated from Taiji");
+        user.credentialManager().createStoredCredential(credential);
+        return true;
+    }
+
+    private String requireUuid(String value, String field) {
+        String normalized = requireText(value, field, 36);
+        try {
+            return UUID.fromString(normalized).toString();
+        } catch (IllegalArgumentException error) {
+            throw new IamApiException(400, "validation_error", field + " 必须是 UUID");
+        }
+    }
+
     private void requireHumanUser(UserModel user) {
         if (user.getServiceAccountClientLink() != null) {
             throw new IamApiException(409, "service_account_forbidden", "服务账号不能加入业务租户");
@@ -538,20 +717,26 @@ public final class IdentityProvisioningService {
     }
 
     private String attribute(OrganizationModel organization, String name, String defaultValue) {
-        List<String> values = organization.getAttributes().get(name);
+        List<String> values = attributes(organization).get(name);
         return values == null || values.isEmpty() ? defaultValue : values.getFirst();
     }
 
     private void setAttribute(OrganizationModel organization, String name, String value) {
-        Map<String, List<String>> attributes = new HashMap<>(organization.getAttributes());
+        Map<String, List<String>> attributes = new HashMap<>(attributes(organization));
         attributes.put(name, List.of(value));
         organization.setAttributes(attributes);
+        attributeSnapshots.put(organization.getId(), attributes);
     }
 
     private void removeAttribute(OrganizationModel organization, String name) {
-        Map<String, List<String>> attributes = new HashMap<>(organization.getAttributes());
+        Map<String, List<String>> attributes = new HashMap<>(attributes(organization));
         attributes.remove(name);
         organization.setAttributes(attributes);
+        attributeSnapshots.put(organization.getId(), attributes);
+    }
+
+    private Map<String, List<String>> attributes(OrganizationModel organization) {
+        return attributeSnapshots.getOrDefault(organization.getId(), organization.getAttributes());
     }
 
     private String stableTenantId(OrganizationModel organization) {

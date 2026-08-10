@@ -1,6 +1,6 @@
 # 太极 (Taiji) Makefile
 
-.PHONY: dev test build up down clean iam-build iam-test iam-up iam-down iam-smoke iam-integration-test iam-bootstrap-password
+.PHONY: dev test build up down clean iam-build iam-test iam-up iam-down iam-smoke iam-integration-test iam-migration-integration-test iam-bootstrap-password
 
 # 开发模式 — 同时启动 Flask + Vite
 dev:
@@ -44,6 +44,9 @@ iam-smoke:
 
 iam-integration-test:
 	./scripts/iam-integration-test.sh
+
+iam-migration-integration-test:
+	./scripts/iam-migration-integration-test.sh
 
 iam-bootstrap-password:
 	docker compose logs --no-log-prefix iam-bootstrap

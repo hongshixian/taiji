@@ -46,6 +46,16 @@ make iam-test
 
 Maven 依赖保存在 Docker 命名卷 `taiji_maven_cache`，重复测试不会重新下载全部依赖。完整 Keycloak 镜像构建还会执行相同的 `mvn verify`，随后运行 `kc.sh build` 验证 SPI 能被 Keycloak 发现。
 
+## 旧数据迁移
+
+迁移默认只做只读预检，一次性迁移端点在日常运行时保持关闭。执行顺序、安全要求、续跑和回滚步骤见 [`docs/operations/iam-migration.md`](../docs/operations/iam-migration.md)。
+
+隔离测试环境可运行真实旧密码换密验证：
+
+```bash
+make iam-migration-integration-test
+```
+
 ## 生产约束
 
 - 禁止使用 `.env.example` 中的任何默认密码或 Secret。

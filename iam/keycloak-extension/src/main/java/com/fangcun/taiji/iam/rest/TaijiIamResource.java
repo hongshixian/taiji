@@ -13,6 +13,7 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
@@ -203,13 +204,71 @@ public final class TaijiIamResource {
         });
     }
 
+    @PUT
+    @Path("v1/migration/users/{userId}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response migrateUser(
+            @PathParam("userId") String userId, MigrateUserRequest request) {
+        return execute(() -> {
+            requireMigrator();
+            if (request == null) {
+                throw new IamApiException(400, "empty_body", "请求体不能为空");
+            }
+            return Response.ok(service().migrateUser(
+                    userId,
+                    request.username(),
+                    request.email(),
+                    request.enabled(),
+                    request.platformAdmin(),
+                    request.linkExisting(),
+                    request.legacyPasswordHash())).build();
+        });
+    }
+
+    @PUT
+    @Path("v1/migration/tenants/{tenantId}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response migrateTenant(
+            @PathParam("tenantId") String tenantId, MigrateTenantRequest request) {
+        return execute(() -> {
+            requireMigrator();
+            if (request == null) {
+                throw new IamApiException(400, "empty_body", "请求体不能为空");
+            }
+            return Response.ok(service().migrateEnterpriseTenant(
+                    tenantId,
+                    request.name(),
+                    request.enabled(),
+                    request.protectedTenant())).build();
+        });
+    }
+
+    @PUT
+    @Path("v1/migration/tenants/{tenantId}/members/{userId}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response migrateMembership(
+            @PathParam("tenantId") String tenantId,
+            @PathParam("userId") String userId,
+            MigrateMembershipRequest request) {
+        return execute(() -> {
+            requireMigrator();
+            if (request == null) {
+                throw new IamApiException(400, "empty_body", "请求体不能为空");
+            }
+            return Response.ok(service().migrateMembership(
+                    tenantId,
+                    userId,
+                    TenantRole.fromApiValue(request.role()),
+                    request.active())).build();
+        });
+    }
+
     private IdentityProvisioningService service() {
         return new IdentityProvisioningService(session, publisher);
     }
 
     private UserModel requireActor() {
-        AuthenticationManager.AuthResult auth =
-                new AppAuthManager.BearerTokenAuthenticator(session).authenticate();
+        AuthenticationManager.AuthResult auth = authenticate();
         if (auth == null || auth.user() == null || auth.client() == null) {
             throw new IamApiException(401, "unauthorized", "需要有效 Bearer Token");
         }
@@ -220,6 +279,27 @@ public final class TaijiIamResource {
             throw new IamApiException(403, "account_disabled", "账号已停用");
         }
         return auth.user();
+    }
+
+    private void requireMigrator() {
+        if (!Boolean.parseBoolean(System.getenv().getOrDefault("IAM_MIGRATION_ENABLED", "false"))) {
+            throw new IamApiException(404, "migration_disabled", "迁移端点未启用");
+        }
+        AuthenticationManager.AuthResult auth = authenticate();
+        if (!"taiji-migrator".equals(auth.client().getClientId())
+                || auth.user().getServiceAccountClientLink() == null
+                || !auth.client().getId().equals(auth.user().getServiceAccountClientLink())) {
+            throw new IamApiException(403, "migrator_required", "只允许专用迁移服务账号调用");
+        }
+    }
+
+    private AuthenticationManager.AuthResult authenticate() {
+        AuthenticationManager.AuthResult auth =
+                new AppAuthManager.BearerTokenAuthenticator(session).authenticate();
+        if (auth == null || auth.user() == null || auth.client() == null) {
+            throw new IamApiException(401, "unauthorized", "需要有效 Bearer Token");
+        }
+        return auth;
     }
 
     private UserModel requirePlatformAdmin() {
@@ -272,5 +352,20 @@ public final class TaijiIamResource {
     }
 
     public record UpdateMemberRequest(String role, Boolean active) {
+    }
+
+    public record MigrateUserRequest(
+            String username,
+            String email,
+            boolean enabled,
+            boolean platformAdmin,
+            boolean linkExisting,
+            String legacyPasswordHash) {
+    }
+
+    public record MigrateTenantRequest(String name, boolean enabled, boolean protectedTenant) {
+    }
+
+    public record MigrateMembershipRequest(String role, boolean active) {
     }
 }

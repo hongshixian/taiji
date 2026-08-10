@@ -86,6 +86,8 @@ services:
       - TAIJI_PUBLIC_URL=${TAIJI_PUBLIC_URL:-http://localhost:8080}
       - TAIJI_OIDC_CLIENT_SECRET=${TAIJI_OIDC_CLIENT_SECRET:-taiji-web-dev-secret}
       - TAIJI_RECONCILER_CLIENT_SECRET=${TAIJI_RECONCILER_CLIENT_SECRET:-taiji-reconciler-dev-secret}
+      - TAIJI_MIGRATOR_CLIENT_SECRET=${TAIJI_MIGRATOR_CLIENT_SECRET:-taiji-migrator-dev-secret}
+      - IAM_MIGRATION_ENABLED=${IAM_MIGRATION_ENABLED:-false}
       - NATS_URL=nats://${NATS_USER:-taiji}:${NATS_PASSWORD:-taiji_nats_dev}@nats:4222
     depends_on:
       keycloak-db-init:
@@ -118,11 +120,13 @@ services:
     entrypoint: ["/opt/keycloak/bin/taiji-iam-bootstrap.sh"]
     environment:
       - IAM_BOOTSTRAP_ENABLED=${IAM_BOOTSTRAP_ENABLED:-true}
+      - IAM_REALM_RECONCILE_ENABLED=${IAM_REALM_RECONCILE_ENABLED:-true}
       - IAM_REALM=fangcun
       - IAM_BOOTSTRAP_ADMIN_EMAIL=${IAM_BOOTSTRAP_ADMIN_EMAIL:-admin@taiji.local}
       - KEYCLOAK_INTERNAL_URL=http://keycloak:8080
       - KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME=${KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:-kcadmin}
       - KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD=${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:-dev-only-change-me}
+      - TAIJI_MIGRATOR_CLIENT_SECRET=${TAIJI_MIGRATOR_CLIENT_SECRET:-taiji-migrator-dev-secret}
     depends_on:
       keycloak:
         condition: service_healthy
@@ -145,6 +149,7 @@ services:
       - TAIJI_PUBLIC_URL=${TAIJI_PUBLIC_URL:-http://localhost:8080}
       - TAIJI_OIDC_CLIENT_ID=taiji-web
       - TAIJI_OIDC_CLIENT_SECRET=${TAIJI_OIDC_CLIENT_SECRET:-taiji-web-dev-secret}
+      - TAIJI_MIGRATOR_CLIENT_SECRET=${TAIJI_MIGRATOR_CLIENT_SECRET:-taiji-migrator-dev-secret}
       - IAM_IDENTITY_CACHE_SECONDS=${IAM_IDENTITY_CACHE_SECONDS:-300}
       - SESSION_IDLE_SECONDS=${SESSION_IDLE_SECONDS:-7200}
       - SESSION_ABSOLUTE_SECONDS=${SESSION_ABSOLUTE_SECONDS:-86400}

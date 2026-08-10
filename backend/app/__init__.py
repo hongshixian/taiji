@@ -136,6 +136,9 @@ def create_app(config_obj=Config):
     # 注册错误处理器
     register_error_handlers(flask_app)
 
+    from app.cli.iam_migration import register_commands
+    register_commands(flask_app)
+
     # ── 限流超出处理器 ──────────────────────────────────────
     @flask_app.errorhandler(429)
     def ratelimit_error(e):

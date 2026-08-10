@@ -42,6 +42,10 @@ class Config:
                 raise RuntimeError(
                     "生产环境禁止使用默认 TAIJI_OIDC_CLIENT_SECRET，请配置随机强密钥"
                 )
+            if cls.IAM_MIGRATOR_CLIENT_SECRET == "taiji-migrator-dev-secret":
+                raise RuntimeError(
+                    "生产环境禁止使用默认 TAIJI_MIGRATOR_CLIENT_SECRET，请配置随机强密钥"
+                )
 
     # 数据库 (默认 SQLite, 生产用 PostgreSQL)
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "sqlite:///data/taiji.db")
@@ -62,6 +66,11 @@ class Config:
     IAM_INTERNAL_URL = os.getenv("IAM_INTERNAL_URL", IAM_PUBLIC_URL).rstrip("/")
     OIDC_CLIENT_ID = os.getenv("TAIJI_OIDC_CLIENT_ID", "taiji-web")
     OIDC_CLIENT_SECRET = os.getenv("TAIJI_OIDC_CLIENT_SECRET", "taiji-web-dev-secret")
+    IAM_MIGRATOR_CLIENT_ID = os.getenv("TAIJI_MIGRATOR_CLIENT_ID", "taiji-migrator")
+    IAM_MIGRATOR_CLIENT_SECRET = os.getenv(
+        "TAIJI_MIGRATOR_CLIENT_SECRET", "taiji-migrator-dev-secret"
+    )
+    ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
     TAIJI_PUBLIC_URL = os.getenv("TAIJI_PUBLIC_URL", "http://localhost:8080").rstrip("/")
     OIDC_POST_LOGIN_PATH = os.getenv("OIDC_POST_LOGIN_PATH", "/")
     IAM_IDENTITY_CACHE_SECONDS = int(os.getenv("IAM_IDENTITY_CACHE_SECONDS", "300"))
