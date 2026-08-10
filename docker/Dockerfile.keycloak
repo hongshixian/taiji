@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1.7
+
+ARG KEYCLOAK_VERSION=26.7.0
+
+FROM maven:3.9.11-eclipse-temurin-21 AS extension-build
+WORKDIR /build
+
+COPY iam/keycloak-extension/pom.xml ./pom.xml
+COPY iam/keycloak-extension/src ./src
+RUN --mount=type=cache,target=/root/.m2 mvn --batch-mode verify
+
+FROM quay.io/keycloak/keycloak:${KEYCLOAK_VERSION} AS keycloak-build
+
+ENV KC_DB=postgres \
+    KC_FEATURES=organization:v1 \
+    KC_HEALTH_ENABLED=true \
+    KC_METRICS_ENABLED=true
+
+COPY --from=extension-build /build/target/taiji-keycloak-extension.jar /opt/keycloak/providers/taiji-keycloak-extension.jar
+RUN /opt/keycloak/bin/kc.sh build
+
+FROM quay.io/keycloak/keycloak:${KEYCLOAK_VERSION}
+
+COPY --from=keycloak-build /opt/keycloak/ /opt/keycloak/
+COPY --chown=keycloak:root iam/realm/ /opt/keycloak/data/import/
+COPY --chown=keycloak:root iam/themes/ /opt/keycloak/themes/
+
+ENTRYPOINT ["/opt/keycloak/bin/kc.sh"]

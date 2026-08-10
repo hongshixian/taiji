@@ -1,0 +1,100 @@
+{
+  "realm": "fangcun",
+  "displayName": "方寸 IAM",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": false,
+  "rememberMe": true,
+  "verifyEmail": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "editUsernameAllowed": false,
+  "resetPasswordAllowed": true,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "ssoSessionIdleTimeout": 7200,
+  "ssoSessionMaxLifespan": 86400,
+  "accessTokenLifespan": 300,
+  "organizationsEnabled": true,
+  "loginTheme": "taiji",
+  "eventsEnabled": true,
+  "eventsExpiration": 604800,
+  "eventsListeners": [
+    "jboss-logging",
+    "taiji-iam-events"
+  ],
+  "adminEventsEnabled": true,
+  "adminEventsDetailsEnabled": false,
+  "passwordPolicy": "length(12) and digits(1) and lowerCase(1) and upperCase(1) and specialChars(1) and notUsername(undefined)",
+  "roles": {
+    "realm": [
+      {
+        "name": "platform_admin",
+        "description": "方寸平台超级管理员"
+      },
+      {
+        "name": "tenant_admin",
+        "description": "租户管理员"
+      },
+      {
+        "name": "member",
+        "description": "租户标准成员"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "taiji-web",
+      "name": "太极 Web BFF",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${TAIJI_OIDC_CLIENT_SECRET}",
+      "publicClient": false,
+      "serviceAccountsEnabled": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "frontchannelLogout": false,
+      "redirectUris": [
+        "${TAIJI_PUBLIC_URL}/api/v1/auth/callback"
+      ],
+      "webOrigins": [
+        "${TAIJI_PUBLIC_URL}"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "${TAIJI_PUBLIC_URL}/*"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "basic",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "organization"
+      ]
+    },
+    {
+      "clientId": "taiji-reconciler",
+      "name": "太极 IAM 对账服务",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${TAIJI_RECONCILER_CLIENT_SECRET}",
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false
+    }
+  ]
+}

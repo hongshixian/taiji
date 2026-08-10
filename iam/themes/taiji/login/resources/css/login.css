@@ -1,0 +1,31 @@
+:root {
+  --fc-violet: #6d4aff;
+  --fc-ink: #1f2430;
+  --fc-surface: #ffffff;
+  --fc-border: #d9dce5;
+}
+
+body {
+  background: #f5f6f8;
+  color: var(--fc-ink);
+  letter-spacing: 0;
+}
+
+.login-pf-page .card-pf,
+.pf-v5-c-login__main,
+.pf-c-login__main {
+  border: 1px solid var(--fc-border);
+  border-radius: 6px;
+  box-shadow: 0 12px 32px rgba(31, 36, 48, 0.1);
+}
+
+.pf-v5-c-button.pf-m-primary,
+.pf-c-button.pf-m-primary {
+  background: var(--fc-violet);
+  border-radius: 4px;
+}
+
+.pf-v5-c-form-control:focus,
+.pf-c-form-control:focus {
+  border-color: var(--fc-violet);
+}

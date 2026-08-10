@@ -15,6 +15,26 @@ services:
       retries: 10
     restart: unless-stopped
 
+  # ─── Keycloak 逻辑数据库初始化 ─────────────────
+  keycloak-db-init:
+    image: postgres:16-alpine
+    environment:
+      - PGHOST=postgres
+      - PGUSER=${POSTGRES_USER:-taiji}
+      - PGPASSWORD=${POSTGRES_PASSWORD:-taiji_pw}
+      - KEYCLOAK_DB=${KEYCLOAK_DB:-keycloak}
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        if [ "$$(psql -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$${KEYCLOAK_DB}'")" != "1" ]; then
+          createdb "$${KEYCLOAK_DB}"
+        fi
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
   # ─── Redis ─────────────────────────────────────
   redis:
     image: redis:7-alpine
@@ -23,6 +43,67 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    restart: unless-stopped
+
+  # ─── IAM 事件总线 ──────────────────────────────
+  nats:
+    image: nats:2.11.8-alpine
+    command: ["--config", "/etc/nats/nats.conf"]
+    environment:
+      - NATS_USER=${NATS_USER:-taiji}
+      - NATS_PASSWORD=${NATS_PASSWORD:-taiji_nats_dev}
+    volumes:
+      - ./docker/nats/nats.conf:/etc/nats/nats.conf:ro
+      - nats_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 4222"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # ─── Keycloak IAM ──────────────────────────────
+  keycloak:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.keycloak
+      args:
+        KEYCLOAK_VERSION: ${KEYCLOAK_VERSION:-26.7.0}
+    command: ["start-dev", "--import-realm"]
+    environment:
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://postgres:5432/${KEYCLOAK_DB:-keycloak}
+      - KC_DB_USERNAME=${POSTGRES_USER:-taiji}
+      - KC_DB_PASSWORD=${POSTGRES_PASSWORD:-taiji_pw}
+      - KC_HTTP_ENABLED=true
+      - KC_HEALTH_ENABLED=true
+      - KC_METRICS_ENABLED=true
+      - KC_FEATURES=organization:v1
+      - KC_HOSTNAME=${IAM_PUBLIC_URL:-http://localhost:8180}
+      - KC_BOOTSTRAP_ADMIN_USERNAME=${KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:-kcadmin}
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:-dev-only-change-me}
+      - TAIJI_PUBLIC_URL=${TAIJI_PUBLIC_URL:-http://localhost:8080}
+      - TAIJI_OIDC_CLIENT_SECRET=${TAIJI_OIDC_CLIENT_SECRET:-taiji-web-dev-secret}
+      - TAIJI_RECONCILER_CLIENT_SECRET=${TAIJI_RECONCILER_CLIENT_SECRET:-taiji-reconciler-dev-secret}
+      - NATS_URL=nats://${NATS_USER:-taiji}:${NATS_PASSWORD:-taiji_nats_dev}@nats:4222
+    depends_on:
+      keycloak-db-init:
+        condition: service_completed_successfully
+      nats:
+        condition: service_healthy
+    ports:
+      - "${KEYCLOAK_PORT:-8180}:8080"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/9000 &&
+          printf 'GET /health/ready HTTP/1.1\r\nhost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          grep -q '200 OK' <&3
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
     restart: unless-stopped
 
   # ─── Flask 后端 ────────────────────────────────
@@ -101,3 +182,6 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+
+volumes:
+  nats_data:
