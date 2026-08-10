@@ -68,8 +68,10 @@ public final class TaijiIamResource {
         return execute(() -> {
             UserModel actor = requireActor();
             IdentityProvisioningService service = service();
+            RoleModel platformRole = session.getContext().getRealm().getRole(PLATFORM_ADMIN);
             return Response.ok(Map.of(
                     "user_id", service.ensureStableUserId(actor),
+                    "platform_admin", platformRole != null && actor.hasRole(platformRole),
                     "tenants", service.listUserTenants(actor)
             )).build();
         });

@@ -1,7 +1,7 @@
 """管理员接口（需相应权限）"""
 
 from flask import Blueprint, request
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from app.auth_context import current_user_id, login_required
 
 from app.services.auth_service import (
     list_users,
@@ -23,7 +23,7 @@ admin_bp = Blueprint("admin", __name__)
 
 
 @admin_bp.route("/users", methods=["GET"])
-@jwt_required()
+@login_required()
 @require_permission(Permission.USER_READ)
 def get_users():
     page = request.args.get("page", 1, type=int)
@@ -33,7 +33,7 @@ def get_users():
 
 
 @admin_bp.route("/users/<int:user_id>", methods=["GET"])
-@jwt_required()
+@login_required()
 @require_permission(Permission.USER_READ)
 def get_user(user_id):
     user = get_user_by_id(user_id)
@@ -43,7 +43,7 @@ def get_user(user_id):
 
 
 @admin_bp.route("/users", methods=["POST"])
-@jwt_required()
+@login_required()
 @require_permission(Permission.USER_WRITE)
 @limiter.limit("20 per minute")
 def add_user():
@@ -68,7 +68,7 @@ def add_user():
 
 
 @admin_bp.route("/users/<int:user_id>", methods=["PUT"])
-@jwt_required()
+@login_required()
 @require_permission(Permission.USER_WRITE)
 def edit_user(user_id):
     data = request.get_json()
@@ -84,18 +84,17 @@ def edit_user(user_id):
 
 
 @admin_bp.route("/users/<int:user_id>", methods=["DELETE"])
-@jwt_required()
+@login_required()
 @require_permission(Permission.USER_DELETE)
 def remove_user(user_id):
-    current_user_id = int(get_jwt_identity())
-    delete_user(user_id, current_user_id)
+    delete_user(user_id, current_user_id())
     return ok(message="已删除")
 
 
 # ─── 角色管理 ──────────────────────────────────────
 
 @admin_bp.route("/roles", methods=["GET"])
-@jwt_required()
+@login_required()
 @require_permission(Permission.ROLE_READ)
 def get_roles():
     from app.services.role_service import list_roles
@@ -103,7 +102,7 @@ def get_roles():
 
 
 @admin_bp.route("/roles/permissions", methods=["GET"])
-@jwt_required()
+@login_required()
 @require_permission(Permission.ROLE_READ)
 def get_all_permissions():
     """列出系统所有权限码（用于角色编辑页面）"""
@@ -112,7 +111,7 @@ def get_all_permissions():
 
 
 @admin_bp.route("/roles/<int:role_id>", methods=["GET"])
-@jwt_required()
+@login_required()
 @require_permission(Permission.ROLE_READ)
 def get_role(role_id):
     from app.services.role_service import get_role as get_role_svc, role_to_dict
@@ -120,7 +119,7 @@ def get_role(role_id):
 
 
 @admin_bp.route("/roles", methods=["POST"])
-@jwt_required()
+@login_required()
 @require_permission(Permission.ROLE_WRITE)
 @limiter.limit("20 per minute")
 def add_role():
@@ -140,7 +139,7 @@ def add_role():
 
 
 @admin_bp.route("/roles/<int:role_id>", methods=["PUT"])
-@jwt_required()
+@login_required()
 @require_permission(Permission.ROLE_WRITE)
 def edit_role(role_id):
     from app.services.role_service import update_role, role_to_dict
@@ -152,7 +151,7 @@ def edit_role(role_id):
 
 
 @admin_bp.route("/roles/<int:role_id>", methods=["DELETE"])
-@jwt_required()
+@login_required()
 @require_permission(Permission.ROLE_DELETE)
 def remove_role(role_id):
     from app.services.role_service import delete_role

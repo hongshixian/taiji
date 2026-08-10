@@ -1,7 +1,7 @@
 """模型配置接口（租户隔离，需相应权限）"""
 
 from flask import Blueprint, request
-from flask_jwt_extended import jwt_required, get_jwt
+from app.auth_context import current_claims, login_required
 
 from app import limiter
 from app.permissions import Permission
@@ -24,7 +24,7 @@ _PROTOCOLS = ("openai", "anthropic", "gemini", "ollama", "custom", "mockllm")
 
 
 @model_config_bp.route("/", methods=["GET"])
-@jwt_required()
+@login_required()
 @require_permission(Permission.MODEL_READ)
 def get_model_configs():
     page = request.args.get("page", 1, type=int)
@@ -40,7 +40,7 @@ def get_model_configs():
 
 
 @model_config_bp.route("/<int:config_id>", methods=["GET"])
-@jwt_required()
+@login_required()
 @require_permission(Permission.MODEL_READ)
 def get_model_config(config_id):
     m = get_model_config_or_404(config_id)
@@ -48,12 +48,11 @@ def get_model_config(config_id):
 
 
 @model_config_bp.route("/", methods=["POST"])
-@jwt_required()
+@login_required()
 @require_permission(Permission.MODEL_WRITE)
 @limiter.limit("30 per minute")
 def add_model_config():
-    from flask_jwt_extended import get_jwt
-    claims = get_jwt()
+    claims = current_claims()
     tenant_id = claims.get("tenant_id")
 
     data = request.get_json() or {}
@@ -89,7 +88,7 @@ def add_model_config():
 
 
 @model_config_bp.route("/<int:config_id>", methods=["PUT"])
-@jwt_required()
+@login_required()
 @require_permission(Permission.MODEL_WRITE)
 def edit_model_config(config_id):
     data = request.get_json() or {}
@@ -106,7 +105,7 @@ def edit_model_config(config_id):
 
 
 @model_config_bp.route("/<int:config_id>", methods=["DELETE"])
-@jwt_required()
+@login_required()
 @require_permission(Permission.MODEL_DELETE)
 def remove_model_config(config_id):
     delete_model_config(config_id)
@@ -114,7 +113,7 @@ def remove_model_config(config_id):
 
 
 @model_config_bp.route("/<int:config_id>/test", methods=["POST"])
-@jwt_required()
+@login_required()
 @require_permission(Permission.MODEL_READ)
 @limiter.limit("10 per minute")
 def test_model(config_id):

@@ -7,6 +7,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+def _env_bool(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 class Config:
     """基础配置"""
 
@@ -26,10 +33,14 @@ class Config:
                     "生产环境禁止使用默认 SECRET_KEY，"
                     "请设置环境变量 SECRET_KEY 为随机强密钥"
                 )
-            if cls.JWT_SECRET_KEY in cls._INSECURE_SECRETS:
+            if cls.AUTH_MODE == "legacy" and cls.JWT_SECRET_KEY in cls._INSECURE_SECRETS:
                 raise RuntimeError(
                     "生产环境禁止使用默认 JWT_SECRET_KEY，"
                     "请设置环境变量 JWT_SECRET_KEY 为随机强密钥"
+                )
+            if cls.AUTH_MODE == "oidc" and cls.OIDC_CLIENT_SECRET == "taiji-web-dev-secret":
+                raise RuntimeError(
+                    "生产环境禁止使用默认 TAIJI_OIDC_CLIENT_SECRET，请配置随机强密钥"
                 )
 
     # 数据库 (默认 SQLite, 生产用 PostgreSQL)
@@ -43,6 +54,32 @@ class Config:
     CELERY_ACCEPT_CONTENT = ["json"]
     CELERY_TASK_SERIALIZER = "json"
     CELERY_RESULT_SERIALIZER = "json"
+
+    # IAM / OIDC BFF
+    AUTH_MODE = os.getenv("AUTH_MODE", "legacy")
+    IAM_REALM = os.getenv("IAM_REALM", "fangcun")
+    IAM_PUBLIC_URL = os.getenv("IAM_PUBLIC_URL", "http://localhost:8180").rstrip("/")
+    IAM_INTERNAL_URL = os.getenv("IAM_INTERNAL_URL", IAM_PUBLIC_URL).rstrip("/")
+    OIDC_CLIENT_ID = os.getenv("TAIJI_OIDC_CLIENT_ID", "taiji-web")
+    OIDC_CLIENT_SECRET = os.getenv("TAIJI_OIDC_CLIENT_SECRET", "taiji-web-dev-secret")
+    TAIJI_PUBLIC_URL = os.getenv("TAIJI_PUBLIC_URL", "http://localhost:8080").rstrip("/")
+    OIDC_POST_LOGIN_PATH = os.getenv("OIDC_POST_LOGIN_PATH", "/")
+    IAM_IDENTITY_CACHE_SECONDS = int(os.getenv("IAM_IDENTITY_CACHE_SECONDS", "300"))
+
+    # Redis server-side browser session
+    SESSION_TYPE = "redis"
+    SESSION_KEY_PREFIX = os.getenv("SESSION_KEY_PREFIX", "taiji:session:")
+    SESSION_ID_LENGTH = 32
+    SESSION_SERIALIZATION_FORMAT = "json"
+    SESSION_PERMANENT = True
+    SESSION_REFRESH_EACH_REQUEST = True
+    SESSION_IDLE_SECONDS = int(os.getenv("SESSION_IDLE_SECONDS", "7200"))
+    SESSION_ABSOLUTE_SECONDS = int(os.getenv("SESSION_ABSOLUTE_SECONDS", "86400"))
+    SESSION_COOKIE_NAME = os.getenv("SESSION_COOKIE_NAME", "taiji_session")
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", FLASK_ENV == "production")
+    SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
+    SESSION_COOKIE_PATH = "/"
 
     # JWT
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "jwt-dev-secret-change-me-32bytes!")
@@ -71,6 +108,8 @@ class Config:
 class TestConfig(Config):
     """测试配置"""
     TESTING = True
+    FLASK_ENV = "testing"
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     CELERY_TASK_ALWAYS_EAGER = True
     TASK_LOG_ROOT = os.getenv("TASK_LOG_ROOT", "/tmp/taiji_test_logs")
+    AUTH_MODE = "legacy"

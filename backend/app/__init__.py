@@ -1,7 +1,13 @@
 """Flask 应用工厂"""
 
-from flask import Flask, jsonify, g, request
+from datetime import timedelta
+import hmac
+import time
+
+from authlib.integrations.flask_client import OAuth
+from flask import Flask, jsonify, g, request, session
 from flask_cors import CORS
+from flask_session import Session
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_jwt_extended import JWTManager, verify_jwt_in_request, get_jwt
@@ -21,12 +27,14 @@ def _get_client_ip():
     return request.remote_addr or "127.0.0.1"
 
 from config import Config
-from app.utils.errors import register_error_handlers, ErrorCode, _err_response
+from app.utils.errors import BusinessError, register_error_handlers, ErrorCode, _err_response
 
 # 扩展实例（先创建，后续 init_app）
 db = SQLAlchemy()
 migrate = Migrate()
 jwt = JWTManager()
+server_session = Session()
+oauth = OAuth()
 limiter = Limiter(
     key_func=_get_client_ip,
     default_limits=[],  # 不用全局默认限制，由各路由自行声明
@@ -76,6 +84,41 @@ def create_app(config_obj=Config):
             cur.close()
 
     jwt.init_app(flask_app)
+    if flask_app.config.get("AUTH_MODE") == "oidc":
+        if flask_app.config.get("SESSION_TYPE") == "redis":
+            from redis import Redis
+
+            flask_app.config["SESSION_REDIS"] = Redis.from_url(
+                flask_app.config["REDIS_URL"],
+                socket_connect_timeout=2,
+                socket_timeout=2,
+                health_check_interval=30,
+            )
+        flask_app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(
+            seconds=flask_app.config["SESSION_IDLE_SECONDS"]
+        )
+        server_session.init_app(flask_app)
+        oauth.init_app(flask_app)
+        realm = flask_app.config["IAM_REALM"]
+        public_realm = f"{flask_app.config['IAM_PUBLIC_URL']}/realms/{realm}"
+        internal_realm = f"{flask_app.config['IAM_INTERNAL_URL']}/realms/{realm}"
+        oauth.register(
+            name="keycloak",
+            client_id=flask_app.config["OIDC_CLIENT_ID"],
+            client_secret=flask_app.config["OIDC_CLIENT_SECRET"],
+            authorize_url=f"{public_realm}/protocol/openid-connect/auth",
+            access_token_url=f"{internal_realm}/protocol/openid-connect/token",
+            issuer=public_realm,
+            authorization_endpoint=f"{public_realm}/protocol/openid-connect/auth",
+            token_endpoint=f"{internal_realm}/protocol/openid-connect/token",
+            jwks_uri=f"{internal_realm}/protocol/openid-connect/certs",
+            userinfo_endpoint=f"{internal_realm}/protocol/openid-connect/userinfo",
+            end_session_endpoint=f"{public_realm}/protocol/openid-connect/logout",
+            client_kwargs={
+                "scope": "openid profile email roles",
+                "code_challenge_method": "S256",
+            },
+        )
     limiter.init_app(flask_app)
     # CORS — 仅允许配置的来源；未配置时默认允许同源（安全回退）
     cors_origins = flask_app.config.get("CORS_ORIGINS", "")
@@ -146,25 +189,63 @@ def create_app(config_obj=Config):
             url_prefix=f"{API_V1}/tasks/{handler.url_prefix}",
         )
 
-    # ─── 多租户：从 JWT 装 g.tenant_id 和 g.is_superuser ───
+    # ─── 认证与多租户请求上下文 ───
     @flask_app.before_request
     def _load_tenant_context():
-        """所有请求统一从 JWT 读 tenant_id / is_superuser 存到 g
-
-        无 JWT / JWT 无效的请求（如 register / login / health）会直接跳过，
-        g.tenant_id 不会被设置，后续 query event hook 也不会自动 filter。
-        """
         g.tenant_id = None
         g.is_superuser = False
         g.bypass_tenant_filter = False
+        g.current_user_id = None
+        g.auth_claims = {}
+
+        if flask_app.config.get("AUTH_MODE") == "oidc":
+            user_id = session.get("user_id")
+            created_at = session.get("created_at")
+            if user_id is not None and created_at is not None:
+                now = int(time.time())
+                if now - int(created_at) >= flask_app.config["SESSION_ABSOLUTE_SECONDS"]:
+                    session.clear()
+                    return
+                session.permanent = True
+                session["last_seen_at"] = now
+                g.current_user_id = int(user_id)
+                g.tenant_id = session.get("tenant_id")
+                g.is_superuser = bool(session.get("is_superuser", False))
+                g.auth_claims = {
+                    "tenant_id": g.tenant_id,
+                    "perms": session.get("permissions", []),
+                    "is_superuser": g.is_superuser,
+                    "iam_role": session.get("iam_role"),
+                }
+
+                if request.method not in {"GET", "HEAD", "OPTIONS", "TRACE"}:
+                    expected = session.get("csrf_token", "")
+                    supplied = request.headers.get("X-CSRF-Token", "")
+                    if not expected or not hmac.compare_digest(expected, supplied):
+                        raise BusinessError(ErrorCode.CSRF_INVALID)
+
+                public_endpoints = {
+                    "health", "auth.login", "auth.register", "auth.callback", "auth.logout",
+                }
+                verified_at = int(session.get("identity_verified_at", 0))
+                if request.endpoint not in public_endpoints and (
+                    now - verified_at >= flask_app.config["IAM_IDENTITY_CACHE_SECONDS"]
+                ):
+                    from app.services.oidc_session_service import refresh_identity
+                    refresh_identity(force=False)
+            return
+
         try:
             verify_jwt_in_request(optional=True)
             claims = get_jwt()
             if claims:
                 g.tenant_id = claims.get("tenant_id")
                 g.is_superuser = claims.get("is_superuser", False)
+                identity = claims.get("sub")
+                g.current_user_id = int(identity) if identity is not None else None
+                g.auth_claims = claims
         except Exception:
-            # JWT 错误由各 endpoint 的 @jwt_required 处理；这里只是尝试提取
+            # JWT 错误由各 endpoint 的统一登录装饰器处理；这里只是尝试提取
             pass
 
     # 注册 JWT 错误处理器（使用业务错误码）

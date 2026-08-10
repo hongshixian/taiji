@@ -4,7 +4,7 @@
 """
 
 from flask import Blueprint, g, request
-from flask_jwt_extended import jwt_required
+from app.auth_context import login_required
 
 from app import limiter
 from app.permissions import Permission
@@ -22,7 +22,7 @@ benchmark_mgmt_bp = Blueprint("benchmark_mgmt", __name__)
 
 
 @benchmark_mgmt_bp.route("/manage/suites", methods=["GET"])
-@jwt_required()
+@login_required()
 @require_permission(Permission.BENCHMARK_READ)
 def list_suites():
     items = list_suites_with_state()
@@ -30,7 +30,7 @@ def list_suites():
 
 
 @benchmark_mgmt_bp.route("/manage/suites/<suite_key>", methods=["PATCH"])
-@jwt_required()
+@login_required()
 @require_permission(Permission.BENCHMARK_WRITE)
 def patch_suite(suite_key):
     data = request.get_json(silent=True) or {}
@@ -44,7 +44,7 @@ def patch_suite(suite_key):
 
 
 @benchmark_mgmt_bp.route("/manage/suites/<suite_key>/check", methods=["POST"])
-@jwt_required()
+@login_required()
 @require_permission(Permission.BENCHMARK_WRITE)
 @limiter.limit("6 per minute")
 def check_suite(suite_key):

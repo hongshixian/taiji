@@ -7,7 +7,7 @@
 """
 
 from flask import Blueprint, request
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from app.auth_context import current_user_id, login_required
 
 from app.services.tenant_service import (
     list_tenants, get_tenant, create_tenant, update_tenant, delete_tenant,
@@ -32,21 +32,21 @@ superadmin_bp = Blueprint("superadmin", __name__)
 
 
 @superadmin_bp.route("/tenants", methods=["GET"])
-@jwt_required()
+@login_required()
 @superuser_required
 def get_tenants():
     return ok(list_tenants())
 
 
 @superadmin_bp.route("/tenants/<int:tenant_id>", methods=["GET"])
-@jwt_required()
+@login_required()
 @superuser_required
 def get_one_tenant(tenant_id):
     return ok(tenant_to_dict(get_tenant(tenant_id), with_stats=True))
 
 
 @superadmin_bp.route("/tenants", methods=["POST"])
-@jwt_required()
+@login_required()
 @superuser_required
 def add_tenant():
     data = request.get_json() or {}
@@ -56,12 +56,12 @@ def add_tenant():
     if not slug or not name:
         raise BusinessError(ErrorCode.VALIDATION_ERROR, "slug 和 name 不能为空")
     tenant = create_tenant(slug, name)
-    add_user_membership(int(get_jwt_identity()), tenant.id, "admin", is_owner=True)
+    add_user_membership(current_user_id(), tenant.id, "admin", is_owner=True)
     return created(tenant_to_dict(tenant))
 
 
 @superadmin_bp.route("/tenants/<int:tenant_id>", methods=["PUT"])
-@jwt_required()
+@login_required()
 @superuser_required
 def edit_tenant(tenant_id):
     data = request.get_json() or {}
@@ -72,7 +72,7 @@ def edit_tenant(tenant_id):
 
 
 @superadmin_bp.route("/tenants/<int:tenant_id>", methods=["DELETE"])
-@jwt_required()
+@login_required()
 @superuser_required
 def remove_tenant(tenant_id):
     delete_tenant(tenant_id)
@@ -80,7 +80,7 @@ def remove_tenant(tenant_id):
 
 
 @superadmin_bp.route("/switch-tenant", methods=["POST"])
-@jwt_required()
+@login_required()
 @superuser_required
 def switch_tenant():
     """切换当前会话的操作租户。超管也必须拥有对应租户 membership。"""
@@ -88,19 +88,19 @@ def switch_tenant():
     tenant_id = data.get("tenant_id")
     if tenant_id is None:
         raise BusinessError(ErrorCode.VALIDATION_ERROR, "tenant_id 不能为空")
-    result = switch_user_tenant(int(get_jwt_identity()), tenant_id)
+    result = switch_user_tenant(current_user_id(), tenant_id)
     return ok(result, message="租户已切换")
 
 
 @superadmin_bp.route("/settings", methods=["GET"])
-@jwt_required()
+@login_required()
 @superuser_required
 def get_system_settings():
     return ok(list_settings())
 
 
 @superadmin_bp.route("/settings", methods=["PUT"])
-@jwt_required()
+@login_required()
 @superuser_required
 def edit_system_settings():
     data = request.get_json() or {}
@@ -110,7 +110,7 @@ def edit_system_settings():
 
 
 @superadmin_bp.route("/roles", methods=["GET"])
-@jwt_required()
+@login_required()
 @superuser_required
 def get_roles_for_superadmin():
     from app.services.role_service import list_roles
@@ -119,14 +119,14 @@ def get_roles_for_superadmin():
 
 
 @superadmin_bp.route("/superusers", methods=["GET"])
-@jwt_required()
+@login_required()
 @superuser_required
 def get_superusers():
     return ok(list_superusers())
 
 
 @superadmin_bp.route("/superusers", methods=["POST"])
-@jwt_required()
+@login_required()
 @superuser_required
 def add_one_superuser():
     data = request.get_json() or {}
@@ -139,22 +139,22 @@ def add_one_superuser():
 
 
 @superadmin_bp.route("/superusers/<int:user_id>", methods=["DELETE"])
-@jwt_required()
+@login_required()
 @superuser_required
 def remove_one_superuser(user_id):
-    remove_superuser(user_id, int(get_jwt_identity()))
+    remove_superuser(user_id, current_user_id())
     return ok(message="已移除超级管理员")
 
 
 @superadmin_bp.route("/tenants/<int:tenant_id>/members", methods=["GET"])
-@jwt_required()
+@login_required()
 @superuser_required
 def get_tenant_members(tenant_id):
     return ok(list_tenant_members(tenant_id))
 
 
 @superadmin_bp.route("/tenants/<int:tenant_id>/members", methods=["POST"])
-@jwt_required()
+@login_required()
 @superuser_required
 def add_one_tenant_member(tenant_id):
     data = request.get_json() or {}
@@ -170,7 +170,7 @@ def add_one_tenant_member(tenant_id):
 
 
 @superadmin_bp.route("/tenants/<int:tenant_id>/members/<int:user_id>", methods=["DELETE"])
-@jwt_required()
+@login_required()
 @superuser_required
 def remove_one_tenant_member(tenant_id, user_id):
     remove_tenant_member(tenant_id, user_id)

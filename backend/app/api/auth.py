@@ -1,47 +1,56 @@
-"""认证接口"""
+"""Authentication endpoints for legacy JWT migration and the OIDC BFF."""
 
 from datetime import datetime, timezone
+import secrets
 
-from flask import Blueprint, request
-from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
+from authlib.integrations.base_client.errors import OAuthError
+from flask import Blueprint, current_app, redirect, request, session
 from flask_limiter import Limiter
 
-from app import _get_client_ip
+from app import _get_client_ip, oauth
+from app.auth_context import current_claims, current_user_id, login_required, oidc_mode
+from app.schemas.auth_schema import ChangePasswordSchema, LoginSchema, RegisterSchema
 from app.services.auth_service import (
-    register_user,
-    login_user,
-    get_user_by_id,
-    user_to_dict,
     change_password,
     get_current_membership,
+    get_user_by_id,
     list_current_user_memberships,
+    login_user,
     refresh_access_token,
+    register_user,
     switch_tenant,
+    user_to_dict,
 )
-from app.schemas.auth_schema import RegisterSchema, LoginSchema, ChangePasswordSchema
-from app.utils.validation import validate_schema
-from app.utils.response import ok, created
+from app.services.oidc_session_service import (
+    begin_oidc_session,
+    clear_oidc_session,
+    current_tenant_options,
+    refresh_identity,
+    switch_to_tenant,
+)
 from app.utils.errors import BusinessError, ErrorCode
 from app.utils.jwt_blocklist import revoke_jti
+from app.utils.response import created, ok
+from app.utils.validation import validate_schema
 
 auth_bp = Blueprint("auth", __name__)
-
-# 本蓝图限流器 — 对敏感接口独立限制（使用与全局相同的 key 函数以支持反向代理）
 auth_limiter = Limiter(key_func=_get_client_ip)
 
 
-@auth_bp.route("/register", methods=["POST"])
+@auth_bp.route("/register", methods=["GET", "POST"])
 @auth_limiter.limit("5 per minute")
 def register():
-    """用户注册 — 限流 5次/分钟"""
+    if oidc_mode():
+        if request.method != "GET":
+            raise BusinessError(ErrorCode.METHOD_NOT_ALLOWED, "注册由 IAM 托管")
+        return _authorize_redirect(kc_action="register")
+
     data = request.get_json()
     if not data:
         raise BusinessError(ErrorCode.EMPTY_BODY)
-
     parsed, error = validate_schema(RegisterSchema(), data)
     if error:
         return error
-
     user = register_user(
         username=parsed["username"],
         email=parsed["email"],
@@ -50,96 +59,151 @@ def register():
     return created(user_to_dict(user), message="注册成功")
 
 
-@auth_bp.route("/login", methods=["POST"])
+@auth_bp.route("/login", methods=["GET", "POST"])
 @auth_limiter.limit("10 per minute")
 def login():
-    """用户登录 — 限流 10次/分钟"""
+    if oidc_mode():
+        if request.method != "GET":
+            raise BusinessError(ErrorCode.METHOD_NOT_ALLOWED, "登录由 IAM 托管")
+        return _authorize_redirect()
+
     data = request.get_json()
     if not data:
         raise BusinessError(ErrorCode.EMPTY_BODY)
-
     parsed, error = validate_schema(LoginSchema(), data)
     if error:
         return error
-
-    result = login_user(
+    return ok(login_user(
         username=parsed["username"],
         password=parsed["password"],
-    )
-    return ok(result, message="登录成功")
+    ), message="登录成功")
+
+
+@auth_bp.route("/callback", methods=["GET"])
+def callback():
+    if not oidc_mode():
+        raise BusinessError(ErrorCode.NOT_FOUND)
+    try:
+        token = oauth.keycloak.authorize_access_token()
+    except OAuthError as exc:
+        raise BusinessError(ErrorCode.TOKEN_INVALID, "OIDC 回调校验失败") from exc
+    userinfo = token.get("userinfo")
+    if not userinfo:
+        raise BusinessError(ErrorCode.TOKEN_INVALID, "OIDC 响应缺少用户身份")
+    roles = userinfo.get("realm_access", {}).get("roles", [])
+    begin_oidc_session(token, dict(userinfo), is_superuser="platform_admin" in roles)
+    target = current_app.config["OIDC_POST_LOGIN_PATH"]
+    return redirect(f"{current_app.config['TAIJI_PUBLIC_URL']}{target}")
 
 
 @auth_bp.route("/refresh", methods=["POST"])
-@jwt_required(refresh=True)
+@login_required(refresh=True)
 @auth_limiter.limit("30 per minute")
 def refresh():
-    """刷新 access token — 重新从当前 membership 读 perms，确保变更生效"""
-    user_id = int(get_jwt_identity())
-    tenant_id = get_jwt().get("tenant_id")
-    access_token = refresh_access_token(user_id, tenant_id)
+    if oidc_mode():
+        refresh_identity(force=True)
+        return ok(_current_user_payload(), message="身份会话已刷新")
+    tenant_id = current_claims().get("tenant_id")
+    access_token = refresh_access_token(current_user_id(), tenant_id)
     return ok({"access_token": access_token}, message="Token 已刷新")
 
 
 @auth_bp.route("/me", methods=["GET"])
-@jwt_required()
+@login_required()
 def me():
-    """获取当前用户和当前租户成员身份信息。"""
-    user_id = int(get_jwt_identity())
-    user = get_user_by_id(user_id)
+    if oidc_mode():
+        refresh_identity(force=False)
+        return ok(_current_user_payload())
+    user = get_user_by_id(current_user_id())
     if not user:
         raise BusinessError(ErrorCode.USER_NOT_FOUND)
-
-    membership = get_current_membership(user_id)
+    membership = get_current_membership(user.id)
     return ok(user_to_dict(user, membership, include_memberships=True))
 
 
 @auth_bp.route("/tenants", methods=["GET"])
-@jwt_required()
+@login_required()
 def my_tenants():
-    """列出当前用户可切换的租户身份。"""
-    user_id = int(get_jwt_identity())
-    return ok(list_current_user_memberships(user_id))
+    if oidc_mode():
+        refresh_identity(force=False)
+        return ok(current_tenant_options())
+    return ok(list_current_user_memberships(current_user_id()))
 
 
 @auth_bp.route("/switch-tenant", methods=["POST"])
-@jwt_required()
+@login_required()
 @auth_limiter.limit("10 per minute")
 def switch_current_tenant():
-    """普通用户/管理员切换到自己拥有 membership 的租户。"""
     data = request.get_json() or {}
     tenant_id = data.get("tenant_id")
     if tenant_id is None:
         raise BusinessError(ErrorCode.VALIDATION_ERROR, "tenant_id 不能为空")
-    result = switch_tenant(int(get_jwt_identity()), tenant_id)
-    return ok(result, message="租户已切换")
+    if not oidc_mode():
+        return ok(switch_tenant(current_user_id(), tenant_id), message="租户已切换")
+
+    tenants = refresh_identity(force=True)
+    selected = next((item for item in tenants if item["id"] == str(tenant_id)), None)
+    if selected is None:
+        raise BusinessError(ErrorCode.TENANT_NOT_FOUND, "用户不属于该租户或租户已停用")
+    tenant, membership = switch_to_tenant(selected, tenants=tenants)
+    return ok({
+        "tenant": dict(selected, local_id=tenant.id),
+        "role": membership.iam_role,
+        "permissions": membership.permission_codes,
+        "csrf_token": session["csrf_token"],
+    }, message="租户已切换")
 
 
 @auth_bp.route("/logout", methods=["POST"])
-@jwt_required()
+@login_required()
 def logout():
-    """退出登录 — 把当前 access token 的 jti 加入黑名单"""
-    payload = get_jwt()
-    jti = payload["jti"]
-    exp = payload["exp"]
-    now_ts = int(datetime.now(timezone.utc).timestamp())
-    ttl = max(0, exp - now_ts)
-    revoke_jti(jti, ttl)
+    if oidc_mode():
+        clear_oidc_session()
+        return ok(message="已退出登录")
+    payload = current_claims()
+    ttl = max(0, payload["exp"] - int(datetime.now(timezone.utc).timestamp()))
+    revoke_jti(payload["jti"], ttl)
     return ok(message="已退出登录")
 
 
 @auth_bp.route("/password", methods=["PUT"])
-@jwt_required()
+@login_required()
 @auth_limiter.limit("5 per minute")
 def update_password():
-    """用户自助修改密码 — 成功后所有会话失效，需要重新登录"""
+    if oidc_mode():
+        realm = current_app.config["IAM_REALM"]
+        return ok({
+            "account_url": f"{current_app.config['IAM_PUBLIC_URL']}/realms/{realm}/account/"
+        }, message="密码由 IAM 管理")
+
     data = request.get_json()
     if not data:
         raise BusinessError(ErrorCode.EMPTY_BODY)
-
     parsed, error = validate_schema(ChangePasswordSchema(), data)
     if error:
         return error
-
-    user_id = int(get_jwt_identity())
-    change_password(user_id, parsed["old_password"], parsed["new_password"])
+    change_password(current_user_id(), parsed["old_password"], parsed["new_password"])
     return ok(message="密码已修改，请重新登录")
+
+
+def _authorize_redirect(**params):
+    redirect_uri = (
+        f"{current_app.config['TAIJI_PUBLIC_URL']}/api/v1/auth/callback"
+    )
+    return oauth.keycloak.authorize_redirect(
+        redirect_uri,
+        nonce=secrets.token_urlsafe(32),
+        **params,
+    )
+
+
+def _current_user_payload() -> dict:
+    user = get_user_by_id(current_user_id())
+    if not user:
+        raise BusinessError(ErrorCode.USER_NOT_FOUND)
+    membership = get_current_membership(user.id)
+    payload = user_to_dict(user, membership)
+    payload["tenants"] = current_tenant_options()
+    payload["csrf_token"] = session["csrf_token"]
+    payload["auth_mode"] = "oidc"
+    return payload

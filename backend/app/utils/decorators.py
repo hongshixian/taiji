@@ -8,13 +8,12 @@
 from functools import wraps
 from contextlib import contextmanager
 from flask import g
-from flask_jwt_extended import get_jwt
-
+from app.auth_context import current_claims
 from app.utils.errors import BusinessError, ErrorCode
 
 
 def require_permission(*codes: str):
-    """要求当前用户拥有【所有】指定权限码 — 在 @jwt_required() 之后使用
+    """要求当前用户拥有【所有】指定权限码 — 在 @login_required() 之后使用
 
     用法:
         @require_permission("user:write")
@@ -23,7 +22,7 @@ def require_permission(*codes: str):
     def decorator(fn):
         @wraps(fn)
         def wrapper(*args, **kwargs):
-            user_perms = set(get_jwt().get("perms", []))
+            user_perms = set(current_claims().get("perms", []))
             missing = set(codes) - user_perms
             if missing:
                 raise BusinessError(
@@ -42,7 +41,7 @@ def superuser_required(fn):
     """
     @wraps(fn)
     def wrapper(*args, **kwargs):
-        claims = get_jwt()
+        claims = current_claims()
         if not claims.get("is_superuser", False):
             raise BusinessError(
                 ErrorCode.PERMISSION_DENIED,

@@ -134,10 +134,21 @@ services:
       context: .
       dockerfile: docker/Dockerfile.backend
     environment:
-      - FLASK_ENV=production
+      - FLASK_ENV=${FLASK_ENV:-development}
       - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
       - DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-taiji}:${POSTGRES_PASSWORD:-taiji_pw}@postgres:5432/${POSTGRES_DB:-taiji}
       - REDIS_URL=redis://redis:6379/0
+      - AUTH_MODE=${AUTH_MODE:-oidc}
+      - IAM_REALM=fangcun
+      - IAM_PUBLIC_URL=${IAM_PUBLIC_URL:-http://localhost:8180}
+      - IAM_INTERNAL_URL=http://keycloak:8080
+      - TAIJI_PUBLIC_URL=${TAIJI_PUBLIC_URL:-http://localhost:8080}
+      - TAIJI_OIDC_CLIENT_ID=taiji-web
+      - TAIJI_OIDC_CLIENT_SECRET=${TAIJI_OIDC_CLIENT_SECRET:-taiji-web-dev-secret}
+      - IAM_IDENTITY_CACHE_SECONDS=${IAM_IDENTITY_CACHE_SECONDS:-300}
+      - SESSION_IDLE_SECONDS=${SESSION_IDLE_SECONDS:-7200}
+      - SESSION_ABSOLUTE_SECONDS=${SESSION_ABSOLUTE_SECONDS:-86400}
+      - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-in-production}
       - TASK_LOG_ROOT=/app/logs
       # HF 镜像（国内加速）与缓存
@@ -169,7 +180,7 @@ services:
       dockerfile: docker/Dockerfile.worker
     command: ["celery", "-A", "celery_app", "worker", "-l", "info", "--concurrency=4", "--max-tasks-per-child=10", "-Ofair"]
     environment:
-      - FLASK_ENV=production
+      - FLASK_ENV=${FLASK_ENV:-development}
       - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
       - DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-taiji}:${POSTGRES_PASSWORD:-taiji_pw}@postgres:5432/${POSTGRES_DB:-taiji}
       - REDIS_URL=redis://redis:6379/0

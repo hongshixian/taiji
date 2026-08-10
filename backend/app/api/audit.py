@@ -1,7 +1,7 @@
 """审计日志接口"""
 
 from flask import Blueprint, request
-from flask_jwt_extended import jwt_required
+from app.auth_context import login_required
 
 from app.permissions import Permission
 from app.services.audit_log_service import list_audit_logs
@@ -12,7 +12,7 @@ audit_bp = Blueprint("audit", __name__)
 
 
 @audit_bp.route("", methods=["GET"])
-@jwt_required()
+@login_required()
 @require_permission(Permission.SYSTEM_AUDIT)
 def get_audit_logs():
     page = request.args.get("page", 1, type=int)

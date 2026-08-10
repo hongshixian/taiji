@@ -12,7 +12,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False, index=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(256), nullable=False)
+    password_hash = db.Column(db.String(256), nullable=True)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
 
     # 平台超级管理员（可跨 tenant 操作；与 membership 身份解耦）
@@ -20,6 +20,12 @@ class User(db.Model):
 
     # 早于此时间签发的 JWT 全部失效（改密 / 禁用 / 改角色时设置）
     tokens_revoked_at = db.Column(db.DateTime, nullable=True)
+
+    # IAM identity projection. Keycloak subject is provider-specific; iam_user_id is portable.
+    iam_user_id = db.Column(db.String(36), unique=True, nullable=True, index=True)
+    keycloak_subject = db.Column(db.String(64), unique=True, nullable=True, index=True)
+    last_iam_tenant_id = db.Column(db.String(36), nullable=True)
+    last_synced_at = db.Column(db.DateTime, nullable=True)
 
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),

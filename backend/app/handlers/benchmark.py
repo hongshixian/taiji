@@ -2,6 +2,7 @@
 
 from flask import Blueprint, request
 
+from app.auth_context import login_required
 from app.handlers.base import BaseTaskHandler
 from app.handlers.registry import registry
 from app.permissions import Permission
@@ -16,7 +17,6 @@ from app.utils.decorators import require_permission
 from app.utils.errors import BusinessError, ErrorCode
 from app.utils.response import ok
 from app.utils.validation import validate_schema
-from flask_jwt_extended import jwt_required
 
 
 class BenchmarkHandler(BaseTaskHandler):
@@ -59,7 +59,7 @@ class BenchmarkHandler(BaseTaskHandler):
         """样本预览懒加载端点：点击方块时按 sample_id 拉取单条预览。"""
 
         @bp.route("/<int:task_id>/samples/<sample_id>", methods=["GET"])
-        @jwt_required()
+        @login_required()
         @require_permission(Permission.TASK_READ)
         def _sample_preview(task_id: int, sample_id: str):
             task = self.get(task_id)

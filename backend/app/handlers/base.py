@@ -7,9 +7,8 @@
 from abc import ABC, abstractmethod
 
 from flask import Blueprint, request, g
-from flask_jwt_extended import jwt_required, get_jwt_identity
-
 from app import limiter
+from app.auth_context import current_user_id, login_required
 from app.permissions import Permission
 from app.schemas.task_schema import TaskQuerySchema
 from app.services.task_service import (
@@ -110,30 +109,30 @@ class BaseTaskHandler(ABC):
         handler = self
 
         @bp.route("/", methods=["POST"])
-        @jwt_required()
+        @login_required()
         @require_permission(Permission.TASK_CREATE)
         @limiter.limit(handler.rate_limit_submit)
         def _submit():
-            user_id = int(get_jwt_identity())
+            user_id = current_user_id()
             task = handler.submit(user_id)
             result = handler._celery_task.delay(task.id, g.tenant_id)
             set_celery_task_id(task, result.id)
             return created(handler.to_dict(task), message="任务已提交")
 
         @bp.route("/stats", methods=["GET"])
-        @jwt_required()
+        @login_required()
         @require_permission(Permission.TASK_READ)
         def _stats():
             return ok(handler.stats())
 
         @bp.route("/<int:task_id>", methods=["GET"])
-        @jwt_required()
+        @login_required()
         @require_permission(Permission.TASK_READ)
         def _get(task_id):
             return ok(handler.to_dict(handler.get(task_id)))
 
         @bp.route("/", methods=["GET"])
-        @jwt_required()
+        @login_required()
         @require_permission(Permission.TASK_READ)
         def _list():
             parsed, error = validate_schema(TaskQuerySchema(), request.args)
@@ -148,19 +147,19 @@ class BaseTaskHandler(ABC):
             )
 
         @bp.route("/<int:task_id>/retry", methods=["POST"])
-        @jwt_required()
+        @login_required()
         @require_permission(Permission.TASK_CREATE)
         def _retry(task_id):
             return ok(handler.to_dict(handler.retry(task_id)), message="任务已重新提交")
 
         @bp.route("/<int:task_id>/stop", methods=["POST"])
-        @jwt_required()
+        @login_required()
         @require_permission(Permission.TASK_CREATE)
         def _stop(task_id):
             return ok(handler.to_dict(handler.stop(task_id)), message="任务已停止")
 
         @bp.route("/<int:task_id>", methods=["DELETE"])
-        @jwt_required()
+        @login_required()
         @require_permission(Permission.TASK_DELETE_ANY)
         def _delete(task_id):
             handler.delete(task_id)

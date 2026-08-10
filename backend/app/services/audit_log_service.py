@@ -3,9 +3,8 @@
 from datetime import datetime, timezone
 
 from flask import g, has_request_context, request
-from flask_jwt_extended import get_jwt, get_jwt_identity
-
 from app import db
+from app.auth_context import current_claims, current_user_id
 from app.models.audit_log import AuditLog
 from app.models.tenant import Tenant
 from app.models.user import User
@@ -126,8 +125,8 @@ def _current_actor() -> tuple[int | None, str | None, bool]:
     if not has_request_context():
         return None, None, False
     try:
-        actor_user_id = int(get_jwt_identity())
-        claims = get_jwt()
+        actor_user_id = current_user_id()
+        claims = current_claims()
     except Exception:
         return None, None, False
 

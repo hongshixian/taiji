@@ -17,7 +17,7 @@
 """
 
 from sqlalchemy import Column, Integer, ForeignKey, event
-from sqlalchemy.orm import Query, ORMExecuteState
+from sqlalchemy.orm import ORMExecuteState
 from flask import g, has_request_context
 
 from app import db
@@ -39,6 +39,9 @@ def _should_apply_filter() -> bool:
     if getattr(g, "bypass_tenant_filter", False):
         return False
     if getattr(g, "tenant_id", None) is None:
+        if getattr(g, "current_user_id", None) is not None:
+            from app.utils.errors import BusinessError, ErrorCode
+            raise BusinessError(ErrorCode.TENANT_NOT_FOUND, "已认证请求缺少租户上下文")
         return False
     return True
 
@@ -57,12 +60,6 @@ def _add_tenant_filter(execute_state: ORMExecuteState):
 
     tenant_id = g.tenant_id
 
-    # 对每个查询的根实体加 filter（如果它有 tenant_id 属性）
-    execute_state.statement = execute_state.statement.options(
-        # 不能用 options 加 filter；改为遍历实体显式 where
-    )
-
-    # 改用 with_loader_criteria：自动给所有匹配 TenantMixin 的表加 where
     from sqlalchemy.orm import with_loader_criteria
     execute_state.statement = execute_state.statement.options(
         with_loader_criteria(
@@ -71,3 +68,20 @@ def _add_tenant_filter(execute_state: ORMExecuteState):
             include_aliases=True,
         )
     )
+
+
+@event.listens_for(db.session, "before_flush")
+def _validate_tenant_writes(session, _flush_context, _instances):
+    """Reject cross-tenant inserts and updates before SQL reaches the database."""
+    if not has_request_context() or getattr(g, "bypass_tenant_filter", False):
+        return
+    if getattr(g, "current_user_id", None) is None:
+        return
+    tenant_id = getattr(g, "tenant_id", None)
+    if tenant_id is None:
+        from app.utils.errors import BusinessError, ErrorCode
+        raise BusinessError(ErrorCode.TENANT_NOT_FOUND, "已认证请求缺少租户上下文")
+    for instance in session.new.union(session.dirty):
+        if isinstance(instance, TenantMixin) and instance.tenant_id != tenant_id:
+            from app.utils.errors import BusinessError, ErrorCode
+            raise BusinessError(ErrorCode.PERMISSION_DENIED, "禁止写入其他租户的数据")

@@ -5,7 +5,7 @@
 """
 
 from flask import Blueprint, request
-from flask_jwt_extended import jwt_required
+from app.auth_context import login_required
 
 from app.benchmark.engine.registry import engine_registry
 from app.benchmark.engine.inspect_evals.suite_loader import execution_schema
@@ -16,7 +16,7 @@ benchmark_meta_bp = Blueprint("benchmark_meta", __name__)
 
 
 @benchmark_meta_bp.route("/suites", methods=["GET"])
-@jwt_required()
+@login_required()
 def list_suites():
     enabled_only = request.args.get("enabled_only", "").lower() in ("1", "true", "yes")
     if enabled_only:
@@ -35,6 +35,6 @@ def list_suites():
 
 
 @benchmark_meta_bp.route("/execution-schema", methods=["GET"])
-@jwt_required()
+@login_required()
 def get_execution_schema():
     return ok(execution_schema())

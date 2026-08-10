@@ -307,11 +307,12 @@ class TestRBAC:
         assert "user:write" in user_data["permissions"]
 
     def test_user_role_has_limited_permissions(self, client):
-        """user 角色有 task:read / task:create / model:read / model:write / model:delete"""
+        """user 角色拥有当前固定的业务使用权限。"""
         resp = client.get("/api/v1/auth/me",
                           headers={"Authorization": f"Bearer {self.user_token}"})
         user_data = resp.get_json()["data"]
         assert set(user_data["permissions"]) == {
             "task:read", "task:create",
             "model:read", "model:write", "model:delete",
+            "benchmark:read", "benchmark:write",
         }

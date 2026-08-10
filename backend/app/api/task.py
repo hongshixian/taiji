@@ -1,7 +1,7 @@
 """通用任务接口"""
 
 from flask import Blueprint, request
-from flask_jwt_extended import jwt_required
+from app.auth_context import login_required
 
 from app.schemas.task_schema import TaskQuerySchema
 from app.services.task_log_service import task_log_response
@@ -15,7 +15,7 @@ task_bp = Blueprint("task", __name__)
 
 
 @task_bp.route("/", methods=["GET"])
-@jwt_required()
+@login_required()
 @require_permission(Permission.TASK_READ)
 def list_all_tasks():
     """分页查询当前租户所有任务"""
@@ -34,7 +34,7 @@ def list_all_tasks():
 
 
 @task_bp.route("/<int:task_id>/logs", methods=["GET"])
-@jwt_required()
+@login_required()
 @require_permission(Permission.TASK_READ)
 def get_task_logs(task_id):
     """读取当前租户下指定任务的执行日志"""

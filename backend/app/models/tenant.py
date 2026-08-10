@@ -18,6 +18,12 @@ class Tenant(db.Model):
     name = db.Column(db.String(100), nullable=False)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     is_system = db.Column(db.Boolean, default=False, nullable=False)      # default/guest 等系统租户保护位
+    iam_tenant_id = db.Column(db.String(36), unique=True, nullable=True, index=True)
+    keycloak_org_id = db.Column(db.String(64), unique=True, nullable=True, index=True)
+    tenant_type = db.Column(db.String(20), nullable=True)
+    lifecycle_status = db.Column(db.String(20), nullable=True)
+    is_protected = db.Column(db.Boolean, default=False, nullable=False)
+    last_synced_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc))

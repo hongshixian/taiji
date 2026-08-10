@@ -12,6 +12,7 @@ class TestTenantIsolation:
         from app import db
         from app.models.tenant import Tenant
         from app.models.task import Task, TaskStatus, TaskType
+        from app.models.model_config import ModelConfig
         from app.services.auth_service import create_user
         from app.models.benchmark_task import BenchmarkTask
 
@@ -25,6 +26,17 @@ class TestTenantIsolation:
             user_a = create_user("admina", "a@a.com", "passa123", "admin", tenant_id=10)
             user_b = create_user("adminb", "b@b.com", "passb123", "admin", tenant_id=20)
 
+            model_a = ModelConfig(
+                tenant_id=10, display_name="GPT-4o A", model_name="gpt-4o",
+                api_base_url="https://example.invalid/v1", api_protocol="openai",
+            )
+            model_b = ModelConfig(
+                tenant_id=20, display_name="GPT-4o B", model_name="gpt-4o",
+                api_base_url="https://example.invalid/v1", api_protocol="openai",
+            )
+            db.session.add_all([model_a, model_b])
+            db.session.flush()
+
             task_a = Task(tenant_id=10, user_id=user_a.id,
                           task_type=TaskType.BENCHMARK,
                           status=TaskStatus.SUCCESS.value)
@@ -34,10 +46,10 @@ class TestTenantIsolation:
             db.session.add_all([task_a, task_b])
             db.session.flush()
             db.session.add(BenchmarkTask(tenant_id=10, task_id=task_a.id,
-                                         task_name="A 的测评", model_name="gpt-4o",
+                                         task_name="A 的测评", target_model_id=model_a.id,
                                          benchmark_suite="mmlu"))
             db.session.add(BenchmarkTask(tenant_id=20, task_id=task_b.id,
-                                         task_name="B 的测评", model_name="gpt-4o",
+                                         task_name="B 的测评", target_model_id=model_b.id,
                                          benchmark_suite="mmlu"))
             db.session.commit()
 
@@ -89,6 +101,7 @@ class TestTenantIsolation:
             from app import db
             from app.models.task import Task, TaskStatus, TaskType
             from app.models.benchmark_task import BenchmarkTask
+            from app.models.model_config import ModelConfig
             from app.services.auth_service import create_user, add_user_membership
 
             user = create_user("multi", "multi@test.com", "multipass", "user", tenant_id=10)
@@ -99,13 +112,22 @@ class TestTenantIsolation:
             task_b = Task(tenant_id=20, user_id=user.id,
                           task_type=TaskType.BENCHMARK,
                           status=TaskStatus.SUCCESS.value)
+            model_a = ModelConfig(
+                tenant_id=10, display_name="multi A", model_name="gpt-4o",
+                api_base_url="https://example.invalid/v1", api_protocol="openai",
+            )
+            model_b = ModelConfig(
+                tenant_id=20, display_name="multi B", model_name="gpt-4o",
+                api_base_url="https://example.invalid/v1", api_protocol="openai",
+            )
+            db.session.add_all([model_a, model_b])
             db.session.add_all([task_a, task_b])
             db.session.flush()
             db.session.add(BenchmarkTask(tenant_id=10, task_id=task_a.id,
-                                         task_name="multi A", model_name="gpt-4o",
+                                         task_name="multi A", target_model_id=model_a.id,
                                          benchmark_suite="mmlu"))
             db.session.add(BenchmarkTask(tenant_id=20, task_id=task_b.id,
-                                         task_name="multi B", model_name="gpt-4o",
+                                         task_name="multi B", target_model_id=model_b.id,
                                          benchmark_suite="mmlu"))
             db.session.commit()
 

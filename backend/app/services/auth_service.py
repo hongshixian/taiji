@@ -29,12 +29,15 @@ def membership_to_dict(membership: TenantMembership) -> dict:
         "tenant_slug": tenant.slug if tenant else None,
         "tenant_name": tenant.name if tenant else None,
         "role_id": membership.role_id,
-        "role": role.name if role else None,
-        "role_name": role.name if role else None,
+        "role": membership.iam_role or (role.name if role else None),
+        "role_name": membership.iam_role or (role.name if role else None),
+        "iam_role": membership.iam_role,
         "permissions": membership.permission_codes,
         "is_active": membership.is_active,
         "is_owner": membership.is_owner,
         "created_at": membership.created_at.isoformat() if membership.created_at else None,
+        "tenant_iam_id": tenant.iam_tenant_id if tenant else None,
+        "tenant_type": tenant.tenant_type if tenant else None,
     }
 
 
@@ -46,6 +49,8 @@ def user_to_dict(user: User, membership: TenantMembership | None = None,
         "email": user.email,
         "is_active": user.is_active,
         "is_superuser": user.is_superuser,
+        "iam_user_id": user.iam_user_id,
+        "keycloak_subject": user.keycloak_subject,
         "created_at": user.created_at.isoformat() if user.created_at else None,
     }
     if membership:
@@ -59,8 +64,10 @@ def user_to_dict(user: User, membership: TenantMembership | None = None,
             "membership_active": m["is_active"],
             "current_tenant": {
                 "id": m["tenant_id"],
+                "iam_id": m["tenant_iam_id"],
                 "slug": m["tenant_slug"],
                 "name": m["tenant_name"],
+                "type": m["tenant_type"],
             },
         })
     else:
@@ -114,7 +121,7 @@ def login_user(username: str, password: str) -> dict:
     """登录全局用户，并进入第一个可用租户身份。"""
     with bypass_tenant_filter():
         user = User.query.filter_by(username=username).first()
-        if not user or not check_password_hash(user.password_hash, password):
+        if not user or not user.password_hash or not check_password_hash(user.password_hash, password):
             raise BusinessError(ErrorCode.INVALID_CREDENTIAL)
         if not user.is_active:
             raise BusinessError(ErrorCode.ACCOUNT_DISABLED)
