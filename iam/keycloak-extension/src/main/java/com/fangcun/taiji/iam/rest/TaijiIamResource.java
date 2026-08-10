@@ -87,6 +87,33 @@ public final class TaijiIamResource {
         });
     }
 
+    @GET
+    @Path("v1/reconciliation/tenants")
+    public Response reconciliationTenants() {
+        return execute(() -> {
+            requireReconciler();
+            return Response.ok(Map.of("tenants", service().listAllTenants())).build();
+        });
+    }
+
+    @GET
+    @Path("v1/reconciliation/tenants/{tenantId}/members")
+    public Response reconciliationMembers(@PathParam("tenantId") String tenantId) {
+        return execute(() -> {
+            requireReconciler();
+            return Response.ok(Map.of("members", service().listAllMembers(tenantId))).build();
+        });
+    }
+
+    @GET
+    @Path("v1/reconciliation/platform-admins")
+    public Response reconciliationPlatformAdmins() {
+        return execute(() -> {
+            requireReconciler();
+            return Response.ok(Map.of("platform_admins", service().listPlatformAdmins())).build();
+        });
+    }
+
     @POST
     @Path("v1/platform-admins")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -321,6 +348,15 @@ public final class TaijiIamResource {
                 || auth.user().getServiceAccountClientLink() == null
                 || !auth.client().getId().equals(auth.user().getServiceAccountClientLink())) {
             throw new IamApiException(403, "migrator_required", "只允许专用迁移服务账号调用");
+        }
+    }
+
+    private void requireReconciler() {
+        AuthenticationManager.AuthResult auth = authenticate();
+        if (!"taiji-reconciler".equals(auth.client().getClientId())
+                || auth.user().getServiceAccountClientLink() == null
+                || !auth.client().getId().equals(auth.user().getServiceAccountClientLink())) {
+            throw new IamApiException(403, "reconciler_required", "只允许专用对账服务账号调用");
         }
     }
 

@@ -16,7 +16,7 @@
 1. 备份太极 PostgreSQL、Keycloak PostgreSQL 和任务文件目录。
 2. 先在生产数据脱敏副本上完成全量演练和回滚演练。
 3. 配置随机 `TAIJI_MIGRATOR_CLIENT_SECRET`，并保证 Keycloak 与后端使用同一个值。
-4. 部署代码并执行 `flask db upgrade`，确认数据库版本为 `0018_iam_migration`。
+4. 部署代码并执行 `flask db upgrade`，确认数据库版本为 `0020_iam_event_ledger`。
 5. 导入期间保持现有认证入口，暂不切换前端。
 
 ## 只读预检
@@ -88,6 +88,8 @@ docker compose up -d --no-deps --force-recreate \
 ```
 
 确认容器环境中的 `IAM_MIGRATION_ENABLED=false`，并验证迁移 URL 返回 `404`。随后才能开始 OIDC 灰度切换。
+
+OIDC 切换、事件投影和发布检查按 [IAM 部署与回滚](./iam-deployment.md) 执行。
 
 ## 回滚
 

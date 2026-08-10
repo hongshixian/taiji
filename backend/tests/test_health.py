@@ -9,6 +9,12 @@ def test_health_check(client):
     assert data["status"] == "ok"
 
 
+def test_readiness_checks_database(client):
+    response = client.get("/api/ready")
+    assert response.status_code == 200
+    assert response.get_json() == {"status": "ok", "checks": {"database": "ok"}}
+
+
 def test_404_returns_error_response(client):
     """验证不存在的路由返回统一错误格式"""
     response = client.get("/api/nonexistent")

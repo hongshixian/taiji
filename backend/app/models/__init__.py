@@ -13,6 +13,7 @@ from app.models.role import Role, Permission, role_permissions
 from app.models.system_setting import SystemSetting
 from app.models.audit_log import AuditLog
 from app.models.iam_migration_record import IamMigrationRecord
+from app.models.iam_event_receipt import IamAggregateCursor, IamEventReceipt
 
 __all__ = [
     "Tenant", "TenantMixin",
@@ -23,4 +24,5 @@ __all__ = [
     "BenchmarkSuiteState",
     "Role", "Permission", "role_permissions",
     "SystemSetting", "AuditLog", "IamMigrationRecord",
+    "IamAggregateCursor", "IamEventReceipt",
 ]

@@ -26,30 +26,57 @@ if [[ "${IAM_REALM_RECONCILE_ENABLED:-true}" == "true" ]]; then
     -f /opt/keycloak/conf/taiji/user-profile.json >/dev/null
   echo "IAM user profile reconciled."
 
-  migrator_secret="${TAIJI_MIGRATOR_CLIENT_SECRET:?missing migrator client secret}"
-  migrator_id="$("${kcadm}" get clients -r "${realm}" \
-    -q clientId=taiji-migrator --fields id --format csv --noquotes | sed -n '1p')"
-  if [[ -z "${migrator_id}" ]]; then
+  reconcile_service_client() {
+    local client_id="$1"
+    local client_name="$2"
+    local client_secret="$3"
+    local internal_id
+    internal_id="$("${kcadm}" get clients -r "${realm}" \
+      -q "clientId=${client_id}" --fields id --format csv --noquotes | sed -n '1p')"
+    if [[ -z "${internal_id}" ]]; then
     "${kcadm}" create clients -r "${realm}" \
-      -s clientId=taiji-migrator \
-      -s 'name=太极一次性 IAM 迁移工具' \
+      -s "clientId=${client_id}" \
+      -s "name=${client_name}" \
       -s enabled=true \
       -s publicClient=false \
       -s serviceAccountsEnabled=true \
       -s standardFlowEnabled=false \
       -s directAccessGrantsEnabled=false \
-      -s "secret=${migrator_secret}" >/dev/null
-    echo "IAM migrator client created."
-  else
-    "${kcadm}" update "clients/${migrator_id}" -r "${realm}" \
+      -s "secret=${client_secret}" >/dev/null
+      echo "IAM ${client_id} client created."
+    else
+      "${kcadm}" update "clients/${internal_id}" -r "${realm}" \
       -s enabled=true \
       -s publicClient=false \
       -s serviceAccountsEnabled=true \
       -s standardFlowEnabled=false \
       -s directAccessGrantsEnabled=false \
-      -s "secret=${migrator_secret}" >/dev/null
-    echo "IAM migrator client reconciled."
+      -s "secret=${client_secret}" >/dev/null
+      echo "IAM ${client_id} client reconciled."
+    fi
+  }
+
+  reconcile_service_client \
+    taiji-migrator '太极一次性 IAM 迁移工具' \
+    "${TAIJI_MIGRATOR_CLIENT_SECRET:?missing migrator client secret}"
+  reconcile_service_client \
+    taiji-reconciler '太极 IAM 对账服务' \
+    "${TAIJI_RECONCILER_CLIENT_SECRET:?missing reconciler client secret}"
+
+  web_id="$("${kcadm}" get clients -r "${realm}" \
+    -q clientId=taiji-web --fields id --format csv --noquotes | sed -n '1p')"
+  if [[ -z "${web_id}" ]]; then
+    echo "IAM taiji-web client is missing; restore the realm baseline before startup." >&2
+    exit 1
   fi
+  "${kcadm}" update "clients/${web_id}" -r "${realm}" \
+    -s enabled=true \
+    -s publicClient=false \
+    -s serviceAccountsEnabled=false \
+    -s standardFlowEnabled=true \
+    -s directAccessGrantsEnabled=false \
+    -s "secret=${TAIJI_OIDC_CLIENT_SECRET:?missing OIDC client secret}" >/dev/null
+  echo "IAM taiji-web client reconciled."
 fi
 
 if [[ "${IAM_BOOTSTRAP_ENABLED:-true}" != "true" ]]; then

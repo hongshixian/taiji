@@ -1,6 +1,6 @@
 # 太极 (Taiji) Makefile
 
-.PHONY: dev test build up down clean iam-build iam-test iam-up iam-down iam-smoke iam-integration-test iam-migration-integration-test iam-bootstrap-password
+.PHONY: dev test build up down clean iam-build iam-test iam-up iam-down iam-smoke iam-integration-test iam-migration-integration-test iam-bootstrap-password iam-reconcile
 
 # 开发模式 — 同时启动 Flask + Vite
 dev:
@@ -50,6 +50,9 @@ iam-migration-integration-test:
 
 iam-bootstrap-password:
 	docker compose logs --no-log-prefix iam-bootstrap
+
+iam-reconcile:
+	docker compose run --rm --no-deps iam-projector python iam_projector.py --reconcile-only
 
 # 清理临时文件
 clean:

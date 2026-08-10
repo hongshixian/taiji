@@ -52,6 +52,21 @@ admin_token_response="$(curl -sS -X POST "${base_url}/realms/${realm}/protocol/o
   -d "client_secret=${reconciler_secret}")"
 admin_token="$(jq -er .access_token <<<"${admin_token_response}")"
 
+migrator_token_response="$(curl -sS -X POST "${base_url}/realms/${realm}/protocol/openid-connect/token" \
+  -d grant_type=client_credentials \
+  -d client_id=taiji-migrator \
+  -d "client_secret=${TAIJI_MIGRATOR_CLIENT_SECRET:-taiji-migrator-dev-secret}")"
+migrator_token="$(jq -er .access_token <<<"${migrator_token_response}")"
+reconciliation_forbidden_code="$(curl -sS -o /tmp/taiji-iam-reconciliation-forbidden.json \
+  -w '%{http_code}' \
+  "${base_url}/realms/${realm}/taiji-iam/v1/reconciliation/tenants" \
+  -H "Authorization: Bearer ${migrator_token}")"
+[[ "${reconciliation_forbidden_code}" == 403 ]]
+jq -e '.code == "reconciler_required"' /tmp/taiji-iam-reconciliation-forbidden.json >/dev/null
+
+curl -fsS "${base_url}/realms/${realm}/taiji-iam/v1/reconciliation/tenants" \
+  -H "Authorization: Bearer ${admin_token}" | jq -e '.tenants | type == "array"' >/dev/null
+
 pending_body="$(jq -nc --arg name "Pending IAM integration ${suffix}" --arg email "${email}" \
   '{name: $name, initialAdmin: $email}')"
 pending_created="$(curl -fsS -X POST "${base_url}/realms/${realm}/taiji-iam/v1/tenants" \
@@ -103,6 +118,10 @@ created="$(curl -fsS -X POST "${base_url}/realms/${realm}/taiji-iam/v1/tenants" 
   -d "${create_body}")"
 tenant_id="$(jq -er '.id | select(length == 36)' <<<"${created}")"
 tenant_org_id="$(jq -er .keycloak_org_id <<<"${created}")"
+
+curl -fsS "${base_url}/realms/${realm}/taiji-iam/v1/reconciliation/tenants/${tenant_id}/members" \
+  -H "Authorization: Bearer ${admin_token}" \
+  | jq -e '.members | any(.username == "admin" and .role == "tenant_admin")' >/dev/null
 
 service_account_code="$(curl -sS -o /tmp/taiji-iam-service-account.json -w '%{http_code}' -X POST \
   "${base_url}/realms/${realm}/taiji-iam/v1/tenants/${tenant_id}/members" \

@@ -153,6 +153,45 @@ def create_app(config_obj=Config):
     def health():
         return jsonify({"status": "ok"})
 
+    @flask_app.route("/api/ready")
+    def ready():
+        from sqlalchemy import text
+
+        checks = {}
+        try:
+            db.session.execute(text("SELECT 1"))
+            checks["database"] = "ok"
+        except Exception:
+            db.session.rollback()
+            checks["database"] = "unavailable"
+
+        if flask_app.config.get("READINESS_CHECK_EXTERNALS", True):
+            try:
+                from redis import Redis
+
+                Redis.from_url(
+                    flask_app.config["REDIS_URL"],
+                    socket_connect_timeout=2,
+                    socket_timeout=2,
+                ).ping()
+                checks["redis"] = "ok"
+            except Exception:
+                checks["redis"] = "unavailable"
+
+            if flask_app.config.get("AUTH_MODE") == "oidc":
+                try:
+                    from app.services.iam_client import IamClient
+
+                    IamClient().health()
+                    checks["iam"] = "ok"
+                except Exception:
+                    checks["iam"] = "unavailable"
+
+        available = all(value == "ok" for value in checks.values())
+        return jsonify({"status": "ok" if available else "unavailable", "checks": checks}), (
+            200 if available else 503
+        )
+
     # 注册业务蓝图（统一挂在 /api/v1/ 之下）
     from app.api.auth import auth_bp
     from app.api.task import task_bp
@@ -228,7 +267,7 @@ def create_app(config_obj=Config):
                         raise BusinessError(ErrorCode.CSRF_INVALID)
 
                 public_endpoints = {
-                    "health", "auth.login", "auth.register", "auth.callback", "auth.logout",
+                    "health", "ready", "auth.login", "auth.register", "auth.callback", "auth.logout",
                 }
                 if request.endpoint != "auth.logout":
                     from app.services.oidc_session_service import local_session_projection_stale

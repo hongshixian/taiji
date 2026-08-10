@@ -262,6 +262,13 @@ public final class IdentityProvisioningService {
                 .toList();
     }
 
+    public List<Map<String, Object>> listAllTenants() {
+        return organizations.getAllStream()
+                .map(organization -> tenantToMap(organization, null))
+                .sorted(Comparator.comparing(entry -> (String) entry.get("id")))
+                .toList();
+    }
+
     public List<Map<String, Object>> listPlatformAdmins() {
         RoleModel role = requirePlatformAdminRole();
         return session.users().getRoleMembersStream(realm, role)
@@ -389,6 +396,14 @@ public final class IdentityProvisioningService {
     public List<Map<String, Object>> listMembers(String tenantId) {
         OrganizationModel organization = requireTenant(tenantId);
         requireEnterprise(organization);
+        return organizations.getMembersStream(organization, Map.of(), null, null, null)
+                .map(user -> memberToMap(organization, user))
+                .sorted(Comparator.comparing(entry -> (String) entry.get("username")))
+                .toList();
+    }
+
+    public List<Map<String, Object>> listAllMembers(String tenantId) {
+        OrganizationModel organization = requireTenant(tenantId);
         return organizations.getMembersStream(organization, Map.of(), null, null, null)
                 .map(user -> memberToMap(organization, user))
                 .sorted(Comparator.comparing(entry -> (String) entry.get("username")))

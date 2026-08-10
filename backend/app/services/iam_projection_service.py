@@ -86,6 +86,67 @@ def project_iam_members(tenant: Tenant, payloads: list[dict]) -> list[tuple[User
     return projected
 
 
+def reconcile_iam_members(
+    tenant: Tenant, payloads: list[dict]
+) -> list[tuple[User, TenantMembership]]:
+    """Replace one tenant's membership projection with the IAM snapshot."""
+    projected = []
+    seen_user_ids = set()
+    with bypass_tenant_filter():
+        for payload in payloads:
+            iam_user_id = _required(payload, "id")
+            user = _project_user(
+                {
+                    "sub": _required(payload, "keycloak_subject"),
+                    "preferred_username": payload.get("username"),
+                    "email": payload.get("email"),
+                },
+                iam_user_id,
+                is_active=bool(payload.get("enabled", True)),
+            )
+            membership = _project_member(tenant, user, payload)
+            projected.append((user, membership))
+            seen_user_ids.add(user.id)
+
+        stale = TenantMembership.query.filter_by(tenant_id=tenant.id)
+        if seen_user_ids:
+            stale = stale.filter(~TenantMembership.user_id.in_(seen_user_ids))
+        stale.update(
+            {
+                TenantMembership.is_active: False,
+                TenantMembership.last_synced_at: datetime.now(timezone.utc),
+            },
+            synchronize_session=False,
+        )
+        db.session.commit()
+    return projected
+
+
+def reconcile_iam_tenants(payloads: list[dict]) -> list[Tenant]:
+    """Project every IAM tenant and disable projections no longer returned by IAM."""
+    projected = []
+    seen = set()
+    with bypass_tenant_filter():
+        for payload in payloads:
+            tenant = _project_tenant(payload)
+            projected.append(tenant)
+            seen.add(tenant.iam_tenant_id)
+
+        stale = Tenant.query.filter(Tenant.iam_tenant_id.isnot(None))
+        if seen:
+            stale = stale.filter(~Tenant.iam_tenant_id.in_(seen))
+        stale.update(
+            {
+                Tenant.is_active: False,
+                Tenant.lifecycle_status: "missing",
+                Tenant.last_synced_at: datetime.now(timezone.utc),
+            },
+            synchronize_session=False,
+        )
+        db.session.commit()
+    return projected
+
+
 def project_platform_admins(payloads: list[dict]) -> list[User]:
     users = []
     seen = set()

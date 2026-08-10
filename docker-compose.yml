@@ -126,6 +126,8 @@ services:
       - KEYCLOAK_INTERNAL_URL=http://keycloak:8080
       - KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME=${KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:-kcadmin}
       - KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD=${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:-dev-only-change-me}
+      - TAIJI_OIDC_CLIENT_SECRET=${TAIJI_OIDC_CLIENT_SECRET:-taiji-web-dev-secret}
+      - TAIJI_RECONCILER_CLIENT_SECRET=${TAIJI_RECONCILER_CLIENT_SECRET:-taiji-reconciler-dev-secret}
       - TAIJI_MIGRATOR_CLIENT_SECRET=${TAIJI_MIGRATOR_CLIENT_SECRET:-taiji-migrator-dev-secret}
     depends_on:
       keycloak:
@@ -149,6 +151,7 @@ services:
       - TAIJI_PUBLIC_URL=${TAIJI_PUBLIC_URL:-http://localhost:8080}
       - TAIJI_OIDC_CLIENT_ID=taiji-web
       - TAIJI_OIDC_CLIENT_SECRET=${TAIJI_OIDC_CLIENT_SECRET:-taiji-web-dev-secret}
+      - TAIJI_RECONCILER_CLIENT_SECRET=${TAIJI_RECONCILER_CLIENT_SECRET:-taiji-reconciler-dev-secret}
       - TAIJI_MIGRATOR_CLIENT_SECRET=${TAIJI_MIGRATOR_CLIENT_SECRET:-taiji-migrator-dev-secret}
       - IAM_IDENTITY_CACHE_SECONDS=${IAM_IDENTITY_CACHE_SECONDS:-300}
       - SESSION_IDLE_SECONDS=${SESSION_IDLE_SECONDS:-7200}
@@ -176,6 +179,45 @@ services:
       - ./app_data:/app/data
       - ./app_logs:/app/logs
       - ./hf_cache:/app/hf_cache
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:5000/api/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  # ─── IAM 事件投影与周期对账 ─────────────────────
+  iam-projector:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    command: ["python", "iam_projector.py"]
+    environment:
+      - FLASK_ENV=${FLASK_ENV:-development}
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-taiji}:${POSTGRES_PASSWORD:-taiji_pw}@postgres:5432/${POSTGRES_DB:-taiji}
+      - REDIS_URL=redis://redis:6379/0
+      - AUTH_MODE=oidc
+      - IAM_REALM=fangcun
+      - IAM_PUBLIC_URL=${IAM_PUBLIC_URL:-http://localhost:8180}
+      - IAM_INTERNAL_URL=http://keycloak:8080
+      - TAIJI_PUBLIC_URL=${TAIJI_PUBLIC_URL:-http://localhost:8080}
+      - TAIJI_OIDC_CLIENT_SECRET=${TAIJI_OIDC_CLIENT_SECRET:-taiji-web-dev-secret}
+      - TAIJI_RECONCILER_CLIENT_SECRET=${TAIJI_RECONCILER_CLIENT_SECRET:-taiji-reconciler-dev-secret}
+      - TAIJI_MIGRATOR_CLIENT_SECRET=${TAIJI_MIGRATOR_CLIENT_SECRET:-taiji-migrator-dev-secret}
+      - NATS_URL=nats://${NATS_USER:-taiji}:${NATS_PASSWORD:-taiji_nats_dev}@nats:4222
+      - IAM_RECONCILE_INTERVAL_SECONDS=${IAM_RECONCILE_INTERVAL_SECONDS:-300}
+      - IAM_EVENT_BATCH_SIZE=${IAM_EVENT_BATCH_SIZE:-10}
+      - IAM_EVENT_ACK_WAIT_SECONDS=${IAM_EVENT_ACK_WAIT_SECONDS:-300}
+      - RUN_MIGRATIONS=false
+    depends_on:
+      backend:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
     restart: unless-stopped
 
   # ─── Celery Worker ─────────────────────────────

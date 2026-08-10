@@ -676,10 +676,10 @@ PUT  /api/v1/auth/password
 - Phase 1 已完成并提交：Keycloak、独立逻辑数据库、Realm、Theme、扩展骨架和 NATS JetStream。
 - Phase 2 已完成并提交：稳定 ID、个人空间、企业租户、固定角色、成员软停用、邀请、Bootstrap admin、受控 REST API 和事务提交后事件。
 - Phase 3 BFF 核心已完成并提交：OIDC、Redis 会话、CSRF、本地按需投影、租户切换和写隔离加固。
-- Phase 3 剩余：NATS 投影消费、乱序/重复事件处理和定期全量对账。
+- Phase 3 已完成：NATS durable 投影消费、事件幂等账本、乱序保护和定期全量对账。
 - Phase 4 迁移后端已完成：Legacy Password Provider、一次性受控迁移 API、断点账本、迁移 CLI 和真实首次登录换密验证。
-- Phase 4 剩余：固定权限调整、管理接口改造和前端切换。
-- Phase 5 尚未开始。
+- Phase 4 已完成：固定权限、管理接口、前端 OIDC 会话与租户切换。
+- Phase 5 发布能力已完成：readiness、上线/回滚手册、对账命令和全链路测试；真实数据迁移及灰度切换属于环境操作。
 
 ### Phase 1：基础设施与扩展骨架
 

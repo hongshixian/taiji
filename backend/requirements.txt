@@ -26,6 +26,7 @@ flask-limiter==4.1.1
 # 异步任务
 celery[redis]==5.4.0
 redis==5.2.1
+nats-py==2.15.0
 
 # 网页抓取 (示例任务)
 requests==2.32.3

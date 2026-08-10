@@ -1,8 +1,8 @@
 # ☯ 太极 (Taiji)
 
-> Flask 3 + Vue 3 + Celery + Redis 全栈项目脚手架
+> Flask 3 + Vue 3 + Keycloak + NATS JetStream 多租户评测平台
 
-太极是一个**即开即用的项目启动骨架**，内置用户认证、异步任务队列和示例业务（网页内容分析、CSV 数据质量检查）。Clone 下来就能跑，零改动见完整链路。
+太极是一个多租户 AI 安全评测平台。用户身份、企业租户和成员关系由 Keycloak IAM 统一管理；太极保留业务权限和租户隔离，通过 OIDC BFF 建立服务端会话。
 
 ---
 
@@ -11,12 +11,13 @@
 | 层级 | 技术 |
 |------|------|
 | 后端 | Flask 3 + SQLAlchemy + Flask-Migrate |
-| 鉴权 | JWT (access 30min / refresh 7天) + Redis 黑名单 |
-| 权限 | RBAC（角色-权限分离，运行时可配） |
+| 鉴权 | Keycloak OIDC + PKCE + Redis 服务端会话 + CSRF |
+| 权限 | IAM 固定成员身份 + 太极本地业务权限矩阵 |
 | 多租户 | 共享 schema + 全局 query 拦截器（数据自动隔离） |
 | 异步 | Celery + Redis |
 | 前端 | Vue 3 + Vite + Element Plus + Pinia |
-| 部署 | Docker Compose 一键启动 |
+| 身份同步 | NATS JetStream + 受控 API 周期对账 |
+| 部署 | Docker Compose（PostgreSQL、Keycloak、NATS、Redis） |
 
 ---
 
@@ -27,22 +28,22 @@
 ```bash
 git clone https://github.com/hongshixian/taiji.git
 cd taiji
-cp .env.example .env       # 推荐：编辑 .env 设置 ADMIN_PASSWORD 与密钥
+cp .env.example .env       # 编辑所有生产 Secret 与公网 URL
 docker compose up -d
 ```
 
 浏览器打开 `http://localhost`，注册账号即可使用。
 
-#### 首次部署：管理员账号
+#### 首次部署：平台管理员
 
-- **若设置了 `ADMIN_PASSWORD`**（推荐）：使用 `ADMIN_USERNAME` / `ADMIN_PASSWORD` 登录
-- **未设置 `ADMIN_PASSWORD`**：启动时会随机生成密码并打印到日志，**请立即查看并保存**：
+- IAM 仅在空 Realm 中创建用户名 `admin`，密码由安全随机源生成并标记为首次登录强制修改。
+- 临时密码只由一次性 `iam-bootstrap` 任务输出一次：
 
   ```bash
-  docker compose logs backend | grep -A 5 "首次部署"
+  docker compose logs --no-log-prefix iam-bootstrap
   ```
 
-  登录后请到「用户管理」改成你能记住的强密码。该密码仅在首次启动（DB 无 admin 时）生成一次，之后不再打印。
+基础设施管理员 `KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME` 与太极平台管理员不是同一账号，不能用于业务登录。
 
 ### 本地开发
 
@@ -58,7 +59,11 @@ python run.py            # 启动于 :5000
 cd backend
 celery -A celery_app worker -l info
 
-# 3. 前端（新终端）
+# 3. IAM 投影进程（新终端；需已启动 Keycloak 与 NATS）
+cd backend
+python iam_projector.py
+
+# 4. 前端（新终端）
 cd frontend
 npm install
 npm run dev              # 启动于 :5173
@@ -80,6 +85,7 @@ taiji/
 │   ├── tests/            # pytest 测试
 │   ├── config.py         # 环境变量配置
 │   ├── celery_app.py     # Celery 实例
+│   ├── iam_projector.py   # IAM 事件消费与周期对账
 │   └── run.py            # Flask 启动入口
 ├── frontend/
 │   └── src/
@@ -88,7 +94,8 @@ taiji/
 │       ├── stores/       # Pinia 状态
 │       └── views/        # 页面组件
 ├── docker/               # Dockerfile × 3
-├── docker-compose.yml    # 四服务编排
+├── iam/                  # Keycloak Realm、Theme 与 Java 扩展
+├── docker-compose.yml    # 完整运行组件编排
 └── README.md
 ```
 
@@ -105,16 +112,16 @@ taiji/
 
 ## API 总览
 
-> 所有业务接口都在 `/api/v1/` 之下；`/api/health` 跨版本稳定。
+> 所有业务接口都在 `/api/v1/` 之下；`/api/health` 和 `/api/ready` 跨版本稳定。
 
 | 方法 | 路径 | 说明 | 鉴权 |
 |------|------|------|:---:|
-| POST | `/api/v1/auth/register` | 注册（默认进 guest 租户）| — |
-| POST | `/api/v1/auth/login` | 登录 | — |
-| POST | `/api/v1/auth/refresh` | 刷新 token | refresh |
-| POST | `/api/v1/auth/logout` | 退出（撤销当前 token）| ✓ |
-| PUT  | `/api/v1/auth/password` | 修改密码（踢出所有会话）| ✓ |
-| GET  | `/api/v1/auth/me` | 当前用户（含 perms）| ✓ |
+| GET | `/api/v1/auth/register` | 跳转 IAM 注册 | — |
+| GET | `/api/v1/auth/login` | 发起 OIDC Authorization Code + PKCE | — |
+| GET | `/api/v1/auth/callback` | OIDC 回调并建立服务端会话 | state/nonce |
+| POST | `/api/v1/auth/logout` | 销毁本地会话并返回 IAM 退出地址 | CSRF |
+| GET | `/api/v1/auth/me` | 当前用户、租户、权限和 CSRF token | session |
+| POST | `/api/v1/auth/switch-tenant` | 切换当前会话生效租户 | session + CSRF |
 | GET  | `/api/v1/tasks/` | 所有任务列表 | task:read |
 | GET  | `/api/v1/tasks/<id>/logs` | 任务执行日志 | task:read |
 | POST | `/api/v1/tasks/webpage-analysis/` | 提交网页分析 | task:create |
@@ -127,12 +134,12 @@ taiji/
 | GET  | `/api/v1/tasks/csv-quality/` | CSV 检查历史列表 | task:read |
 | POST | `/api/v1/tasks/csv-quality/<id>/retry` | 重试 CSV 检查任务 | task:create |
 | DELETE | `/api/v1/tasks/csv-quality/<id>` | 删除 CSV 检查任务 | task:delete:any |
-| GET/POST/PUT/DELETE | `/api/v1/admin/users[/<id>]` | 用户 CRUD | user:read/write/delete |
-| GET/POST/PUT/DELETE | `/api/v1/admin/roles[/<id>]` | 角色 CRUD | role:read/write/delete |
-| GET  | `/api/v1/admin/roles/permissions` | 所有权限码列表 | role:read |
-| GET/POST/PUT/DELETE | `/api/v1/superadmin/tenants[/<id>]` | 租户 CRUD（仅 superuser）| is_superuser |
+| GET/POST/PUT/DELETE | `/api/v1/admin/users[/<id>]` | 企业租户成员管理（兼容路径） | member:* |
+| GET/POST/PUT/DELETE | `/api/v1/superadmin/tenants[/<id>]` | 企业租户创建、修改和停用 | platform_admin |
+| GET/POST/DELETE | `/api/v1/superadmin/superusers[/<id>]` | 平台管理员授权（兼容路径） | platform_admin |
 | GET  | `/api/v1/audit-logs` | 审计日志查询 | system:audit |
 | GET  | `/api/health` | 健康检查 | — |
+| GET  | `/api/ready` | 数据库、Redis、IAM 就绪检查 | — |
 
 ### 响应格式
 
@@ -145,19 +152,17 @@ taiji/
 - `code = 0` 成功；非 0 为业务错误码（详见 `backend/app/utils/errors.py::ErrorCode`）
 - 错误码分段：`1xxxx` 用户/认证、`11xxx` 多租户、`2xxxx` 任务、`3xxxx` 鉴权、`9xxxx` 系统级
 
-### 权限体系 (RBAC)
+### 权限体系
 
 | 角色 | 权限 |
 |------|------|
-| `admin` | 全部权限（user:*/role:*/task:*/system:*）|
-| `user` | task:read, task:create |
-| `guest` | task:read |
+| `tenant_admin` | 成员管理、全部任务、模型配置、评测管理和审计 |
+| `member` | 全部任务、模型配置和评测只读 |
 
-- 系统角色 (`is_system=true`, `tenant_id=NULL`) 全局共享且不可修改 / 删除；admin 可在「角色管理」页新增当前租户内的自定义角色
-- 自定义角色带 `tenant_id`，只在所属租户可见；不同租户可以创建同名角色并绑定不同权限
-- 角色挂在租户成员身份 (`tenant_memberships.role_id`) 上，同一用户在不同租户可拥有不同角色
-- 改密 / 改角色 / 禁用账户或成员身份会立即撤销该用户所有 JWT（用户级吊销 + Redis 黑名单）
-- 平台超级管理员通过 `is_superuser` 管理租户和系统设置；租户管理员通过当前租户角色权限管理成员与角色
+- Keycloak 中的成员身份固定为 `tenant_admin` 或 `member`，不开放自定义 IAM 角色。
+- 太极将固定身份映射到本地 `admin` / `user` 兼容记录，本地权限矩阵仍是业务授权最终权威。
+- 平台超级管理员只管理租户和平台管理员；没有 membership 时不能读取租户业务数据。
+- 租户、成员或账号被停用后，登录/切换时实时校验，活跃会话最多在配置的身份缓存窗口后失效。
 - 审计日志通过 `system:audit` 查看：超级管理员可跨租户查询，租户管理员只能查看当前租户日志
 
 ### 任务扩展架构
@@ -173,14 +178,13 @@ taiji/
 
 - 数据库层面共享 schema，每张业务表带 `tenant_id`，全局 query 拦截器自动按当前 tenant 过滤
 - `users` 是全局唯一登录主体，`username` / `email` 全局唯一
-- 用户通过 `tenant_memberships` 归属多个租户；JWT 当前 `tenant_id` 表示当前操作租户
-- 登录只校验全局账号密码并进入默认可用租户，其他租户通过右上角租户切换器切换
-- 系统种子租户：`default`（现有数据）+ `guest`（公开注册落地）
-- **超级管理员** (is_superuser=true)：可跨租户管理，通过 `/api/v1/superadmin/tenants` 增删改租户
-- **系统设置**：超级管理员可通过 `/api/v1/superadmin/settings` 配置平台级选项，例如新注册用户默认所属租户
-- **超级管理员列表**：超级管理员可添加 / 移除其他用户的平台超级管理员权限
-- **租户成员管理**：超级管理员可在租户管理页向任意租户添加 / 移除成员
-- 普通用户可通过 `/api/v1/auth/switch-tenant` 切换到自己拥有成员身份的租户
+- 用户通过 `tenant_memberships` 归属多个租户；当前 `tenant_id` 只保存在每个浏览器服务端会话中。
+- 用户登录时无需选择租户，Header 下拉框展示 IAM 返回的全部可用租户；一次会话只激活一个租户。
+- 每个自行注册用户自动拥有一个受保护个人空间，并在其中拥有完整业务权限。
+- 企业租户由平台管理员创建，租户管理员可直接加入已注册全局用户或邀请邮箱。
+- 历史公共空间迁移为一个受保护企业租户，业务表主键和 `tenant_id` 不移动。
+
+IAM 架构见 [docs/architecture/iam.md](docs/architecture/iam.md)，生产发布按 [docs/operations/iam-deployment.md](docs/operations/iam-deployment.md) 执行。
 
 ---
 
@@ -191,7 +195,7 @@ cd backend
 python -m pytest tests/ -v
 ```
 
-61 个测试覆盖：健康检查、注册登录、JWT 鉴权、Token 刷新、多租户隔离、RBAC 角色隔离、审计日志、任务日志、网页分析任务、CSV 检查任务。
+61 个后端测试覆盖 OIDC BFF、CSRF、IAM 管理代理、投影对账、重复/乱序事件、多租户隔离、固定权限、旧认证回滚路径和审计日志；Keycloak Java 扩展另有 Maven 测试和真实组件集成测试。
 
 ---
 
@@ -202,7 +206,14 @@ python -m pytest tests/ -v
 | `SECRET_KEY` | Flask 密钥 | `dev-secret-change-me` |
 | `DATABASE_URL` | 数据库地址 | `sqlite:///../data/taiji.db` |
 | `REDIS_URL` | Redis 地址 | `redis://localhost:6379/0` |
-| `JWT_SECRET_KEY` | JWT 签名密钥 | — |
+| `AUTH_MODE` | 认证模式；IAM 切换后为 `oidc` | `legacy` |
+| `IAM_PUBLIC_URL` | 浏览器访问 Keycloak 的地址 | `http://localhost:8180` |
+| `IAM_INTERNAL_URL` | 后端访问 Keycloak 的地址 | 同 `IAM_PUBLIC_URL` |
+| `TAIJI_PUBLIC_URL` | 浏览器访问太极的地址 | `http://localhost:8080` |
+| `TAIJI_OIDC_CLIENT_SECRET` | OIDC Web Client Secret | 仅开发默认值 |
+| `TAIJI_RECONCILER_CLIENT_SECRET` | 对账服务账号 Secret | 仅开发默认值 |
+| `NATS_URL` | IAM JetStream 地址 | `nats://localhost:4222` |
+| `IAM_RECONCILE_INTERVAL_SECONDS` | 全量对账周期 | `300` |
 | `TASK_LOG_ROOT` | 任务日志根目录 | `../app_logs` |
 
 ---

@@ -1,6 +1,7 @@
 """Minimal client for Taiji's controlled Keycloak IAM API."""
 
 from dataclasses import dataclass
+import time
 
 import requests
 from flask import current_app
@@ -20,6 +21,35 @@ class IamClient:
         realm = current_app.config["IAM_REALM"]
         self.realm_url = f"{current_app.config['IAM_INTERNAL_URL']}/realms/{realm}"
         self.timeout = (2, 5)
+        self._service_token = None
+        self._service_token_expires_at = 0.0
+
+    def health(self) -> dict:
+        return self._request_public("GET", f"{self.realm_url}/taiji-iam/health")
+
+    def reconciliation_tenants(self) -> list[dict]:
+        result = self._request(
+            "GET",
+            f"{self.realm_url}/taiji-iam/v1/reconciliation/tenants",
+            access_token=self._reconciler_token(),
+        )
+        return result.get("tenants", [])
+
+    def reconciliation_members(self, tenant_id: str) -> list[dict]:
+        result = self._request(
+            "GET",
+            f"{self.realm_url}/taiji-iam/v1/reconciliation/tenants/{tenant_id}/members",
+            access_token=self._reconciler_token(),
+        )
+        return result.get("members", [])
+
+    def reconciliation_platform_admins(self) -> list[dict]:
+        result = self._request(
+            "GET",
+            f"{self.realm_url}/taiji-iam/v1/reconciliation/platform-admins",
+            access_token=self._reconciler_token(),
+        )
+        return result.get("platform_admins", [])
 
     def list_my_tenants(self, access_token: str) -> dict:
         return self._request(
@@ -123,6 +153,49 @@ class IamClient:
                 payload.get("error_description", "身份会话刷新失败"),
             )
         return response.json()
+
+    def _reconciler_token(self) -> str:
+        now = time.monotonic()
+        if self._service_token and now < self._service_token_expires_at:
+            return self._service_token
+        try:
+            response = requests.post(
+                f"{self.realm_url}/protocol/openid-connect/token",
+                data={
+                    "grant_type": "client_credentials",
+                    "client_id": current_app.config["IAM_RECONCILER_CLIENT_ID"],
+                    "client_secret": current_app.config["IAM_RECONCILER_CLIENT_SECRET"],
+                },
+                timeout=self.timeout,
+            )
+        except requests.RequestException as exc:
+            raise IamHttpError(503, "iam_unavailable", "身份服务暂时不可用") from exc
+        if response.status_code >= 400:
+            payload = _json_or_empty(response)
+            raise IamHttpError(
+                response.status_code,
+                payload.get("error", "service_token_failed"),
+                payload.get("error_description", "对账服务认证失败"),
+            )
+        payload = response.json()
+        token = payload.get("access_token")
+        if not token:
+            raise IamHttpError(502, "invalid_iam_response", "身份服务返回了无效响应")
+        self._service_token = token
+        self._service_token_expires_at = now + max(int(payload.get("expires_in", 60)) - 10, 1)
+        return token
+
+    def _request_public(self, method: str, url: str) -> dict:
+        try:
+            response = requests.request(method, url, timeout=self.timeout)
+        except requests.RequestException as exc:
+            raise IamHttpError(503, "iam_unavailable", "身份服务暂时不可用") from exc
+        if response.status_code >= 400:
+            raise IamHttpError(response.status_code, "iam_unavailable", "身份服务暂时不可用")
+        value = response.json()
+        if not isinstance(value, dict):
+            raise IamHttpError(502, "invalid_iam_response", "身份服务返回了无效响应")
+        return value
 
     def _request(
         self,

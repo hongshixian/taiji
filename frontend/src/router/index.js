@@ -109,34 +109,34 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach(async (to, _from, next) => {
+router.beforeEach(async (to) => {
   const authStore = useAuthStore()
   await authStore.initialize()
 
   if (to.meta.requiresAuth && !authStore.isLoggedIn) {
-    return next('/login')
+    return '/login'
   }
 
   if (to.meta.guest && authStore.isLoggedIn) {
-    return next('/')
+    return '/'
   }
 
   if (to.meta.requiresPermission) {
     const perms = new Set(authStore.user?.permissions ?? [])
     if (!perms.has(to.meta.requiresPermission)) {
-      return next('/')
+      return '/'
     }
   }
 
   if (to.meta.requiresSuperuser && !authStore.user?.is_superuser) {
-    return next('/')
+    return '/'
   }
 
   if (to.meta.requiresEnterpriseTenant && authStore.currentTenant?.type !== 'enterprise') {
-    return next('/')
+    return '/'
   }
 
-  next()
+  return true
 })
 
 export default router
