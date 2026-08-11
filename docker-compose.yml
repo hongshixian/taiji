@@ -231,6 +231,15 @@ services:
       - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
       - DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-taiji}:${POSTGRES_PASSWORD:-taiji_pw}@postgres:5432/${POSTGRES_DB:-taiji}
       - REDIS_URL=redis://redis:6379/0
+      - AUTH_MODE=${AUTH_MODE:-oidc}
+      - IAM_REALM=fangcun
+      - IAM_PUBLIC_URL=${IAM_PUBLIC_URL:-http://localhost:8180}
+      - IAM_INTERNAL_URL=http://keycloak:8080
+      - TAIJI_PUBLIC_URL=${TAIJI_PUBLIC_URL:-http://localhost:8080}
+      - TAIJI_OIDC_CLIENT_ID=taiji-web
+      - TAIJI_OIDC_CLIENT_SECRET=${TAIJI_OIDC_CLIENT_SECRET:-taiji-web-dev-secret}
+      - TAIJI_RECONCILER_CLIENT_SECRET=${TAIJI_RECONCILER_CLIENT_SECRET:-taiji-reconciler-dev-secret}
+      - TAIJI_MIGRATOR_CLIENT_SECRET=${TAIJI_MIGRATOR_CLIENT_SECRET:-taiji-migrator-dev-secret}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-in-production}
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
