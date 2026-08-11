@@ -59,7 +59,7 @@ async def run_projector(app, *, once: bool = False) -> None:
                 messages = await subscription.fetch(
                     batch=config["IAM_EVENT_BATCH_SIZE"], timeout=1
                 )
-            except NatsTimeoutError:
+            except (NatsTimeoutError, asyncio.TimeoutError):
                 if once:
                     return
                 continue
