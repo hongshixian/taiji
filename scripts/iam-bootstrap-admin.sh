@@ -13,6 +13,7 @@ infra_user="${KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:?missing infrastructure admin us
 infra_password="${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:?missing infrastructure admin password}"
 business_username="admin"
 business_email="${IAM_BOOTSTRAP_ADMIN_EMAIL:-admin@taiji.local}"
+taiji_public_url="${TAIJI_PUBLIC_URL:?missing Taiji public URL}"
 kcadm="/opt/keycloak/bin/kcadm.sh"
 
 "${kcadm}" config credentials \
@@ -75,6 +76,9 @@ if [[ "${IAM_REALM_RECONCILE_ENABLED:-true}" == "true" ]]; then
     -s serviceAccountsEnabled=false \
     -s standardFlowEnabled=true \
     -s directAccessGrantsEnabled=false \
+    -s "redirectUris=[\"${taiji_public_url}/api/v1/auth/callback\"]" \
+    -s "webOrigins=[\"${taiji_public_url}\"]" \
+    -s "attributes.\"post.logout.redirect.uris\"=\"${taiji_public_url}/*\"" \
     -s "secret=${TAIJI_OIDC_CLIENT_SECRET:?missing OIDC client secret}" >/dev/null
   echo "IAM taiji-web client reconciled."
 fi

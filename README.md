@@ -209,7 +209,7 @@ python -m pytest tests/ -v
 | `AUTH_MODE` | 认证模式；IAM 切换后为 `oidc` | `legacy` |
 | `IAM_PUBLIC_URL` | 浏览器访问 Keycloak 的地址 | `http://localhost:8180` |
 | `IAM_INTERNAL_URL` | 后端访问 Keycloak 的地址 | 同 `IAM_PUBLIC_URL` |
-| `TAIJI_PUBLIC_URL` | 浏览器访问太极的地址 | `http://localhost:8080` |
+| `TAIJI_PUBLIC_URL` | 浏览器访问太极的地址 | `http://localhost:28080` |
 | `TAIJI_OIDC_CLIENT_SECRET` | OIDC Web Client Secret | 仅开发默认值 |
 | `TAIJI_RECONCILER_CLIENT_SECRET` | 对账服务账号 Secret | 仅开发默认值 |
 | `NATS_URL` | IAM JetStream 地址 | `nats://localhost:4222` |

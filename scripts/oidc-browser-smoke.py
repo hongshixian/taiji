@@ -10,7 +10,7 @@ import requests
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--base-url", default="http://localhost:8080")
+    parser.add_argument("--base-url", default="http://localhost:28080")
     parser.add_argument("--username", required=True)
     parser.add_argument("--password", required=True)
     args = parser.parse_args()

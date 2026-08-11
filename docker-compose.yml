@@ -83,7 +83,7 @@ services:
       - KC_HOSTNAME=${IAM_PUBLIC_URL:-http://localhost:8180}
       - KC_BOOTSTRAP_ADMIN_USERNAME=${KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:-kcadmin}
       - KC_BOOTSTRAP_ADMIN_PASSWORD=${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:-dev-only-change-me}
-      - TAIJI_PUBLIC_URL=${TAIJI_PUBLIC_URL:-http://localhost:8080}
+      - TAIJI_PUBLIC_URL=${TAIJI_PUBLIC_URL:-http://localhost:28080}
       - TAIJI_OIDC_CLIENT_SECRET=${TAIJI_OIDC_CLIENT_SECRET:-taiji-web-dev-secret}
       - TAIJI_RECONCILER_CLIENT_SECRET=${TAIJI_RECONCILER_CLIENT_SECRET:-taiji-reconciler-dev-secret}
       - TAIJI_MIGRATOR_CLIENT_SECRET=${TAIJI_MIGRATOR_CLIENT_SECRET:-taiji-migrator-dev-secret}
@@ -123,6 +123,7 @@ services:
       - IAM_REALM_RECONCILE_ENABLED=${IAM_REALM_RECONCILE_ENABLED:-true}
       - IAM_REALM=fangcun
       - IAM_BOOTSTRAP_ADMIN_EMAIL=${IAM_BOOTSTRAP_ADMIN_EMAIL:-admin@taiji.local}
+      - TAIJI_PUBLIC_URL=${TAIJI_PUBLIC_URL:-http://localhost:28080}
       - KEYCLOAK_INTERNAL_URL=http://keycloak:8080
       - KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME=${KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:-kcadmin}
       - KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD=${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:-dev-only-change-me}
@@ -148,7 +149,7 @@ services:
       - IAM_REALM=fangcun
       - IAM_PUBLIC_URL=${IAM_PUBLIC_URL:-http://localhost:8180}
       - IAM_INTERNAL_URL=http://keycloak:8080
-      - TAIJI_PUBLIC_URL=${TAIJI_PUBLIC_URL:-http://localhost:8080}
+      - TAIJI_PUBLIC_URL=${TAIJI_PUBLIC_URL:-http://localhost:28080}
       - TAIJI_OIDC_CLIENT_ID=taiji-web
       - TAIJI_OIDC_CLIENT_SECRET=${TAIJI_OIDC_CLIENT_SECRET:-taiji-web-dev-secret}
       - TAIJI_RECONCILER_CLIENT_SECRET=${TAIJI_RECONCILER_CLIENT_SECRET:-taiji-reconciler-dev-secret}
@@ -202,7 +203,7 @@ services:
       - IAM_REALM=fangcun
       - IAM_PUBLIC_URL=${IAM_PUBLIC_URL:-http://localhost:8180}
       - IAM_INTERNAL_URL=http://keycloak:8080
-      - TAIJI_PUBLIC_URL=${TAIJI_PUBLIC_URL:-http://localhost:8080}
+      - TAIJI_PUBLIC_URL=${TAIJI_PUBLIC_URL:-http://localhost:28080}
       - TAIJI_OIDC_CLIENT_SECRET=${TAIJI_OIDC_CLIENT_SECRET:-taiji-web-dev-secret}
       - TAIJI_RECONCILER_CLIENT_SECRET=${TAIJI_RECONCILER_CLIENT_SECRET:-taiji-reconciler-dev-secret}
       - TAIJI_MIGRATOR_CLIENT_SECRET=${TAIJI_MIGRATOR_CLIENT_SECRET:-taiji-migrator-dev-secret}
@@ -235,7 +236,7 @@ services:
       - IAM_REALM=fangcun
       - IAM_PUBLIC_URL=${IAM_PUBLIC_URL:-http://localhost:8180}
       - IAM_INTERNAL_URL=http://keycloak:8080
-      - TAIJI_PUBLIC_URL=${TAIJI_PUBLIC_URL:-http://localhost:8080}
+      - TAIJI_PUBLIC_URL=${TAIJI_PUBLIC_URL:-http://localhost:28080}
       - TAIJI_OIDC_CLIENT_ID=taiji-web
       - TAIJI_OIDC_CLIENT_SECRET=${TAIJI_OIDC_CLIENT_SECRET:-taiji-web-dev-secret}
       - TAIJI_RECONCILER_CLIENT_SECRET=${TAIJI_RECONCILER_CLIENT_SECRET:-taiji-reconciler-dev-secret}
@@ -269,7 +270,7 @@ services:
       context: .
       dockerfile: docker/Dockerfile.frontend
     ports:
-      - "80:80"
+      - "${TAIJI_PORT:-28080}:80"
     depends_on:
       - backend
     restart: unless-stopped
