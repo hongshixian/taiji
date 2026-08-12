@@ -80,7 +80,8 @@ Taiji PostgreSQL
 taiji/
 ├── iam/
 │   ├── keycloak-extension/     # Java 21 + Maven，Keycloak SPI 与受控 REST API
-│   ├── themes/                 # 登录、注册、账号中心主题
+│   ├── themes/                 # Keycloak 登录、注册、找回密码与状态页主题
+│   ├── account-console/        # 基于官方 Account UI 的账号管理前端
 │   ├── realm/                  # Realm、Client、Role、Flow 的声明式配置
 │   └── migration/              # 旧用户、租户、成员和凭据迁移工具
 ├── backend/                    # Flask BFF、本地投影、RBAC 与对账

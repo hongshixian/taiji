@@ -23,6 +23,14 @@ kcadm="/opt/keycloak/bin/kcadm.sh"
   --password "${infra_password}" >/dev/null
 
 if [[ "${IAM_REALM_RECONCILE_ENABLED:-true}" == "true" ]]; then
+  "${kcadm}" update "realms/${realm}" \
+    -s loginTheme=taiji \
+    -s accountTheme=fangcun-account \
+    -s internationalizationEnabled=true \
+    -s 'supportedLocales=["zh-CN","en"]' \
+    -s defaultLocale=zh-CN >/dev/null
+  echo "IAM themes and locale reconciled."
+
   "${kcadm}" update users/profile -r "${realm}" \
     -f /opt/keycloak/conf/taiji/user-profile.json >/dev/null
   echo "IAM user profile reconciled."

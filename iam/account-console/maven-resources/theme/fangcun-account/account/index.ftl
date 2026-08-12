@@ -1,10 +1,15 @@
 <!doctype html>
-<html lang="${locale}">
+<html lang="${locale}" dir="${localeDir}">
   <head>
+    <#import "theme-resources.ftl" as themeResourceTags>
     <meta charset="utf-8">
-    <base href="${resourceUrl}/">
-    <link rel="icon" type="${properties.favIconType!'image/svg+xml'}" href="${resourceUrl}${properties.favIcon!'/favicon.svg'}">
+    <#if themeResources?? && themeResources.favicons?has_content>
+      <@themeResourceTags.renderFavicons themeResources.favicons resourceUrl />
+    <#else>
+      <link rel="icon" type="${properties.favIconType!'image/svg+xml'}" href="${resourceUrl}${properties.favIcon!'/favicon.svg'}">
+    </#if>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light${darkMode?then(' dark', '')}">
     <meta name="description" content="${properties.description!'The account ui is a web-based management interface.'}">
     <title>${properties.title!'方寸 IAM 账号中心'}</title>
     <style>
@@ -57,6 +62,23 @@
         }
       }
     </script>
+    <#if darkMode>
+      <script type="module" async blocking="render">
+          const DARK_MODE_CLASS = "${properties.kcDarkModeClass}";
+          const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+          updateDarkMode(mediaQuery.matches);
+          mediaQuery.addEventListener("change", (event) => updateDarkMode(event.matches));
+
+          function updateDarkMode(isEnabled) {
+            const { classList } = document.documentElement;
+            classList.toggle(DARK_MODE_CLASS, isEnabled);
+          }
+      </script>
+    </#if>
+    <#if !isSecureContext>
+      <script type="module" src="${resourceCommonUrl}/vendor/web-crypto-shim/web-crypto-shim.js"></script>
+    </#if>
     <#if devServerUrl?has_content>
       <script type="module">
         import { injectIntoGlobalHook } from "${devServerUrl}/@react-refresh";
@@ -81,7 +103,9 @@
         <link rel="stylesheet" href="${resourceUrl}/${style}">
       </#list>
     </#if>
-    <#if properties.styles?has_content>
+    <#if themeResources?? && themeResources.styles?has_content>
+      <@themeResourceTags.renderStyles themeResources.styles resourceUrl />
+    <#elseif properties.styles?has_content>
       <#list properties.styles?split(' ') as style>
         <link rel="stylesheet" href="${resourceUrl}/${style}">
       </#list>
@@ -89,7 +113,9 @@
     <#if entryScript?has_content>
       <script type="module" src="${resourceUrl}/${entryScript}"></script>
     </#if>
-    <#if properties.scripts?has_content>
+    <#if themeResources?? && themeResources.scripts?has_content>
+      <@themeResourceTags.renderScripts themeResources.scripts resourceUrl "module" />
+    <#elseif properties.scripts?has_content>
       <#list properties.scripts?split(' ') as script>
         <script type="module" src="${resourceUrl}/${script}"></script>
       </#list>
@@ -100,15 +126,13 @@
       </#list>
     </#if>
   </head>
-  <body>
+  <body data-page-id="account">
     <div id="app">
       <main class="container">
         <div class="keycloak__loading-container">
-          <span class="pf-c-spinner pf-m-xl" role="progressbar" aria-valuetext="Loading&hellip;">
-            <span class="pf-c-spinner__clipper"></span>
-            <span class="pf-c-spinner__lead-ball"></span>
-            <span class="pf-c-spinner__tail-ball"></span>
-          </span>
+          <svg class="pf-v5-c-spinner pf-m-xl" role="progressbar" aria-valuetext="Loading..." viewBox="0 0 100 100" aria-label="Contents">
+            <circle class="pf-v5-c-spinner__path" cx="50" cy="50" r="45" fill="none"></circle>
+          </svg>
           <div>
             <p id="loading-text">正在载入账号中心</p>
           </div>
@@ -140,9 +164,11 @@
           "deleteAccountAllowed": ${deleteAccountAllowed?c},
           "updateEmailFeatureEnabled": ${updateEmailFeatureEnabled?c},
           "updateEmailActionEnabled": ${updateEmailActionEnabled?c},
+          "isViewApplicationsEnabled": ${isViewApplicationsEnabled?c},
           "isViewGroupsEnabled": ${isViewGroupsEnabled?c},
           "isOid4VciEnabled": ${isOid4VciEnabled?c}
-        }
+        },
+        "scope": "${scope!""}"
       }
     </script>
   </body>

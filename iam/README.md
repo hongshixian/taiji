@@ -5,11 +5,28 @@
 ## 版本基线
 
 - Keycloak: 26.7.0
+- Keycloak Account UI: 26.7.0
 - Java: 21
 - Maven: 3.9.11
+- Node.js: 20
 - NATS Server: 2.11.8
 
-版本在 `docker/Dockerfile.keycloak`、`docker-compose.yml` 和扩展 `pom.xml` 中固定。升级 Keycloak 时必须同步三处版本并重新执行扩展测试和运行验证。
+版本在 `docker/Dockerfile.keycloak`、`docker-compose.yml`、扩展 `pom.xml` 和 `account-console/package.json` 中固定。升级 Keycloak 时必须同步服务端、Java 扩展和 Account UI 版本，并重新执行扩展测试和浏览器验证。
+
+## 界面主题
+
+- `themes/taiji/login` 覆盖 Keycloak 托管的登录、注册、找回密码、必做动作和状态页面。
+- `account-console` 使用官方 `@keycloak/keycloak-account-ui` 页面组件，提供方寸品牌外壳、导航和响应式布局。
+- `Dockerfile.keycloak` 在构建期将账号中心打包成 `fangcun-account-ui.jar`，与 Keycloak 同进程发布，不增加独立运行端口。
+- `iam-bootstrap-admin.sh` 幂等设置 `loginTheme=taiji`、`accountTheme=fangcun-account` 和 Realm 语言配置。
+
+账号中心前端可单独执行静态构建检查：
+
+```bash
+cd iam/account-console
+npm ci
+npm run build
+```
 
 ## 本地启动
 

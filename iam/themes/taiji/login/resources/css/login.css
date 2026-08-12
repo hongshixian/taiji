@@ -118,6 +118,8 @@ body,
 .pf-v5-c-title,
 .pf-c-title,
 #kc-page-title {
+  flex: 1 1 auto;
+  min-width: 0;
   margin: 0;
   color: var(--fc-ink);
   font-size: 24px;
@@ -127,10 +129,17 @@ body,
 
 .pf-v5-c-login__main-header-utilities,
 .pf-c-login__main-header-utilities {
-  flex: none;
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.pf-v5-c-login__main-header-utilities .pf-v5-c-form-control,
+.pf-c-login__main-header-utilities .pf-c-form-control {
+  width: auto;
 }
 
 #login-select-toggle {
+  width: 108px;
   min-width: 86px;
   height: 32px;
   padding: 0 28px 0 10px;

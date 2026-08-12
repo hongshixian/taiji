@@ -2,12 +2,30 @@
 
 ARG KEYCLOAK_VERSION=26.7.0
 
+FROM node:20-alpine AS account-assets
+WORKDIR /build
+
+COPY iam/account-console/package.json iam/account-console/package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm npm ci
+
+COPY iam/account-console/public ./public
+COPY iam/account-console/src ./src
+COPY iam/account-console/tsconfig.json iam/account-console/tsconfig.node.json iam/account-console/vite.config.ts ./
+RUN npm run build
+
 FROM maven:3.9.11-eclipse-temurin-21 AS extension-build
 WORKDIR /build
 
 COPY iam/keycloak-extension/pom.xml ./pom.xml
 COPY iam/keycloak-extension/src ./src
 RUN --mount=type=cache,target=/root/.m2 mvn --batch-mode verify
+
+FROM extension-build AS account-theme-build
+WORKDIR /account-theme
+
+COPY iam/account-console/maven-resources ./
+COPY --from=account-assets /build/dist ./theme/fangcun-account/account/resources
+RUN jar --create --file /fangcun-account-ui.jar -C /account-theme .
 
 FROM quay.io/keycloak/keycloak:${KEYCLOAK_VERSION} AS keycloak-build
 
@@ -17,6 +35,7 @@ ENV KC_DB=postgres \
     KC_METRICS_ENABLED=true
 
 COPY --from=extension-build /build/target/taiji-keycloak-extension.jar /opt/keycloak/providers/taiji-keycloak-extension.jar
+COPY --from=account-theme-build /fangcun-account-ui.jar /opt/keycloak/providers/fangcun-account-ui.jar
 RUN /opt/keycloak/bin/kc.sh build
 
 FROM quay.io/keycloak/keycloak:${KEYCLOAK_VERSION}

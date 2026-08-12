@@ -32,6 +32,7 @@ tar -czf taiji-files-before-iam.tar.gz app_data app_logs
 docker compose build keycloak backend worker frontend
 make iam-test
 docker compose run --rm --no-deps backend pytest tests/ -q
+cd iam/account-console && npm ci && npm run build && cd ../..
 ```
 
 2. 先发布 PostgreSQL、Redis、NATS 和 Keycloak，确认 IAM 扩展健康：
@@ -63,6 +64,8 @@ docker compose logs --since 10m iam-projector
 python3 scripts/oidc-browser-smoke.py \
   --base-url "$TAIJI_PUBLIC_URL" --username smoke-user --password 'test-password'
 ```
+
+同时验证 `$IAM_PUBLIC_URL/realms/fangcun/account/` 的个人资料、密码更新、设备会话和移动端导航。发布后 Realm 应为 `loginTheme=taiji`、`accountTheme=fangcun-account`；找回密码邮件能否送达还取决于生产 Realm 的 SMTP 配置。
 
 ## 运行检查
 
