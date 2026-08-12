@@ -1,17 +1,21 @@
 """Benchmark 执行范围配置测试。"""
 
+from types import SimpleNamespace
+
 from app.benchmark.dto import BenchmarkParams, ModelSpec, SuiteDescriptor
 from app.benchmark.engine.inspect_evals.engine import InspectEvalsEngine
+from app.benchmark.engine.inspect_evals.hooks import _ProgressState, _update_total_from_event
 from app.benchmark.engine.inspect_evals.suite_loader import default_execution_config
 
 
-def _params(execution_config: dict) -> BenchmarkParams:
+def _params(execution_config: dict, *, sample_count: int | None = None) -> BenchmarkParams:
     return BenchmarkParams(
         suite=SuiteDescriptor(
             key="test_suite",
             engine="inspect_evals",
             display_name="Test Suite",
             category="capability",
+            sample_count=sample_count,
         ),
         target_model=ModelSpec(
             id=1,
@@ -48,6 +52,36 @@ def test_partial_execution_keeps_requested_limit():
     merged = engine._merge_exec_config(_params({"limit": 20}))
 
     assert merged["limit"] == 20
+
+
+def test_full_execution_uses_suite_count_only_as_progress_hint():
+    engine = InspectEvalsEngine.__new__(InspectEvalsEngine)
+    params = _params({}, sample_count=1273)
+    merged = engine._merge_exec_config(params)
+
+    assert engine._progress_total_hint(params.suite, merged) == 1273
+    assert "limit" not in merged
+
+
+def test_partial_execution_uses_limit_as_progress_hint():
+    engine = InspectEvalsEngine.__new__(InspectEvalsEngine)
+    params = _params({"limit": 20}, sample_count=1273)
+    merged = engine._merge_exec_config(params)
+
+    assert engine._progress_total_hint(params.suite, merged) == 20
+
+
+def test_progress_without_known_total_does_not_fake_completed_as_total():
+    state = _ProgressState(progress=None, total_hint=0, logger=None)
+    state.completed = 6
+
+    assert _update_total_from_event(state, SimpleNamespace()) == 0
+
+
+def test_progress_accepts_runtime_discovered_total():
+    state = _ProgressState(progress=None, total_hint=0, logger=None)
+
+    assert _update_total_from_event(state, SimpleNamespace(total_samples=1273)) == 1273
 
 
 def test_full_execution_does_not_pass_limit_to_inspect(monkeypatch, tmp_path):

@@ -89,14 +89,13 @@ class InspectEvalsEngine(BenchmarkEngine):
         exec_cfg = self._merge_exec_config(params)
 
         # 3) 惰性注册 hook
+        progress_total = self._progress_total_hint(suite, exec_cfg)
         taiji_hooks.ensure_registered(ctx.logger)
-        taiji_hooks.bind(ctx.progress, total_hint=int(exec_cfg.get("limit") or 0), logger=ctx.logger)
+        taiji_hooks.bind(ctx.progress, total_hint=progress_total, logger=ctx.logger)
 
-        # 立即上报初始进度（total=limit），让前端尽早显示全量黄色占位网格，
-        # 不必等数据集加载完、on_task_start 触发才看到 total。
-        limit_hint = int(exec_cfg.get("limit") or 0)
-        if limit_hint > 0:
-            ctx.progress.report(completed=0, total=limit_hint)
+        # limit 只控制部分执行；完整执行用 suite.sample_count 提示进度总量。
+        if progress_total > 0:
+            ctx.progress.report(completed=0, total=progress_total)
 
         # 4) 记录一条 run_started 日志
         ctx.logger.info(
@@ -247,6 +246,13 @@ class InspectEvalsEngine(BenchmarkEngine):
             else:
                 exec_cfg[key] = value
         return exec_cfg
+
+    @staticmethod
+    def _progress_total_hint(suite: SuiteDescriptor, exec_cfg: dict) -> int:
+        limit = exec_cfg.get("limit")
+        if limit is not None:
+            return max(int(limit), 0)
+        return max(int(suite.sample_count or 0), 0)
 
     def _invoke_inspect(
         self,

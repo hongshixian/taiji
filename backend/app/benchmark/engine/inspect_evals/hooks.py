@@ -29,6 +29,14 @@ def _current() -> _ProgressState | None:
     return getattr(_state, "value", None)
 
 
+def _update_total_from_event(state: _ProgressState, data) -> int:  # noqa: ANN001
+    if state.total <= 0:
+        discovered_total = getattr(data, "total_samples", None)
+        if discovered_total:
+            state.total = int(discovered_total)
+    return state.total
+
+
 def bind(progress, total_hint: int, logger) -> None:
     """在 eval() 调用前绑定一次；同一线程只允许一个活跃状态"""
 
@@ -89,13 +97,9 @@ def _try_register() -> bool:
                     "id": getattr(sample, "id", None) if sample is not None else getattr(data, "sample_id", None),
                     "status": status,
                 })
-                if state.total <= 0:
-                    total = getattr(data, "total_samples", None) or state.completed
-                else:
-                    total = state.total
                 state.progress.report(
                     completed=state.completed,
-                    total=total,
+                    total=_update_total_from_event(state, data),
                     sample_grid=state.sample_grid,
                 )
             except Exception:  # 不能让 hook 抛异常打断评测
