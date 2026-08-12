@@ -81,6 +81,7 @@ services:
       - KC_METRICS_ENABLED=true
       - KC_FEATURES=organization:v1
       - KC_HOSTNAME=${IAM_PUBLIC_URL:-http://localhost:8180}
+      - KC_PROXY_HEADERS=${KC_PROXY_HEADERS:-xforwarded}
       - KC_BOOTSTRAP_ADMIN_USERNAME=${KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:-kcadmin}
       - KC_BOOTSTRAP_ADMIN_PASSWORD=${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:-dev-only-change-me}
       - TAIJI_PUBLIC_URL=${TAIJI_PUBLIC_URL:-http://localhost:28080}
