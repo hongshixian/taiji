@@ -1,0 +1,126 @@
+:root {
+  --pf-v5-global--primary-color--100: #6044c5;
+  --pf-v5-global--primary-color--200: #4f36ab;
+  --pf-v5-global--link--Color: #5138ae;
+  --pf-v5-global--link--Color--hover: #3f298f;
+  font-family: Inter, "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  color: #1b202b;
+  background: #f4f6f8;
+  letter-spacing: 0;
+}
+
+* {
+  box-sizing: border-box;
+  letter-spacing: 0;
+}
+
+html,
+body,
+#app {
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: #f4f6f8;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+/* Keep official Keycloak pages dense and aligned inside the custom shell. */
+.pf-v5-c-page__main-section {
+  max-width: 1040px;
+  padding: 0;
+  background: transparent;
+}
+
+.pf-v5-c-page__main-section:first-child .pf-v5-c-content {
+  margin-bottom: 24px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #dce0e6;
+}
+
+.pf-v5-c-content h1,
+.pf-v5-c-title.pf-m-2xl {
+  color: #1b202b;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.pf-v5-c-content p {
+  max-width: 760px;
+  color: #667085;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.pf-v5-c-form,
+.pf-v5-c-data-list,
+.pf-v5-c-table,
+.pf-v5-c-card {
+  max-width: 920px;
+}
+
+.pf-v5-c-data-list,
+.pf-v5-c-card,
+.pf-v5-c-table,
+.pf-v5-c-form-control,
+.pf-v5-c-input-group {
+  border-radius: 5px;
+}
+
+.pf-v5-c-data-list,
+.pf-v5-c-card {
+  border: 1px solid #dce0e6;
+  box-shadow: 0 3px 12px rgba(27, 32, 43, 0.04);
+}
+
+.pf-v5-c-data-list__item,
+.pf-v5-c-table tr {
+  border-color: #e5e8ec;
+}
+
+.pf-v5-c-form-control:focus-within {
+  --pf-v5-c-form-control--after--BorderBottomColor: #6044c5;
+  box-shadow: 0 0 0 3px rgba(96, 68, 197, 0.16);
+}
+
+.pf-v5-c-button {
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.pf-v5-c-button.pf-m-primary {
+  background: #6044c5;
+}
+
+.pf-v5-c-button.pf-m-primary:hover,
+.pf-v5-c-button.pf-m-primary:focus {
+  background: #4f36ab;
+}
+
+.pf-v5-c-alert {
+  border-radius: 5px;
+}
+
+.pf-v5-c-modal-box {
+  border-radius: 7px;
+}
+
+@media (max-width: 820px) {
+  .pf-v5-c-content h1,
+  .pf-v5-c-title.pf-m-2xl {
+    font-size: 21px;
+  }
+
+  .pf-v5-c-page__main-section {
+    overflow-x: auto;
+  }
+}
