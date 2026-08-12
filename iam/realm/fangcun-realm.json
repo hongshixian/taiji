@@ -21,6 +21,13 @@
   "accessTokenLifespan": 300,
   "organizationsEnabled": true,
   "loginTheme": "taiji",
+  "accountTheme": "fangcun-account",
+  "internationalizationEnabled": true,
+  "supportedLocales": [
+    "zh-CN",
+    "en"
+  ],
+  "defaultLocale": "zh-CN",
   "eventsEnabled": true,
   "eventsExpiration": 604800,
   "eventsListeners": [
