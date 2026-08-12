@@ -26,14 +26,17 @@ export default {
   judgeModelPlaceholder: '选择评委模型',
   judgeModelHint: '该评测集需要一个模型作为评委来判断答案质量。',
   sampleCount: '样本数量',
-  customSampleCount: '自定义样本数',
+  sampleCountValue: '共 {n} 条',
+  sampleCountUnknown: '暂未获取',
+  executionScope: '执行范围',
+  customSampleCount: '执行样本数',
   maxSampleHint: '该评测集共 {n} 条样本',
   maxConnections: '并发数',
   suiteParams: 'Suite 特有参数',
   submitTask: '提交任务',
 
   // 样本数量预设
-  presetFull: '完整',
+  presetFull: '完整执行',
   presetPartial: '部分执行',
 
   // Suite 分组

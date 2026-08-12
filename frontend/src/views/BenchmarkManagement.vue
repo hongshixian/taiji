@@ -56,6 +56,11 @@
           <UiAlert v-if="selectedSuite?.notes" type="info" :title="selectedSuite.notes" />
           <template v-if="selectedSuite">
             <UiFormItem :label="t('benchmark.sampleCount')" inline>
+              <span class="font-mono text-sm font-semibold text-fg">
+                {{ suiteMaxSamples == null ? t('benchmark.sampleCountUnknown') : t('benchmark.sampleCountValue', { n: suiteMaxSamples.toLocaleString() }) }}
+              </span>
+            </UiFormItem>
+            <UiFormItem :label="t('benchmark.executionScope')" inline>
               <UiSegmented v-model="limitPreset" :options="limitPresetOptions" @update:model-value="onLimitPresetChange" />
             </UiFormItem>
             <UiFormItem v-if="limitPreset === 'partial'" :label="t('benchmark.customSampleCount')" inline>
@@ -238,10 +243,10 @@ const form = reactive({
   suiteKey: '' as string,
   targetModelId: null as number | null,
   judgeModelId: null as number | null,
-  executionConfig: { limit: 20 as number | null, max_connections: 10, epochs: 1 },
+  executionConfig: { limit: null as number | null, max_connections: 10, epochs: 1 },
   suiteConfig: {} as Record<string, unknown>,
 })
-const limitPreset = ref<string | number | null>('partial')
+const limitPreset = ref<string | number | null>('full')
 
 const limitPresetOptions = computed(() => [
   { label: t('benchmark.presetFull'), value: 'full' },
@@ -369,9 +374,9 @@ function openCreateDialog() {
   form.suiteKey = ''
   form.targetModelId = null
   form.judgeModelId = null
-  form.executionConfig = { limit: 20, max_connections: 10, epochs: 1 }
+  form.executionConfig = { limit: null, max_connections: 10, epochs: 1 }
   form.suiteConfig = {}
-  limitPreset.value = 'partial'
+  limitPreset.value = 'full'
   showDialog.value = true
 }
 

@@ -26,14 +26,17 @@ export default {
   judgeModelPlaceholder: 'Select a judge model',
   judgeModelHint: 'This suite needs a model to act as judge and assess answer quality.',
   sampleCount: 'Sample Count',
-  customSampleCount: 'Custom Sample Count',
+  sampleCountValue: '{n} total',
+  sampleCountUnknown: 'Not available',
+  executionScope: 'Execution Scope',
+  customSampleCount: 'Samples to Run',
   maxSampleHint: '{n} samples in this benchmark',
   maxConnections: 'Concurrency',
   suiteParams: 'Suite-specific Parameters',
   submitTask: 'Submit Task',
 
   // Sample count presets
-  presetFull: 'Full',
+  presetFull: 'Full Run',
   presetPartial: 'Partial',
 
   // Suite groups
