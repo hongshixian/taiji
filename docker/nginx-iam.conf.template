@@ -1,0 +1,15 @@
+server {
+    listen 8080;
+    server_name _;
+
+    location / {
+        proxy_pass http://keycloak:8080;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host ${IAM_PROXY_HOST};
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Host ${IAM_PROXY_HOST};
+        proxy_set_header X-Forwarded-Port ${IAM_PROXY_PORT};
+        proxy_set_header X-Forwarded-Proto ${IAM_PROXY_SCHEME};
+    }
+}

@@ -37,7 +37,7 @@ docker compose run --rm --no-deps backend pytest tests/ -q
 2. 先发布 PostgreSQL、Redis、NATS 和 Keycloak，确认 IAM 扩展健康：
 
 ```bash
-docker compose up -d --wait postgres redis nats keycloak iam-bootstrap
+docker compose up -d --wait postgres redis nats keycloak iam-proxy iam-bootstrap
 curl -fsS "$IAM_PUBLIC_URL/realms/fangcun/taiji-iam/health"
 ```
 

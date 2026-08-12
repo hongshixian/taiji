@@ -81,6 +81,16 @@ if [[ "${IAM_REALM_RECONCILE_ENABLED:-true}" == "true" ]]; then
     -s "attributes.\"post.logout.redirect.uris\"=\"${taiji_public_url}/*\"" \
     -s "secret=${TAIJI_OIDC_CLIENT_SECRET:?missing OIDC client secret}" >/dev/null
   echo "IAM taiji-web client reconciled."
+
+  account_console_id="$("${kcadm}" get clients -r "${realm}" \
+    -q clientId=account-console --fields id --format csv --noquotes | sed -n '1p')"
+  if [[ -z "${account_console_id}" ]]; then
+    echo "IAM account-console client is missing; restore the realm baseline before startup." >&2
+    exit 1
+  fi
+  "${kcadm}" update "clients/${account_console_id}" -r "${realm}" \
+    -s "webOrigins=[\"${IAM_PUBLIC_URL:?missing IAM public URL}\"]" >/dev/null
+  echo "IAM account-console origin reconciled."
 fi
 
 if [[ "${IAM_BOOTSTRAP_ENABLED:-true}" != "true" ]]; then

@@ -34,10 +34,10 @@ iam-test:
 	docker run --rm -v taiji_maven_cache:/root/.m2 -v "$(CURDIR)/iam/keycloak-extension:/build" -w /build maven:3.9.11-eclipse-temurin-21 mvn --batch-mode test
 
 iam-up:
-	docker compose up -d postgres keycloak-db-init nats keycloak iam-bootstrap
+	docker compose up -d postgres keycloak-db-init nats keycloak iam-proxy iam-bootstrap
 
 iam-down:
-	docker compose stop keycloak nats
+	docker compose stop iam-proxy keycloak nats
 
 iam-smoke:
 	./scripts/iam-smoke.sh
