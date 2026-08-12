@@ -1,62 +1,10 @@
 <template>
   <div class="flex flex-col gap-6 py-2">
-    <!-- 失败且有错误 -->
-    <UiAlert
-      v-if="task.status === 'failed' && task.error_message"
-      type="danger"
-      :title="t('benchmark.execFailed')"
-    >
-      <pre class="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words font-mono text-xs">{{ task.error_message }}</pre>
-    </UiAlert>
-
-    <!-- 无结果且无实时网格 -->
-    <div v-if="!hasResult && !gridCells.length" class="flex flex-col items-center gap-4 py-10 text-center text-fg-tertiary">
+    <!-- 暂无样本状态 -->
+    <div v-if="!gridCells.length" class="flex flex-col items-center gap-4 py-10 text-center text-fg-tertiary">
       <BarChart3 class="size-7" />
       <span>{{ task.status === 'failed' ? t('benchmark.noResultFailed') : t('benchmark.noResultYet') }}</span>
     </div>
-
-    <!-- 完成后概览 -->
-    <template v-if="hasResult">
-      <div class="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-5">
-        <div class="rounded-md border border-line bg-surface-sunken p-6">
-          <div class="mb-5 font-semibold text-fg">{{ t('benchmark.mainMetrics') }}</div>
-          <div v-if="metricEntries.length" class="flex flex-col gap-3">
-            <div v-for="[k, v] in metricEntries" :key="k" class="flex items-center justify-between gap-4">
-              <span class="font-mono text-sm text-fg-secondary">{{ k }}</span>
-              <span class="font-mono font-semibold text-fg">{{ formatMetric(v) }}</span>
-            </div>
-          </div>
-          <div v-else class="text-sm text-fg-tertiary">{{ t('benchmark.noMetrics') }}</div>
-        </div>
-
-        <div class="rounded-md border border-line bg-surface-sunken p-6">
-          <div class="mb-5 font-semibold text-fg">{{ t('benchmark.sampleStats') }}</div>
-          <div class="flex flex-col gap-3">
-            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('benchmark.sampleTotal') }}</span><span class="font-mono font-semibold text-fg">{{ result.total_samples ?? '-' }}</span></div>
-            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('benchmark.sampleCompleted') }}</span><span class="font-mono font-semibold text-fg">{{ result.completed_samples ?? '-' }}</span></div>
-            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('benchmark.sampleFailed') }}</span><span class="font-mono font-semibold" :class="result.failed_samples ? 'text-danger' : 'text-fg'">{{ result.failed_samples ?? 0 }}</span></div>
-            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('common.status') }}</span><StatusPill :tone="statusTone(result.status || task.status)" :label="statusLabel(result.status || task.status)" /></div>
-          </div>
-        </div>
-
-        <div class="rounded-md border border-line bg-surface-sunken p-6">
-          <div class="mb-5 font-semibold text-fg">{{ t('benchmark.tokenUsage') }}</div>
-          <div class="flex flex-col gap-3">
-            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('benchmark.tokenInput') }}</span><span class="font-mono font-semibold text-fg">{{ fmtNum(result.model_usage?.input_tokens) }}</span></div>
-            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('benchmark.tokenOutput') }}</span><span class="font-mono font-semibold text-fg">{{ fmtNum(result.model_usage?.output_tokens) }}</span></div>
-            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('benchmark.tokenTotal') }}</span><span class="font-mono font-semibold text-fg">{{ fmtNum(result.model_usage?.total_tokens) }}</span></div>
-            <div class="flex items-center justify-between"><span class="text-sm text-fg-secondary">{{ t('benchmark.engine') }}</span><span class="font-mono font-semibold text-fg">{{ result.engine || '-' }}</span></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 元信息 -->
-      <div class="flex flex-wrap gap-x-8 gap-y-4 rounded-md border border-line bg-surface px-6 py-4">
-        <div class="flex items-center gap-3 text-sm"><span class="text-fg-tertiary">Suite</span><span class="font-mono">{{ task.benchmark_suite }}</span></div>
-        <div class="flex items-center gap-3 text-sm"><span class="text-fg-tertiary">{{ t('benchmark.metaTarget') }}</span><span>{{ task.target_model?.display_name || '-' }}</span></div>
-        <div class="flex items-center gap-3 text-sm"><span class="text-fg-tertiary">{{ t('benchmark.metaJudge') }}</span><span>{{ task.judge_model?.display_name || t('common.none') }}</span></div>
-      </div>
-    </template>
 
     <!-- 样本网格（contribution-graph 风格；执行中显示实时累积，完成后显示最终结果） -->
     <div v-if="gridCells.length" class="rounded-md border border-line bg-surface p-6">
@@ -117,11 +65,9 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { BarChart3 } from 'lucide-vue-next'
 import StatusPill from './StatusPill.vue'
-import UiAlert from './ui/Alert.vue'
 import UiDialog from './ui/Dialog.vue'
 import { cn } from '@/lib/utils'
 import { getSamplePreview } from '@/api/benchmark'
-import { taskStatusTone as statusTone, taskStatusLabel as statusLabel } from '@/composables/taskStatus'
 import type { BenchmarkTask, BenchmarkResult } from '@/api/types'
 
 type SampleStatus = 'success' | 'error' | 'none'
@@ -136,13 +82,6 @@ defineEmits<{ 'view-log': [] }>()
 const { t } = useI18n()
 
 const result = computed<Partial<BenchmarkResult>>(() => props.task.result || {})
-const metricEntries = computed(() => Object.entries(result.value.metrics || {}))
-const hasResult = computed(() => {
-  const r = result.value
-  return !!(r.metrics && Object.keys(r.metrics).length) ||
-    !!(r.sample_grid && r.sample_grid.length) ||
-    (r.total_samples ?? 0) > 0
-})
 
 const isRunning = computed(() => props.task.status === 'running' || props.task.status === 'pending')
 const liveCompleted = computed(() => props.task.progress?.completed ?? 0)
@@ -215,14 +154,6 @@ function cellTitle(cell: GridCell): string {
   return `#${cell.id} · ${s}`
 }
 
-function formatMetric(v: number | string) {
-  if (typeof v === 'number') return Number.isInteger(v) ? v.toString() : v.toFixed(4)
-  return v
-}
-function fmtNum(v: number | undefined) {
-  if (v == null) return '-'
-  return typeof v === 'number' ? v.toLocaleString() : v
-}
 function sampleBlocks(s: SampleDetail) {
   const blocks = [
     { label: 'Input', value: s.input || '-', error: false },
