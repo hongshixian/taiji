@@ -240,7 +240,12 @@ class InspectEvalsEngine(BenchmarkEngine):
     def _merge_exec_config(self, params: BenchmarkParams) -> dict:
         exec_cfg = default_execution_config()
         exec_cfg.update(params.suite.default_config.get("execution", {}) or {})
-        exec_cfg.update({k: v for k, v in (params.execution_config or {}).items() if v is not None})
+        for key, value in (params.execution_config or {}).items():
+            if value is None:
+                # null 表示显式取消继承值，例如完整执行需要移除默认 limit。
+                exec_cfg.pop(key, None)
+            else:
+                exec_cfg[key] = value
         return exec_cfg
 
     def _invoke_inspect(

@@ -426,7 +426,6 @@ suites:
 # 平台默认 execution_config（可被 suite.default_config.execution 覆盖）
 # ==================================================================
 default_execution_config:
-  limit: 20                # 一期默认冒烟量：20 条
   epochs: 1
   max_connections: 10
 

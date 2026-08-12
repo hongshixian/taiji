@@ -404,6 +404,10 @@ async function onSubmit() {
   if (needsJudge && !form.judgeModelId) return toast.warning(t('benchmark.needJudgeWarn'))
 
   const taskName = form.taskName.trim() || autoTaskName()
+  const { limit, ...baseExecutionConfig } = form.executionConfig
+  const executionConfig = limitPreset.value === 'partial'
+    ? { ...baseExecutionConfig, limit: limit ?? Math.min(20, suiteMaxSamples.value ?? 20) }
+    : baseExecutionConfig
   submitting.value = true
   try {
     await submitBenchmark({
@@ -412,7 +416,7 @@ async function onSubmit() {
       benchmark_suite: form.suiteKey,
       target_model_id: form.targetModelId,
       judge_model_id: needsJudge ? form.judgeModelId : null,
-      execution_config: form.executionConfig,
+      execution_config: executionConfig,
       suite_config: form.suiteConfig,
     })
     toast.success(t('benchmark.submitSuccess'))
