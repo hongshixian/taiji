@@ -15,25 +15,17 @@
       <UiTable :columns="columns" :data="rows" row-key="key" stripe :loading="loading">
         <template #cell-display_name="{ row }">
           <div class="flex flex-col gap-0.5">
-            <div class="flex items-center gap-2">
+            <div class="flex flex-wrap items-center gap-2">
               <span class="font-medium text-fg">{{ (row as SuiteAsset).display_name }}</span>
               <UiBadge v-if="(row as SuiteAsset).gated" tone="warning" :label="t('benchmarkAssets.gated')" />
+              <UiBadge v-if="(row as SuiteAsset).needs_judge" tone="info" :label="t('benchmarkAssets.needsJudge')" />
+              <UiBadge v-if="(row as SuiteAsset).needs_sandbox" tone="neutral" :label="t('benchmarkAssets.sandbox')" />
             </div>
             <span class="font-mono text-2xs text-fg-tertiary">{{ (row as SuiteAsset).key }}</span>
           </div>
         </template>
         <template #cell-data_source="{ row }">
           <UiBadge :tone="dataSourceTone((row as SuiteAsset).data_source)" :label="dataSourceLabel((row as SuiteAsset).data_source)" />
-        </template>
-        <template #cell-needs_judge="{ row }">
-          <span :class="(row as SuiteAsset).needs_judge ? 'text-fg' : 'text-fg-tertiary'">
-            {{ (row as SuiteAsset).needs_judge ? t('common.yes') : t('common.no') }}
-          </span>
-        </template>
-        <template #cell-needs_sandbox="{ row }">
-          <span :class="(row as SuiteAsset).needs_sandbox ? 'text-fg' : 'text-fg-tertiary'">
-            {{ (row as SuiteAsset).needs_sandbox ? t('common.yes') : t('common.no') }}
-          </span>
         </template>
         <template #cell-enabled="{ row }">
           <div class="flex items-center gap-2">
@@ -107,10 +99,8 @@ const loading = ref(false)
 const togglingKeys = ref<Set<string>>(new Set())
 
 const columns = computed<TableColumn[]>(() => [
-  { key: 'display_name', label: t('benchmarkAssets.col.name'), minWidth: 200 },
+  { key: 'display_name', label: t('benchmarkAssets.col.name'), minWidth: 280 },
   { key: 'data_source', label: t('benchmarkAssets.col.source'), width: 130 },
-  { key: 'needs_judge', label: t('benchmarkAssets.col.needsJudge'), width: 90 },
-  { key: 'needs_sandbox', label: t('benchmarkAssets.col.sandbox'), width: 100 },
   { key: 'sample_count', label: t('benchmarkAssets.col.sampleCount'), width: 100, align: 'right' },
   { key: 'enabled', label: t('benchmarkAssets.col.enabled'), width: 140 },
   { key: 'readiness', label: t('benchmarkAssets.col.readiness'), width: 130 },

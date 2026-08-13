@@ -7,6 +7,8 @@ export default {
   checkStarted: 'Accessibility check started',
   checkFailed: 'Failed to start check',
   gated: 'Gated',
+  needsJudge: 'Judge',
+  sandbox: 'Sandbox',
   dataSource: {
     hf: 'HuggingFace',
     github: 'GitHub',

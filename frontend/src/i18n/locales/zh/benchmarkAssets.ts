@@ -7,6 +7,8 @@ export default {
   checkStarted: '可访问性检测已启动',
   checkFailed: '启动检测失败',
   gated: 'Gated',
+  needsJudge: '需评委',
+  sandbox: 'Sandbox',
   dataSource: {
     hf: 'HuggingFace',
     github: 'GitHub',
