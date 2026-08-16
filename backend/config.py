@@ -14,6 +14,17 @@ def _env_bool(name: str, default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _env_urls(name: str, primary: str) -> tuple[str, ...]:
+    values = [
+        value.strip().rstrip("/")
+        for value in os.getenv(name, "").split(",")
+        if value.strip()
+    ]
+    if primary not in values:
+        values.insert(0, primary)
+    return tuple(dict.fromkeys(values))
+
+
 class Config:
     """基础配置"""
 
@@ -92,6 +103,7 @@ class Config:
     READINESS_CHECK_EXTERNALS = _env_bool("READINESS_CHECK_EXTERNALS", True)
     ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
     TAIJI_PUBLIC_URL = os.getenv("TAIJI_PUBLIC_URL", "http://localhost:8080").rstrip("/")
+    TAIJI_PUBLIC_URLS = _env_urls("TAIJI_PUBLIC_URLS", TAIJI_PUBLIC_URL)
     OIDC_POST_LOGIN_PATH = os.getenv("OIDC_POST_LOGIN_PATH", "/")
     IAM_IDENTITY_CACHE_SECONDS = int(os.getenv("IAM_IDENTITY_CACHE_SECONDS", "300"))
 

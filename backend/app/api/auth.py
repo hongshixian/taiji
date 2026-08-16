@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 import secrets
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 from authlib.integrations.base_client.errors import OAuthError
 from flask import Blueprint, current_app, redirect, request, session
@@ -94,7 +94,7 @@ def callback():
     roles = userinfo.get("realm_access", {}).get("roles", [])
     begin_oidc_session(token, dict(userinfo), is_superuser="platform_admin" in roles)
     target = current_app.config["OIDC_POST_LOGIN_PATH"]
-    return redirect(f"{current_app.config['TAIJI_PUBLIC_URL']}{target}")
+    return redirect(f"{_request_public_url()}{target}")
 
 
 @auth_bp.route("/refresh", methods=["POST"])
@@ -162,7 +162,7 @@ def logout():
         id_token = (session.get("iam_token") or {}).get("id_token")
         params = {
             "client_id": current_app.config["OIDC_CLIENT_ID"],
-            "post_logout_redirect_uri": f"{current_app.config['TAIJI_PUBLIC_URL']}/#/login",
+            "post_logout_redirect_uri": f"{_request_public_url()}/#/login",
         }
         if id_token:
             params["id_token_hint"] = id_token
@@ -200,14 +200,23 @@ def update_password():
 
 
 def _authorize_redirect(**params):
-    redirect_uri = (
-        f"{current_app.config['TAIJI_PUBLIC_URL']}/api/v1/auth/callback"
-    )
+    redirect_uri = f"{_request_public_url()}/api/v1/auth/callback"
     return oauth.keycloak.authorize_redirect(
         redirect_uri,
         nonce=secrets.token_urlsafe(32),
         **params,
     )
+
+
+def _request_public_url() -> str:
+    request_host = request.host.lower()
+    for public_url in current_app.config["TAIJI_PUBLIC_URLS"]:
+        parsed = urlsplit(public_url)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc or parsed.path:
+            continue
+        if parsed.netloc.lower() == request_host:
+            return public_url
+    raise BusinessError(ErrorCode.VALIDATION_ERROR, "当前访问域名未配置为平台登录域名")
 
 
 def _current_user_payload() -> dict:

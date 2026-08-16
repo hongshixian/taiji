@@ -2,6 +2,7 @@
 
 from cachelib import SimpleCache
 import pytest
+from urllib.parse import parse_qs, urlsplit
 
 from app import create_app, db, oauth
 from app.models.tenant import Tenant
@@ -23,6 +24,7 @@ class OidcTestConfig(TestConfig):
     SESSION_CACHELIB = SimpleCache(default_timeout=7200)
     SESSION_COOKIE_SECURE = False
     TAIJI_PUBLIC_URL = "http://localhost"
+    TAIJI_PUBLIC_URLS = ("http://localhost", "https://evaluation.fangcunleap.com")
 
 
 def _identity(personal_role="tenant_admin", enterprise_role="member", platform_admin=False):
@@ -182,6 +184,49 @@ def test_logout_clears_session_and_returns_keycloak_end_session_url(oidc_client)
     assert "id_token_hint=server-only-id-token" in logout_url
     assert "post_logout_redirect_uri=" in logout_url
     assert oidc_client.get("/api/v1/auth/me").status_code == 401
+
+
+def test_login_uses_allowed_request_domain_for_callback(oidc_client):
+    response = oidc_client.get(
+        "/api/v1/auth/login",
+        base_url="https://evaluation.fangcunleap.com",
+    )
+
+    assert response.status_code == 302
+    query = parse_qs(urlsplit(response.location).query)
+    assert query["redirect_uri"] == [
+        "https://evaluation.fangcunleap.com/api/v1/auth/callback"
+    ]
+
+
+def test_login_rejects_unconfigured_request_domain(oidc_client):
+    response = oidc_client.get(
+        "/api/v1/auth/login",
+        base_url="https://untrusted.example.com",
+    )
+
+    assert response.status_code == 400
+    assert response.get_json()["message"] == "当前访问域名未配置为平台登录域名"
+
+
+def test_callback_and_logout_stay_on_allowed_request_domain(oidc_client):
+    origin = "https://evaluation.fangcunleap.com"
+    callback = oidc_client.get("/api/v1/auth/callback", base_url=origin)
+    assert callback.status_code == 302
+    assert callback.location == f"{origin}/"
+    with oidc_client.session_transaction(base_url=origin) as browser_session:
+        csrf = browser_session["csrf_token"]
+
+    response = oidc_client.post(
+        "/api/v1/auth/logout",
+        base_url=origin,
+        headers={"X-CSRF-Token": csrf},
+    )
+
+    assert response.status_code == 200
+    logout_url = response.get_json()["data"]["logout_url"]
+    query = parse_qs(urlsplit(logout_url).query)
+    assert query["post_logout_redirect_uri"] == [f"{origin}/#/login"]
 
 
 def test_runtime_projection_never_claims_unmigrated_local_account(oidc_client, oidc_app):

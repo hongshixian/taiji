@@ -14,7 +14,37 @@ infra_password="${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:?missing infrastructure admi
 business_username="admin"
 business_email="${IAM_BOOTSTRAP_ADMIN_EMAIL:-admin@taiji.local}"
 taiji_public_url="${TAIJI_PUBLIC_URL:?missing Taiji public URL}"
+taiji_public_urls="${TAIJI_PUBLIC_URLS:-${taiji_public_url}}"
 kcadm="/opt/keycloak/bin/kcadm.sh"
+
+redirect_uris=()
+web_origins=()
+logout_uris=""
+IFS=',' read -ra configured_public_urls <<<"${taiji_public_urls}"
+configured_public_urls=("${taiji_public_url}" "${configured_public_urls[@]}")
+declare -A seen_public_urls=()
+for configured_url in "${configured_public_urls[@]}"; do
+  configured_url="$(printf '%s' "${configured_url}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's:/*$::')"
+  [[ -n "${configured_url}" ]] || continue
+  if [[ ! "${configured_url}" =~ ^https?://[^/]+$ ]]; then
+    echo "Invalid Taiji public URL: ${configured_url}" >&2
+    exit 1
+  fi
+  [[ -z "${seen_public_urls[${configured_url}]:-}" ]] || continue
+  seen_public_urls["${configured_url}"]=1
+  redirect_uris+=("\"${configured_url}/api/v1/auth/callback\"")
+  web_origins+=("\"${configured_url}\"")
+  if [[ -n "${logout_uris}" ]]; then
+    logout_uris+="##"
+  fi
+  logout_uris+="${configured_url}/*"
+done
+if [[ ${#redirect_uris[@]} -eq 0 ]]; then
+  echo "No valid Taiji public URLs configured." >&2
+  exit 1
+fi
+redirect_uris_json="[$(IFS=,; echo "${redirect_uris[*]}")]"
+web_origins_json="[$(IFS=,; echo "${web_origins[*]}")]"
 
 "${kcadm}" config credentials \
   --server "${server}" \
@@ -84,9 +114,9 @@ if [[ "${IAM_REALM_RECONCILE_ENABLED:-true}" == "true" ]]; then
     -s serviceAccountsEnabled=false \
     -s standardFlowEnabled=true \
     -s directAccessGrantsEnabled=false \
-    -s "redirectUris=[\"${taiji_public_url}/api/v1/auth/callback\"]" \
-    -s "webOrigins=[\"${taiji_public_url}\"]" \
-    -s "attributes.\"post.logout.redirect.uris\"=\"${taiji_public_url}/*\"" \
+    -s "redirectUris=${redirect_uris_json}" \
+    -s "webOrigins=${web_origins_json}" \
+    -s "attributes.\"post.logout.redirect.uris\"=\"${logout_uris}\"" \
     -s "secret=${TAIJI_OIDC_CLIENT_SECRET:?missing OIDC client secret}" >/dev/null
   echo "IAM taiji-web client reconciled."
 
