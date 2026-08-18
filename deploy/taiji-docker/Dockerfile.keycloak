@@ -27,7 +27,7 @@ COPY iam/account-console/maven-resources ./
 COPY --from=account-assets /build/dist ./theme/fangcun-account/account/resources
 RUN jar --create --file /fangcun-account-ui.jar -C /account-theme .
 
-FROM quay.io/keycloak/keycloak:${KEYCLOAK_VERSION} AS keycloak-build
+FROM quay.io/keycloak/keycloak:${KEYCLOAK_VERSION}
 
 ENV KC_DB=postgres \
     KC_FEATURES=organization:v1 \
@@ -38,9 +38,6 @@ COPY --from=extension-build /build/target/taiji-keycloak-extension.jar /opt/keyc
 COPY --from=account-theme-build /fangcun-account-ui.jar /opt/keycloak/providers/fangcun-account-ui.jar
 RUN /opt/keycloak/bin/kc.sh build
 
-FROM quay.io/keycloak/keycloak:${KEYCLOAK_VERSION}
-
-COPY --from=keycloak-build /opt/keycloak/ /opt/keycloak/
 COPY --chown=keycloak:root iam/realm/ /opt/keycloak/data/import/
 COPY --chown=keycloak:root iam/config/ /opt/keycloak/conf/taiji/
 COPY --chown=keycloak:root iam/themes/ /opt/keycloak/themes/
