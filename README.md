@@ -46,6 +46,22 @@ make docker-up
 
 基础设施管理员 `KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME` 与太极平台管理员不是同一账号，不能用于业务登录。
 
+### Kubernetes 方式
+
+Kubernetes 使用 Harbor 中的镜像和 Kustomize 清单，当前默认只创建集群内部的
+`ClusterIP`，不会对公网暴露端口：
+
+```bash
+make k8s-validate
+make k8s-sync-images
+make k8s-build-push
+make k8s-deploy
+make k8s-status
+```
+
+完整的资源、存储和内部端口说明见
+[`deploy/taiji-k8s/README.md`](deploy/taiji-k8s/README.md)。
+
 ### 本地开发
 
 ```bash

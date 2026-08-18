@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: taiji-config
+  labels:
+    app.kubernetes.io/part-of: taiji
+data:
+  FLASK_ENV: production
+  AUTH_MODE: oidc
+  IAM_REALM: fangcun
+  IAM_PUBLIC_URL: https://iam.lihao.fun
+  IAM_INTERNAL_URL: http://keycloak:8080
+  TAIJI_PUBLIC_URL: https://taiji.lihao.fun
+  TAIJI_PUBLIC_URLS: https://taiji.lihao.fun,https://evaluation.fangcunleap.com
+  TAIJI_OIDC_CLIENT_ID: taiji-web
+  IAM_IDENTITY_CACHE_SECONDS: "300"
+  IAM_RECONCILE_INTERVAL_SECONDS: "300"
+  IAM_EVENT_STREAM: IAM_EVENTS
+  IAM_EVENT_SUBJECT: iam.>
+  IAM_EVENT_CONSUMER: taiji-projection-v1
+  IAM_EVENT_BATCH_SIZE: "10"
+  IAM_EVENT_ACK_WAIT_SECONDS: "300"
+  IAM_MIGRATION_ENABLED: "false"
+  IAM_BOOTSTRAP_ENABLED: "true"
+  IAM_REALM_RECONCILE_ENABLED: "true"
+  SESSION_IDLE_SECONDS: "7200"
+  SESSION_ABSOLUTE_SECONDS: "86400"
+  SESSION_COOKIE_SECURE: "true"
+  CORS_ORIGINS: https://taiji.lihao.fun,https://evaluation.fangcunleap.com
+  RATELIMIT_STORAGE_URL: redis://redis:6379/1
+  READINESS_CHECK_EXTERNALS: "true"
+  REDIS_URL: redis://redis:6379/0
+  CELERY_BROKER_URL: redis://redis:6379/0
+  CELERY_RESULT_BACKEND: redis://redis:6379/0
+  TASK_LOG_ROOT: /app/logs
+  BENCHMARK_ARTIFACT_ROOT: /app/logs/benchmark_artifacts
+  HF_ENDPOINT: https://hf-mirror.com
+  HF_HOME: /app/hf_cache
+  HF_DATASETS_CACHE: /app/hf_cache/datasets
+  HUGGINGFACE_HUB_CACHE: /app/hf_cache/hub
+  KC_HTTP_ENABLED: "true"
+  KC_HEALTH_ENABLED: "true"
+  KC_METRICS_ENABLED: "true"
+  KC_FEATURES: organization:v1
+  KC_HOSTNAME: https://iam.lihao.fun
+  KC_PROXY_HEADERS: xforwarded
+  KEYCLOAK_INTERNAL_URL: http://keycloak:8080
+  IAM_PROXY_HOST: iam.lihao.fun
+  IAM_PROXY_SCHEME: https
+  IAM_PROXY_PORT: "443"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: taiji-nats-config
+  labels:
+    app.kubernetes.io/part-of: taiji
+data:
+  nats.conf: |
+    server_name: taiji-iam
+    port: 4222
+    http_port: 8222
+
+    jetstream {
+      store_dir: /data/jetstream
+      max_memory_store: 256MB
+      max_file_store: 2GB
+    }
+
+    authorization {
+      users: [
+        {
+          user: $NATS_USER
+          password: $NATS_PASSWORD
+        }
+      ]
+    }
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: taiji-iam-proxy-config
+  labels:
+    app.kubernetes.io/part-of: taiji
+data:
+  default.conf.template: |
+    server {
+        listen 8080;
+        server_name _;
+
+        location / {
+            proxy_pass http://keycloak:8080;
+            proxy_http_version 1.1;
+            proxy_set_header Host ${IAM_PROXY_HOST};
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Host ${IAM_PROXY_HOST};
+            proxy_set_header X-Forwarded-Port ${IAM_PROXY_PORT};
+            proxy_set_header X-Forwarded-Proto ${IAM_PROXY_SCHEME};
+        }
+    }

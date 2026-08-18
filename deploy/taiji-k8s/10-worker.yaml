@@ -1,0 +1,93 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taiji-worker
+  labels:
+    app.kubernetes.io/name: worker
+    app.kubernetes.io/part-of: taiji
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: worker
+      app.kubernetes.io/part-of: taiji
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: worker
+        app.kubernetes.io/part-of: taiji
+    spec:
+      terminationGracePeriodSeconds: 60
+      initContainers:
+        - name: prepare-shared-storage
+          image: harbor.aixiongan.org.cn:9443/lihao/nginx:alpine
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-ec"]
+          args:
+            - mkdir -p /shared/taiji/app_data /shared/taiji/app_logs /shared/taiji/hf_cache && chmod -R 0770 /shared/taiji
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - name: shared
+              mountPath: /shared
+      containers:
+        - name: worker
+          image: harbor.aixiongan.org.cn:9443/lihao/taiji-worker:b059d56
+          imagePullPolicy: IfNotPresent
+          args:
+            - celery
+            - -A
+            - celery_app
+            - worker
+            - -l
+            - info
+            - --concurrency=4
+            - --max-tasks-per-child=10
+            - -Ofair
+          envFrom:
+            - configMapRef:
+                name: taiji-config
+            - secretRef:
+                name: taiji-secrets
+          env:
+            - name: RUN_MIGRATIONS
+              value: "false"
+            - name: INSPECT_LOG_LEVEL
+              value: info
+          resources:
+            requests:
+              cpu: "1"
+              memory: 2Gi
+            limits:
+              cpu: "4"
+              memory: 6Gi
+          volumeMounts:
+            - name: app-data
+              mountPath: /app/data
+              subPath: taiji/app_data
+            - name: app-logs
+              mountPath: /app/logs
+              subPath: taiji/app_logs
+            - name: hf-cache
+              mountPath: /app/hf_cache
+              subPath: taiji/hf_cache
+      volumes:
+        - name: shared
+          persistentVolumeClaim:
+            claimName: pvc-gpfshome-lihao
+        - name: app-data
+          persistentVolumeClaim:
+            claimName: pvc-gpfshome-lihao
+        - name: app-logs
+          persistentVolumeClaim:
+            claimName: pvc-gpfshome-lihao
+        - name: hf-cache
+          persistentVolumeClaim:
+            claimName: pvc-gpfshome-lihao

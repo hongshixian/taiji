@@ -1,0 +1,140 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  labels:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/part-of: taiji
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/part-of: taiji
+  ports:
+    - name: http
+      port: 5000
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taiji-backend
+  labels:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/part-of: taiji
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backend
+      app.kubernetes.io/part-of: taiji
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: backend
+        app.kubernetes.io/part-of: taiji
+    spec:
+      terminationGracePeriodSeconds: 30
+      initContainers:
+        - name: prepare-shared-storage
+          image: harbor.aixiongan.org.cn:9443/lihao/nginx:alpine
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-ec"]
+          args:
+            - mkdir -p /shared/taiji/app_data /shared/taiji/app_logs /shared/taiji/hf_cache && chmod -R 0770 /shared/taiji
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+          volumeMounts:
+            - name: shared
+              mountPath: /shared
+        - name: migrate-database
+          image: harbor.aixiongan.org.cn:9443/lihao/taiji-backend:b059d56
+          imagePullPolicy: IfNotPresent
+          command: ["/entrypoint.sh"]
+          args: ["true"]
+          envFrom:
+            - configMapRef:
+                name: taiji-config
+            - secretRef:
+                name: taiji-secrets
+          env:
+            - name: RUN_MIGRATIONS
+              value: "true"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
+      containers:
+        - name: backend
+          image: harbor.aixiongan.org.cn:9443/lihao/taiji-backend:b059d56
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: taiji-config
+            - secretRef:
+                name: taiji-secrets
+          env:
+            - name: RUN_MIGRATIONS
+              value: "false"
+          ports:
+            - name: http
+              containerPort: 5000
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 24
+          readinessProbe:
+            httpGet:
+              path: /api/ready
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 4
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 3Gi
+          volumeMounts:
+            - name: app-data
+              mountPath: /app/data
+              subPath: taiji/app_data
+            - name: app-logs
+              mountPath: /app/logs
+              subPath: taiji/app_logs
+            - name: hf-cache
+              mountPath: /app/hf_cache
+              subPath: taiji/hf_cache
+      volumes:
+        - name: shared
+          persistentVolumeClaim:
+            claimName: pvc-gpfshome-lihao
+        - name: app-data
+          persistentVolumeClaim:
+            claimName: pvc-gpfshome-lihao
+        - name: app-logs
+          persistentVolumeClaim:
+            claimName: pvc-gpfshome-lihao
+        - name: hf-cache
+          persistentVolumeClaim:
+            claimName: pvc-gpfshome-lihao
