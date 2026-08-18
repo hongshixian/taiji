@@ -5,13 +5,14 @@ if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
     # 运行数据库迁移
     flask db upgrade
 
-    # ─── 创建初始管理员账号 ─────────────────────────────────
-    # 策略：
-    #   1. 若设置了 ADMIN_PASSWORD 环境变量 → 使用该密码
-    #   2. 否则 → 随机生成 16 字符密码，打印到日志一次
-    # 仅在无管理员账号存在时生效（已有 admin 时跳过 seed）
-    # 初始 admin 归 guest 租户，且 is_superuser=true（保证有人能管 tenants）
-    python3 - <<'PYEOF'
+    # OIDC 模式的初始管理员由 IAM bootstrap 创建并投影到本地，
+    # 不能再创建同名本地账号，否则会触发身份冲突保护。
+    if [ "${AUTH_MODE:-legacy}" = "oidc" ]; then
+        echo "[seed-admin] AUTH_MODE=oidc，跳过本地管理员初始化（由 IAM 管理）"
+    else
+        # 旧认证模式保留本地管理员初始化。如未提供密码，
+        # 随机生成密码并仅在首次创建时输出。
+        python3 - <<'PYEOF'
 import os
 import secrets
 import sys
@@ -70,6 +71,7 @@ with app.app_context():
     else:
         print(f"[seed-admin] 已创建管理员 {username}（密码来自 ADMIN_PASSWORD，superuser=true）", flush=True)
 PYEOF
+    fi
 else
     echo "[entrypoint] RUN_MIGRATIONS=false，跳过数据库迁移和管理员初始化"
 fi

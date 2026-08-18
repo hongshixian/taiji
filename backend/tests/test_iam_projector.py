@@ -3,6 +3,7 @@
 import asyncio
 
 import iam_projector
+from nats.js.errors import NotFoundError
 
 
 class _TimeoutSubscription:
@@ -17,6 +18,18 @@ class _TimeoutSubscription:
 class _JetStream:
     def __init__(self, subscription):
         self.subscription = subscription
+        self.stream_exists = False
+        self.added_stream = None
+
+    async def stream_info(self, _name):
+        if not self.stream_exists:
+            raise NotFoundError()
+        return object()
+
+    async def add_stream(self, **params):
+        self.stream_exists = True
+        self.added_stream = params
+        return object()
 
     async def pull_subscribe(self, *_args, **_kwargs):
         return self.subscription
@@ -49,3 +62,8 @@ def test_builtin_timeout_is_a_normal_empty_poll(app, monkeypatch):
 
     assert subscription.fetch_calls == 1
     assert connection.drained is True
+    assert connection._jetstream.added_stream == {
+        "name": app.config["IAM_EVENT_STREAM"],
+        "subjects": [app.config["IAM_EVENT_SUBJECT"]],
+        "storage": iam_projector.StorageType.FILE,
+    }

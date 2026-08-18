@@ -8,7 +8,8 @@ import time
 
 import nats
 from nats.errors import TimeoutError as NatsTimeoutError
-from nats.js.api import ConsumerConfig
+from nats.js.api import ConsumerConfig, StorageType
+from nats.js.errors import BadRequestError, NotFoundError
 
 from app import create_app
 from app.services.iam_client import IamClient
@@ -22,6 +23,24 @@ from app.services.iam_reconciliation_service import (
 LOGGER = logging.getLogger("taiji.iam_projector")
 
 
+async def ensure_stream(jetstream, *, name: str, subject: str) -> None:
+    try:
+        await jetstream.stream_info(name)
+        return
+    except NotFoundError:
+        pass
+
+    try:
+        await jetstream.add_stream(
+            name=name,
+            subjects=[subject],
+            storage=StorageType.FILE,
+        )
+    except BadRequestError:
+        # Keycloak may create the stream concurrently while the projector starts.
+        await jetstream.stream_info(name)
+
+
 async def run_projector(app, *, once: bool = False) -> None:
     config = app.config
     connection = await nats.connect(
@@ -31,6 +50,11 @@ async def run_projector(app, *, once: bool = False) -> None:
         max_reconnect_attempts=-1,
     )
     jetstream = connection.jetstream()
+    await ensure_stream(
+        jetstream,
+        name=config["IAM_EVENT_STREAM"],
+        subject=config["IAM_EVENT_SUBJECT"],
+    )
     subscription = await jetstream.pull_subscribe(
         config["IAM_EVENT_SUBJECT"],
         durable=config["IAM_EVENT_CONSUMER"],

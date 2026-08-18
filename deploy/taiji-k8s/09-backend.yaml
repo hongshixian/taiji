@@ -53,7 +53,7 @@ spec:
             - name: shared
               mountPath: /shared
         - name: migrate-database
-          image: harbor.aixiongan.org.cn:9443/lihao/taiji-backend:b059d56
+          image: harbor.aixiongan.org.cn:9443/lihao/taiji-backend:b059d56-r2
           imagePullPolicy: IfNotPresent
           command: ["/entrypoint.sh"]
           args: ["true"]
@@ -74,7 +74,7 @@ spec:
               memory: 1Gi
       containers:
         - name: backend
-          image: harbor.aixiongan.org.cn:9443/lihao/taiji-backend:b059d56
+          image: harbor.aixiongan.org.cn:9443/lihao/taiji-backend:b059d56-r2
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
@@ -116,25 +116,16 @@ spec:
               cpu: "2"
               memory: 3Gi
           volumeMounts:
-            - name: app-data
+            - name: shared
               mountPath: /app/data
               subPath: taiji/app_data
-            - name: app-logs
+            - name: shared
               mountPath: /app/logs
               subPath: taiji/app_logs
-            - name: hf-cache
+            - name: shared
               mountPath: /app/hf_cache
               subPath: taiji/hf_cache
       volumes:
         - name: shared
-          persistentVolumeClaim:
-            claimName: pvc-gpfshome-lihao
-        - name: app-data
-          persistentVolumeClaim:
-            claimName: pvc-gpfshome-lihao
-        - name: app-logs
-          persistentVolumeClaim:
-            claimName: pvc-gpfshome-lihao
-        - name: hf-cache
           persistentVolumeClaim:
             claimName: pvc-gpfshome-lihao

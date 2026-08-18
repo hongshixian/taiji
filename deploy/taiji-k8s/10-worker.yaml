@@ -69,25 +69,16 @@ spec:
               cpu: "4"
               memory: 6Gi
           volumeMounts:
-            - name: app-data
+            - name: shared
               mountPath: /app/data
               subPath: taiji/app_data
-            - name: app-logs
+            - name: shared
               mountPath: /app/logs
               subPath: taiji/app_logs
-            - name: hf-cache
+            - name: shared
               mountPath: /app/hf_cache
               subPath: taiji/hf_cache
       volumes:
         - name: shared
-          persistentVolumeClaim:
-            claimName: pvc-gpfshome-lihao
-        - name: app-data
-          persistentVolumeClaim:
-            claimName: pvc-gpfshome-lihao
-        - name: app-logs
-          persistentVolumeClaim:
-            claimName: pvc-gpfshome-lihao
-        - name: hf-cache
           persistentVolumeClaim:
             claimName: pvc-gpfshome-lihao
