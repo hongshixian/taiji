@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+compose() {
+  docker compose --env-file "${repo_root}/deploy/taiji-docker/.env" \
+    -f "${repo_root}/deploy/taiji-docker/docker-compose.yml" "$@"
+}
+
 base_url="${IAM_PUBLIC_URL:-http://localhost:8180}"
 realm="${IAM_REALM:-fangcun}"
 migrator_secret="${TAIJI_MIGRATOR_CLIENT_SECRET:-taiji-migrator-dev-secret}"
@@ -19,7 +25,7 @@ web_client_uuid=""
 original_direct_grants="false"
 
 kcadm() {
-  docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh "$@"
+  compose exec -T keycloak /opt/keycloak/bin/kcadm.sh "$@"
 }
 
 cleanup() {
@@ -36,7 +42,7 @@ cleanup() {
 trap cleanup EXIT
 trap 'echo "IAM migration integration test failed near line ${LINENO}." >&2' ERR
 
-docker compose exec -T keycloak bash -lc \
+compose exec -T keycloak bash -lc \
   '/opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 --realm master --user "$KC_BOOTSTRAP_ADMIN_USERNAME" --password "$KC_BOOTSTRAP_ADMIN_PASSWORD" >/dev/null'
 
 web_client_uuid="$(kcadm get clients -r "${realm}" -q clientId=taiji-web \

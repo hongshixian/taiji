@@ -17,8 +17,8 @@
 在维护窗口停止写请求和 Celery 任务后执行，备份文件写到受控目录：
 
 ```bash
-docker compose exec -T postgres pg_dump -Fc -U "$POSTGRES_USER" "$POSTGRES_DB" > taiji-before-iam.dump
-docker compose exec -T postgres pg_dump -Fc -U "$POSTGRES_USER" "$KEYCLOAK_DB" > keycloak-before-iam.dump
+docker compose --env-file deploy/taiji-docker/.env -f deploy/taiji-docker/docker-compose.yml exec -T postgres pg_dump -Fc -U "$POSTGRES_USER" "$POSTGRES_DB" > taiji-before-iam.dump
+docker compose --env-file deploy/taiji-docker/.env -f deploy/taiji-docker/docker-compose.yml exec -T postgres pg_dump -Fc -U "$POSTGRES_USER" "$KEYCLOAK_DB" > keycloak-before-iam.dump
 tar -czf taiji-files-before-iam.tar.gz app_data app_logs
 ```
 
@@ -29,16 +29,16 @@ tar -czf taiji-files-before-iam.tar.gz app_data app_logs
 1. 构建并测试镜像：
 
 ```bash
-docker compose build keycloak backend worker frontend
+make docker-build
 make iam-test
-docker compose run --rm --no-deps backend pytest tests/ -q
+docker compose --env-file deploy/taiji-docker/.env -f deploy/taiji-docker/docker-compose.yml run --rm --no-deps backend pytest tests/ -q
 cd iam/account-console && npm ci && npm run build && cd ../..
 ```
 
 2. 先发布 PostgreSQL、Redis、NATS 和 Keycloak，确认 IAM 扩展健康：
 
 ```bash
-docker compose up -d --wait postgres redis nats keycloak iam-proxy iam-bootstrap
+docker compose --env-file deploy/taiji-docker/.env -f deploy/taiji-docker/docker-compose.yml up -d --wait postgres redis nats keycloak iam-proxy iam-bootstrap
 curl -fsS "$IAM_PUBLIC_URL/realms/fangcun/taiji-iam/health"
 ```
 
@@ -47,7 +47,7 @@ curl -fsS "$IAM_PUBLIC_URL/realms/fangcun/taiji-iam/health"
 4. 设置 `AUTH_MODE=oidc`，发布后端、投影进程、Worker 和前端：
 
 ```bash
-docker compose up -d --wait backend iam-projector worker frontend
+docker compose --env-file deploy/taiji-docker/.env -f deploy/taiji-docker/docker-compose.yml up -d --wait backend iam-projector worker frontend
 curl -fsS "$TAIJI_PUBLIC_URL/api/ready"
 ```
 
@@ -55,7 +55,7 @@ curl -fsS "$TAIJI_PUBLIC_URL/api/ready"
 
 ```bash
 make iam-reconcile
-docker compose logs --since 10m iam-projector
+docker compose --env-file deploy/taiji-docker/.env -f deploy/taiji-docker/docker-compose.yml logs --since 10m iam-projector
 ```
 
 6. 使用非管理员、租户管理员和平台管理员账号分别验证登录、个人空间、企业租户切换、成员管理、任务读写和退出。运行浏览器烟测：

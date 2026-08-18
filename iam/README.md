@@ -11,7 +11,7 @@
 - Node.js: 20
 - NATS Server: 2.11.8
 
-版本在 `docker/Dockerfile.keycloak`、`docker-compose.yml`、扩展 `pom.xml` 和 `account-console/package.json` 中固定。升级 Keycloak 时必须同步服务端、Java 扩展和 Account UI 版本，并重新执行扩展测试和浏览器验证。
+版本在 `deploy/taiji-docker/Dockerfile.keycloak`、`deploy/taiji-docker/docker-compose.yml`、扩展 `pom.xml` 和 `account-console/package.json` 中固定。升级 Keycloak 时必须同步服务端、Java 扩展和 Account UI 版本，并重新执行扩展测试和浏览器验证。
 
 ## 界面主题
 
@@ -30,7 +30,7 @@ npm run build
 
 ## 本地启动
 
-先根据 `.env.example` 配置本地 `.env`。模板中的 IAM 密码和 Client Secret 只允许用于开发环境。
+先根据 `deploy/taiji-docker/.env.example` 配置 `deploy/taiji-docker/.env`。模板中的 IAM 密码和 Client Secret 只允许用于开发环境。
 
 ```bash
 make iam-build
@@ -75,7 +75,7 @@ make iam-migration-integration-test
 
 ## 生产约束
 
-- 禁止使用 `.env.example` 中的任何默认密码或 Secret。
+- 禁止使用 `deploy/taiji-docker/.env.example` 中的任何默认密码或 Secret。
 - 使用 `start` 和正式 HTTPS 域名，不使用 Compose 中的 `start-dev`。
 - Keycloak Admin Console 只能从运维网络访问。
 - NATS 使用持久化集群、独立账号和 TLS。

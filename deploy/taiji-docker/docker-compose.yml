@@ -7,7 +7,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-taiji_pw}
       - POSTGRES_DB=${POSTGRES_DB:-taiji}
     volumes:
-      - ./pg_data:/var/lib/postgresql/data
+      - ../../pg_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-taiji} -d ${POSTGRES_DB:-taiji}"]
       interval: 5s
@@ -53,7 +53,7 @@ services:
       - NATS_USER=${NATS_USER:-taiji}
       - NATS_PASSWORD=${NATS_PASSWORD:-taiji_nats_dev}
     volumes:
-      - ./docker/nats/nats.conf:/etc/nats/nats.conf:ro
+      - ./nats/nats.conf:/etc/nats/nats.conf:ro
       - nats_data:/data
     healthcheck:
       test: ["CMD-SHELL", "nc -z 127.0.0.1 4222"]
@@ -66,8 +66,8 @@ services:
   keycloak:
     image: taiji-keycloak:${KEYCLOAK_VERSION:-26.7.0}
     build:
-      context: .
-      dockerfile: docker/Dockerfile.keycloak
+      context: ../..
+      dockerfile: deploy/taiji-docker/Dockerfile.keycloak
       args:
         KEYCLOAK_VERSION: ${KEYCLOAK_VERSION:-26.7.0}
     command: ["start-dev", "--import-realm"]
@@ -117,7 +117,7 @@ services:
       - IAM_PROXY_SCHEME=${IAM_PROXY_SCHEME:-http}
       - IAM_PROXY_PORT=${IAM_PROXY_PORT:-8180}
     volumes:
-      - ./docker/nginx-iam.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./nginx-iam.conf.template:/etc/nginx/templates/default.conf.template:ro
     ports:
       - "${KEYCLOAK_PORT:-8180}:8080"
     depends_on:
@@ -134,8 +134,8 @@ services:
   iam-bootstrap:
     image: taiji-keycloak:${KEYCLOAK_VERSION:-26.7.0}
     build:
-      context: .
-      dockerfile: docker/Dockerfile.keycloak
+      context: ../..
+      dockerfile: deploy/taiji-docker/Dockerfile.keycloak
       args:
         KEYCLOAK_VERSION: ${KEYCLOAK_VERSION:-26.7.0}
     entrypoint: ["/opt/keycloak/bin/taiji-iam-bootstrap.sh"]
@@ -161,8 +161,8 @@ services:
   # ─── Flask 后端 ────────────────────────────────
   backend:
     build:
-      context: .
-      dockerfile: docker/Dockerfile.backend
+      context: ../..
+      dockerfile: deploy/taiji-docker/Dockerfile.backend
     environment:
       - FLASK_ENV=${FLASK_ENV:-development}
       - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
@@ -201,9 +201,9 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./app_data:/app/data
-      - ./app_logs:/app/logs
-      - ./hf_cache:/app/hf_cache
+      - ../../app_data:/app/data
+      - ../../app_logs:/app/logs
+      - ../../hf_cache:/app/hf_cache
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:5000/api/ready"]
       interval: 10s
@@ -215,8 +215,8 @@ services:
   # ─── IAM 事件投影与周期对账 ─────────────────────
   iam-projector:
     build:
-      context: .
-      dockerfile: docker/Dockerfile.backend
+      context: ../..
+      dockerfile: deploy/taiji-docker/Dockerfile.backend
     command: ["python", "iam_projector.py"]
     environment:
       - FLASK_ENV=${FLASK_ENV:-development}
@@ -248,8 +248,8 @@ services:
   # ─── Celery Worker ─────────────────────────────
   worker:
     build:
-      context: .
-      dockerfile: docker/Dockerfile.worker
+      context: ../..
+      dockerfile: deploy/taiji-docker/Dockerfile.worker
     command: ["celery", "-A", "celery_app", "worker", "-l", "info", "--concurrency=4", "--max-tasks-per-child=10", "-Ofair"]
     environment:
       - FLASK_ENV=${FLASK_ENV:-development}
@@ -283,16 +283,16 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ./app_data:/app/data
-      - ./app_logs:/app/logs
-      - ./hf_cache:/app/hf_cache
+      - ../../app_data:/app/data
+      - ../../app_logs:/app/logs
+      - ../../hf_cache:/app/hf_cache
     restart: unless-stopped
 
   # ─── Vue 前端 ──────────────────────────────────
   frontend:
     build:
-      context: .
-      dockerfile: docker/Dockerfile.frontend
+      context: ../..
+      dockerfile: deploy/taiji-docker/Dockerfile.frontend
     ports:
       - "${TAIJI_PORT:-28080}:80"
     depends_on:

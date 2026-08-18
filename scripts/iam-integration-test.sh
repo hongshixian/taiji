@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+compose() {
+  docker compose --env-file "${repo_root}/deploy/taiji-docker/.env" \
+    -f "${repo_root}/deploy/taiji-docker/docker-compose.yml" "$@"
+}
+
 base_url="${IAM_PUBLIC_URL:-http://localhost:8180}"
 realm="${IAM_REALM:-fangcun}"
 web_secret="${TAIJI_OIDC_CLIENT_SECRET:-taiji-web-dev-secret}"
@@ -18,7 +24,7 @@ pending_org_id=""
 web_client_uuid=""
 
 kcadm() {
-  docker compose exec -T keycloak /opt/keycloak/bin/kcadm.sh "$@"
+  compose exec -T keycloak /opt/keycloak/bin/kcadm.sh "$@"
 }
 
 cleanup() {
@@ -35,7 +41,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-docker compose exec -T keycloak bash -lc \
+compose exec -T keycloak bash -lc \
   '/opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080 --realm master --user "$KC_BOOTSTRAP_ADMIN_USERNAME" --password "$KC_BOOTSTRAP_ADMIN_PASSWORD" >/dev/null'
 
 web_client_uuid="$(kcadm get clients -r "${realm}" -q clientId=taiji-web \
@@ -250,9 +256,9 @@ jq -e --arg pending "${pending_tenant_id}" \
     and any(.tenant_type == "personal")
     and any(.id == $pending and .role == "tenant_admin")' <<<"${my_tenants}" >/dev/null
 
-event_count="$(docker compose exec -T nats wget -qO- \
+event_count="$(compose exec -T nats wget -qO- \
   'http://127.0.0.1:8222/jsz?streams=true' | jq -er '.messages | select(. > 0)')"
-if docker compose logs --since=5m keycloak | grep -q 'Unable to publish IAM event'; then
+if compose logs --since=5m keycloak | grep -q 'Unable to publish IAM event'; then
   echo "IAM event publisher reported a failure" >&2
   exit 1
 fi

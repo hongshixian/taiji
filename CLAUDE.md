@@ -25,10 +25,10 @@ make test                                 # repo-root shortcut
 flask db migrate -m "describe change" && flask db upgrade
 
 # Docker (from repo root)
-docker compose up -d && docker compose down
+make docker-up && make docker-down
 ```
 
-Default admin: seeded on first start by `docker/entrypoint.sh`. Uses `ADMIN_USERNAME/EMAIL/PASSWORD` env vars; if unset, generates a random password printed once — `docker compose logs backend | grep -A 5 "首次部署"`. Seeded admin is `is_superuser=True`, added to `guest` tenant as owner. Seed is skipped when an admin already exists.
+Default admin: seeded on first start by `deploy/taiji-docker/entrypoint.sh`. Uses `ADMIN_USERNAME/EMAIL/PASSWORD` env vars; if unset, generates a random password printed once — `make iam-bootstrap-password`. Seeded admin is `is_superuser=True`, added to `guest` tenant as owner. Seed is skipped when an admin already exists.
 
 Model configs: `backend/seed_models.py` seeds a preset list of LLM endpoints (Claude, DeepSeek, GLM, GPT, Kimi, MiniMax, Qwen) into the `guest` tenant. Run from `backend/`: `python seed_models.py`. Idempotent — skips entries where `display_name` already exists.
 
@@ -67,7 +67,7 @@ Model configs: `backend/seed_models.py` seeds a preset list of LLM endpoints (Cl
 - **Permission gates**: `const { has } = usePermission()` → `v-if="has('user:write')"`. Superuser UI uses `v-if="authStore.isSuperuser"`.
 - **Voice**: no emoji, no exclamation marks, no empty superlatives in UI copy.
 
-### Deployment (`docker/`)
+### Deployment (`deploy/taiji-docker/` and `deploy/taiji-k8s/`)
 
 Services: `redis`, `backend` (gunicorn 4 workers, runs migrations + conditional admin seed), `worker` (same image, celery, `RUN_MIGRATIONS=false`), `frontend` (nginx). SQLite in `./app_data:/app/data`; logs in `./app_logs:/app/logs` (shared by backend + worker).
 

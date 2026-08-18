@@ -17,7 +17,7 @@
 | 异步 | Celery + Redis |
 | 前端 | Vue 3 + Vite + Element Plus + Pinia |
 | 身份同步 | NATS JetStream + 受控 API 周期对账 |
-| 部署 | Docker Compose（PostgreSQL、Keycloak、NATS、Redis） |
+| 部署 | Docker Compose / Kubernetes（PostgreSQL、Keycloak、NATS、Redis） |
 
 ---
 
@@ -28,11 +28,12 @@
 ```bash
 git clone https://github.com/hongshixian/taiji.git
 cd taiji
-cp .env.example .env       # 编辑所有生产 Secret 与公网 URL
-docker compose up -d
+cp deploy/taiji-docker/.env.example deploy/taiji-docker/.env
+# 编辑 deploy/taiji-docker/.env 中的生产 Secret 与公网 URL
+make docker-up
 ```
 
-浏览器打开 `http://localhost`，注册账号即可使用。
+浏览器打开 `http://localhost:28080`，注册账号即可使用。
 
 #### 首次部署：平台管理员
 
@@ -40,7 +41,7 @@ docker compose up -d
 - 临时密码只由一次性 `iam-bootstrap` 任务输出一次：
 
   ```bash
-  docker compose logs --no-log-prefix iam-bootstrap
+  make iam-bootstrap-password
   ```
 
 基础设施管理员 `KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME` 与太极平台管理员不是同一账号，不能用于业务登录。
@@ -50,7 +51,7 @@ docker compose up -d
 ```bash
 # 1. 后端
 cd backend
-cp .env.example .env    # 编辑数据库和密钥
+cp ../deploy/taiji-docker/.env.example .env  # 编辑数据库和密钥
 pip install -r requirements.txt
 flask db upgrade
 python run.py            # 启动于 :5000
@@ -93,9 +94,11 @@ taiji/
 │       ├── router/       # 路由 + 导航守卫
 │       ├── stores/       # Pinia 状态
 │       └── views/        # 页面组件
-├── docker/               # Dockerfile × 3
+├── deploy/
+│   ├── taiji-docker/      # Compose、Dockerfile 与容器配置
+│   └── taiji-k8s/         # Kubernetes Kustomize 部署清单
 ├── iam/                  # Keycloak Realm、Theme 与 Java 扩展
-├── docker-compose.yml    # 完整运行组件编排
+├── Makefile              # Docker/Kubernetes 运维入口
 └── README.md
 ```
 

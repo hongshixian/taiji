@@ -1,6 +1,12 @@
 # 太极 (Taiji) Makefile
 
-.PHONY: dev test build up down clean iam-build iam-test iam-up iam-down iam-smoke iam-integration-test iam-migration-integration-test iam-bootstrap-password iam-reconcile
+.PHONY: dev test build up down docker-build docker-up docker-down clean iam-build iam-test iam-up iam-down iam-smoke iam-integration-test iam-migration-integration-test iam-bootstrap-password iam-reconcile
+
+DOCKER_DEPLOY_DIR := deploy/taiji-docker
+COMPOSE_OVERRIDE := $(wildcard $(DOCKER_DEPLOY_DIR)/docker-compose.override.yml)
+COMPOSE := docker compose --env-file $(DOCKER_DEPLOY_DIR)/.env \
+	-f $(DOCKER_DEPLOY_DIR)/docker-compose.yml \
+	$(if $(COMPOSE_OVERRIDE),-f $(COMPOSE_OVERRIDE),)
 
 # 开发模式 — 同时启动 Flask + Vite
 dev:
@@ -16,28 +22,34 @@ test:
 
 # 构建 Docker 镜像
 build:
-	docker compose build
+	$(COMPOSE) build
+
+docker-build: build
 
 # 启动 Docker 服务
 up:
-	docker compose up -d
+	$(COMPOSE) up -d
+
+docker-up: up
 
 # 停止 Docker 服务
 down:
-	docker compose down
+	$(COMPOSE) down
+
+docker-down: down
 
 # 构建并运行 Keycloak 扩展测试
 iam-build:
-	docker compose build keycloak
+	$(COMPOSE) build keycloak
 
 iam-test:
 	docker run --rm -v taiji_maven_cache:/root/.m2 -v "$(CURDIR)/iam/keycloak-extension:/build" -w /build maven:3.9.11-eclipse-temurin-21 mvn --batch-mode test
 
 iam-up:
-	docker compose up -d postgres keycloak-db-init nats keycloak iam-proxy iam-bootstrap
+	$(COMPOSE) up -d postgres keycloak-db-init nats keycloak iam-proxy iam-bootstrap
 
 iam-down:
-	docker compose stop iam-proxy keycloak nats
+	$(COMPOSE) stop iam-proxy keycloak nats
 
 iam-smoke:
 	./scripts/iam-smoke.sh
@@ -49,10 +61,10 @@ iam-migration-integration-test:
 	./scripts/iam-migration-integration-test.sh
 
 iam-bootstrap-password:
-	docker compose logs --no-log-prefix iam-bootstrap
+	$(COMPOSE) logs --no-log-prefix iam-bootstrap
 
 iam-reconcile:
-	docker compose run --rm --no-deps iam-projector python iam_projector.py --reconcile-only
+	$(COMPOSE) run --rm --no-deps iam-projector python iam_projector.py --reconcile-only
 
 # 清理临时文件
 clean:

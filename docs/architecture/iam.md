@@ -86,7 +86,7 @@ taiji/
 │   └── migration/              # 旧用户、租户、成员和凭据迁移工具
 ├── backend/                    # Flask BFF、本地投影、RBAC 与对账
 ├── frontend/                   # 登录跳转、租户切换和成员管理
-└── docker/                     # Keycloak 与本地依赖镜像/配置
+└── deploy/taiji-docker/        # Keycloak 与本地依赖镜像/配置
 ```
 
 Keycloak 扩展必须锁定并测试具体 Keycloak 版本，升级 Keycloak 前必须先运行扩展兼容性测试。

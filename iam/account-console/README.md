@@ -9,4 +9,4 @@ npm ci
 npm run build
 ```
 
-生产构建由 `docker/Dockerfile.keycloak` 的 Maven 阶段打包为 Keycloak 主题 Provider JAR，不需要单独部署前端服务。
+生产构建由 `deploy/taiji-docker/Dockerfile.keycloak` 的 Maven 阶段打包为 Keycloak 主题 Provider JAR，不需要单独部署前端服务。

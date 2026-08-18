@@ -22,7 +22,7 @@
 ## 只读预检
 
 ```bash
-docker compose exec backend flask --app run:app iam-migrate
+docker compose --env-file deploy/taiji-docker/.env -f deploy/taiji-docker/docker-compose.yml exec backend flask --app run:app iam-migrate
 ```
 
 预检不会生成稳定 ID 或迁移账本。以下问题会阻止执行：
@@ -40,14 +40,15 @@ docker compose exec backend flask --app run:app iam-migrate
 临时启用迁移接口并等待 Keycloak 健康：
 
 ```bash
-IAM_MIGRATION_ENABLED=true docker compose up -d --no-deps \
+IAM_MIGRATION_ENABLED=true docker compose --env-file deploy/taiji-docker/.env \
+  -f deploy/taiji-docker/docker-compose.yml up -d --no-deps \
   --force-recreate --wait --wait-timeout 180 keycloak
 ```
 
 执行迁移：
 
 ```bash
-docker compose exec backend flask --app run:app iam-migrate --apply
+docker compose --env-file deploy/taiji-docker/.env -f deploy/taiji-docker/docker-compose.yml exec backend flask --app run:app iam-migrate --apply
 ```
 
 迁移顺序固定为历史企业租户、用户与个人空间、企业成员关系。每个实体单独提交，并在 `iam_migration_records` 记录状态和重试次数；修复失败原因后执行同一命令即可续跑，已成功实体默认跳过。
@@ -55,7 +56,7 @@ docker compose exec backend flask --app run:app iam-migrate --apply
 本地有效超级管理员且用户名等于 `ADMIN_USERNAME` 时，允许绑定 Keycloak Bootstrap 创建的同名 `admin`，但不会覆盖其随机临时密码。其他既有 IAM 账号冲突必须逐个显式确认：
 
 ```bash
-docker compose exec backend flask --app run:app iam-migrate --apply \
+docker compose --env-file deploy/taiji-docker/.env -f deploy/taiji-docker/docker-compose.yml exec backend flask --app run:app iam-migrate --apply \
   --link-existing exact_username \
   --link-existing user@example.com
 ```
@@ -83,7 +84,8 @@ make iam-migration-integration-test
 完成后必须关闭迁移接口：
 
 ```bash
-docker compose up -d --no-deps --force-recreate \
+docker compose --env-file deploy/taiji-docker/.env \
+  -f deploy/taiji-docker/docker-compose.yml up -d --no-deps --force-recreate \
   --wait --wait-timeout 180 keycloak
 ```
 
