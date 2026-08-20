@@ -1,3 +1,5 @@
+name: taiji
+
 services:
   # ─── PostgreSQL ────────────────────────────────
   postgres:
