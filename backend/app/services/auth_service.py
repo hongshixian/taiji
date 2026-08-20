@@ -7,7 +7,12 @@ from flask_jwt_extended import create_access_token, create_refresh_token
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app import db
-from app.models.tenant import GUEST_TENANT_SLUG, Tenant
+from app.models.tenant import (
+    ENTERPRISE_TENANT_TYPE,
+    GUEST_TENANT_SLUG,
+    PERSONAL_TENANT_TYPE,
+    Tenant,
+)
 from app.models.tenant_membership import TenantMembership
 from app.models.user import User
 from app.utils.decorators import bypass_tenant_filter
@@ -29,14 +34,12 @@ def membership_to_dict(membership: TenantMembership) -> dict:
         "tenant_slug": tenant.slug if tenant else None,
         "tenant_name": tenant.name if tenant else None,
         "role_id": membership.role_id,
-        "role": membership.iam_role or (role.name if role else None),
-        "role_name": membership.iam_role or (role.name if role else None),
-        "iam_role": membership.iam_role,
+        "role": _public_role_name(role.name if role else None),
+        "role_name": _public_role_name(role.name if role else None),
         "permissions": membership.permission_codes,
         "is_active": membership.is_active,
         "is_owner": membership.is_owner,
         "created_at": membership.created_at.isoformat() if membership.created_at else None,
-        "tenant_iam_id": tenant.iam_tenant_id if tenant else None,
         "tenant_type": tenant.tenant_type if tenant else None,
     }
 
@@ -49,7 +52,6 @@ def user_to_dict(user: User, membership: TenantMembership | None = None,
         "email": user.email,
         "is_active": user.is_active,
         "is_superuser": user.is_superuser,
-        "iam_user_id": user.iam_user_id,
         "keycloak_subject": user.keycloak_subject,
         "created_at": user.created_at.isoformat() if user.created_at else None,
     }
@@ -64,7 +66,6 @@ def user_to_dict(user: User, membership: TenantMembership | None = None,
             "membership_active": m["is_active"],
             "current_tenant": {
                 "id": m["tenant_id"],
-                "iam_id": m["tenant_iam_id"],
                 "slug": m["tenant_slug"],
                 "name": m["tenant_name"],
                 "type": m["tenant_type"],
@@ -179,6 +180,55 @@ def get_current_membership(user_id: int, tenant_id: int | None = None) -> Tenant
 def list_current_user_memberships(user_id: int) -> list[dict]:
     with bypass_tenant_filter():
         return [membership_to_dict(m) for m in _list_user_memberships(user_id)]
+
+
+def provision_oidc_user(userinfo: dict, *, bootstrap_superuser: bool = False) -> tuple[User, TenantMembership]:
+    """Resolve an OIDC identity and ensure its Taiji-owned personal workspace exists."""
+    subject = str(userinfo.get("sub") or "").strip()
+    username = str(userinfo.get("preferred_username") or userinfo.get("username") or "").strip()
+    email = str(userinfo.get("email") or "").strip().lower()
+    if not subject or not username or not email:
+        raise BusinessError(ErrorCode.TOKEN_INVALID, "身份信息缺少 sub、用户名或邮箱")
+
+    with bypass_tenant_filter():
+        user = User.query.filter_by(keycloak_subject=subject).first()
+        created = user is None
+        if created:
+            username_owner = User.query.filter_by(username=username).first()
+            email_owner = User.query.filter_by(email=email).first()
+            if username_owner or email_owner:
+                raise BusinessError(
+                    ErrorCode.IDENTITY_CONFLICT,
+                    "用户名或邮箱已被未绑定的历史账号使用，请先完成账号迁移",
+                )
+            user = User(
+                username=username,
+                email=email,
+                keycloak_subject=subject,
+                is_superuser=bool(bootstrap_superuser),
+            )
+            db.session.add(user)
+            db.session.flush()
+        else:
+            if not user.is_active:
+                raise BusinessError(ErrorCode.ACCOUNT_DISABLED)
+            _sync_oidc_profile(user, username, email)
+
+        membership = _personal_membership(user.id)
+        if membership is None:
+            tenant = Tenant(
+                slug=f"personal-{user.id}",
+                name=f"{user.username} 的个人空间",
+                tenant_type=PERSONAL_TENANT_TYPE,
+                is_protected=True,
+            )
+            db.session.add(tenant)
+            db.session.flush()
+            membership = _add_membership(user.id, tenant.id, "admin", is_owner=True)
+            db.session.flush()
+
+        db.session.commit()
+        return user, membership
 
 
 def add_user_membership(user_id: int, tenant_id: int, role: str = "user",
@@ -303,7 +353,10 @@ def add_tenant_member(tenant_id: int, identifier: str, role: str = "user") -> Us
         return user
 
 
-def remove_tenant_member(tenant_id: int, user_id: int) -> User:
+def remove_tenant_member(tenant_id: int, user_id: int,
+                         current_user_id: int | None = None) -> User:
+    if current_user_id is not None and user_id == current_user_id:
+        raise BusinessError(ErrorCode.CANNOT_DELETE_SELF, "不能移除自己的当前租户身份")
     with bypass_tenant_filter():
         user = db.session.get(User, user_id)
         if not user:
@@ -613,7 +666,7 @@ def _add_membership(user_id: int, tenant_id: int, role_name: str,
 
 def _role_id_by_name(name: str, tenant_id: int | None = None) -> int | None:
     from app.services.role_service import find_role_by_name
-    role = find_role_by_name(name, tenant_id)
+    role = find_role_by_name(_local_role_name(name), tenant_id)
     return role.id if role else None
 
 
@@ -625,6 +678,36 @@ def _find_user(identifier: str) -> User | None:
     if "@" in identifier:
         return query.filter_by(email=identifier).first()
     return query.filter_by(username=identifier).first()
+
+
+def _personal_membership(user_id: int) -> TenantMembership | None:
+    return (
+        TenantMembership.query
+        .join(Tenant, Tenant.id == TenantMembership.tenant_id)
+        .filter(
+            TenantMembership.user_id == user_id,
+            Tenant.tenant_type == PERSONAL_TENANT_TYPE,
+        )
+        .order_by(TenantMembership.id)
+        .first()
+    )
+
+
+def _sync_oidc_profile(user: User, username: str, email: str) -> None:
+    username_owner = User.query.filter(User.username == username, User.id != user.id).first()
+    email_owner = User.query.filter(User.email == email, User.id != user.id).first()
+    if username_owner or email_owner:
+        raise BusinessError(ErrorCode.IDENTITY_CONFLICT, "身份资料与已有太极用户冲突")
+    user.username = username
+    user.email = email
+
+
+def _local_role_name(name: str | None) -> str | None:
+    return {"tenant_admin": "admin", "member": "user"}.get(name, name)
+
+
+def _public_role_name(name: str | None) -> str | None:
+    return {"admin": "tenant_admin", "user": "member"}.get(name, name)
 
 
 def _user_audit_snapshot(user: User) -> dict:

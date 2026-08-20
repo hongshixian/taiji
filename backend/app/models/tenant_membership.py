@@ -21,9 +21,6 @@ class TenantMembership(db.Model, TenantMixin):
     role_id = db.Column(db.Integer, db.ForeignKey("roles.id"), nullable=False, index=True)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     is_owner = db.Column(db.Boolean, default=False, nullable=False)
-    iam_role = db.Column(db.String(32), nullable=True)
-    sync_version = db.Column(db.BigInteger, default=0, nullable=False)
-    last_synced_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),
                            onupdate=lambda: datetime.now(timezone.utc))

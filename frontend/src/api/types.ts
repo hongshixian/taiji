@@ -16,7 +16,6 @@ export interface Paginated<T> {
 // ── 认证 / 用户 ──
 export interface Tenant {
   id: number
-  iam_id?: string
   slug: string
   name: string
   type?: 'personal' | 'enterprise'
@@ -25,13 +24,11 @@ export interface Tenant {
 }
 
 export interface TenantOption {
-  id: string
-  local_id?: number | null
-  keycloak_org_id?: string
-  alias?: string
+  id: number
+  local_id: number
+  slug: string
   name: string
   tenant_type: 'personal' | 'enterprise'
-  lifecycle_status: string
   enabled: boolean
   role: 'tenant_admin' | 'member'
 }

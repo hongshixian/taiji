@@ -59,8 +59,8 @@ export const useAuthStore = defineStore('auth', () => {
     window.location.assign(REGISTER_URL)
   }
 
-  async function switchTenant(iamTenantId: string) {
-    const { data } = await switchTenantApi(iamTenantId)
+  async function switchTenant(tenantId: number) {
+    const { data } = await switchTenantApi(tenantId)
     setCsrfToken(data.data.csrf_token)
     await fetchUser()
   }

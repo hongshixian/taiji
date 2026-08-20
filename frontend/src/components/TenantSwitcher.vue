@@ -1,7 +1,7 @@
 <template>
   <UiSelect
     v-if="tenants.length > 0"
-    :model-value="currentIamId"
+    :model-value="currentTenantId"
     :options="options"
     :disabled="tenants.length <= 1 || switching"
     class="w-[220px]"
@@ -18,7 +18,7 @@ import UiSelect, { type SelectOption } from '@/components/ui/Select.vue'
 const authStore = useAuthStore()
 const switching = ref(false)
 const tenants = computed(() => authStore.tenants.filter((tenant) => tenant.enabled))
-const currentIamId = computed(() => authStore.currentTenant?.iam_id ?? null)
+const currentTenantId = computed(() => authStore.currentTenant?.id ?? null)
 
 const options = computed<SelectOption[]>(() =>
   tenants.value.map((tenant) => ({
@@ -29,10 +29,10 @@ const options = computed<SelectOption[]>(() =>
 )
 
 async function handleSwitch(tenantId: string | number | null) {
-  if (tenantId == null || String(tenantId) === currentIamId.value) return
+  if (tenantId == null || Number(tenantId) === currentTenantId.value) return
   switching.value = true
   try {
-    await authStore.switchTenant(String(tenantId))
+    await authStore.switchTenant(Number(tenantId))
     toast.success(`已切换到租户「${authStore.currentTenant?.name}」`)
     window.location.reload()
   } catch (err: unknown) {

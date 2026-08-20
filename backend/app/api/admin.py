@@ -1,6 +1,6 @@
 """管理员接口（需相应权限）"""
 
-from flask import Blueprint, request
+from flask import Blueprint, g, request
 from app.auth_context import current_user_id, login_required, oidc_mode
 
 from app.services.auth_service import (
@@ -28,11 +28,7 @@ admin_bp = Blueprint("admin", __name__)
 def get_users():
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
-    if oidc_mode():
-        from app.services.iam_management_service import list_members
-        users, total = list_members(page, per_page)
-    else:
-        users, total = list_users(page, per_page)
+    users, total = list_users(page, per_page)
     return paginated(items=users, total=total, page=page, per_page=per_page)
 
 
@@ -40,9 +36,6 @@ def get_users():
 @login_required()
 @require_permission(Permission.MEMBER_READ)
 def get_user(user_id):
-    if oidc_mode():
-        from app.services.iam_management_service import get_member
-        return ok(get_member(user_id))
     user = get_user_by_id(user_id)
     if not user:
         raise BusinessError(ErrorCode.USER_NOT_FOUND)
@@ -62,11 +55,9 @@ def add_user():
         identifier = (data.get("identifier") or "").strip()
         if not identifier:
             raise BusinessError(ErrorCode.VALIDATION_ERROR, "完整用户名或邮箱不能为空")
-        from app.services.iam_management_service import add_member
-        result = add_member(identifier, data.get("role", "member"))
-        if result.get("kind") == "invitation":
-            return ok(result, message="邀请已发送", status=202)
-        return created(result, message="成员已加入")
+        from app.services.auth_service import add_tenant_member
+        user = add_tenant_member(g.tenant_id, identifier, data.get("role", "member"))
+        return created(user_to_dict(user, get_current_membership(user.id)), message="成员已加入")
 
     username = data.get("username", "").strip()
     email = data.get("email", "").strip()
@@ -100,8 +91,11 @@ def edit_user(user_id):
                 ErrorCode.VALIDATION_ERROR,
                 "IAM 模式只允许修改成员角色和成员状态",
             )
-        from app.services.iam_management_service import update_member
-        return ok(update_member(user_id, data))
+        normalized = dict(data)
+        if "active" in normalized:
+            normalized["membership_active"] = normalized.pop("active")
+        user = update_user(user_id, normalized)
+        return ok(user_to_dict(user, get_current_membership(user_id)))
 
     role = data.get("role")
     if role is not None and not Role.is_valid(role):
@@ -116,8 +110,8 @@ def edit_user(user_id):
 @require_permission(Permission.MEMBER_REMOVE)
 def remove_user(user_id):
     if oidc_mode():
-        from app.services.iam_management_service import deactivate_member
-        deactivate_member(user_id, current_user_id())
+        from app.services.auth_service import remove_tenant_member
+        remove_tenant_member(g.tenant_id, user_id, current_user_id())
         return ok(message="已移出租户")
     delete_user(user_id, current_user_id())
     return ok(message="已删除")
@@ -130,7 +124,7 @@ def remove_user(user_id):
 @require_permission(Permission.MEMBER_READ)
 def get_roles():
     if oidc_mode():
-        return ok(_fixed_iam_roles())
+        return ok(_fixed_membership_roles())
     from app.services.role_service import list_roles
     return ok(list_roles())
 
@@ -141,7 +135,8 @@ def get_roles():
 def get_all_permissions():
     """列出系统所有权限码（用于角色编辑页面）"""
     if oidc_mode():
-        return ok([])
+        from app.services.role_service import list_permissions
+        return ok(list_permissions())
     from app.services.role_service import list_permissions
     return ok(list_permissions())
 
@@ -151,7 +146,7 @@ def get_all_permissions():
 @require_permission(Permission.MEMBER_READ)
 def get_role(role_id):
     if oidc_mode():
-        role = next((item for item in _fixed_iam_roles() if item["id"] == role_id), None)
+        role = next((item for item in _fixed_membership_roles() if item["id"] == role_id), None)
         if role is None:
             raise BusinessError(ErrorCode.ROLE_NOT_FOUND)
         return ok(role)
@@ -206,7 +201,7 @@ def remove_role(role_id):
     return ok(message="角色已删除")
 
 
-def _fixed_iam_roles() -> list[dict]:
+def _fixed_membership_roles() -> list[dict]:
     from app.models.role import Role as RoleModel
 
     mapping = {"admin": "tenant_admin", "user": "member"}
@@ -220,6 +215,6 @@ def _fixed_iam_roles() -> list[dict]:
         "name": mapping[role.name],
         "description": role.description,
         "is_system": True,
-        "scope": "iam",
+        "scope": "system",
         "permissions": role.permission_codes,
     } for role in roles]

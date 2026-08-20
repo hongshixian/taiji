@@ -52,7 +52,7 @@ class ErrorCode:
     AUTH_DISABLED = ErrCode(30005, "账户已禁用", http=403)
     TOKEN_REVOKED = ErrCode(30006, "Token 已撤销，请重新登录", http=401)
     CSRF_INVALID = ErrCode(30007, "CSRF 校验失败", http=403)
-    IAM_UNAVAILABLE = ErrCode(30008, "身份服务暂时不可用", http=503)
+    IAM_UNAVAILABLE = ErrCode(30008, "登录服务暂时不可用", http=503)
     SESSION_EXPIRED = ErrCode(30009, "登录会话已过期", http=401)
     IDENTITY_CONFLICT = ErrCode(30010, "IAM 身份与本地数据冲突", http=409)
     IAM_CONFLICT = ErrCode(30011, "IAM 操作与当前状态冲突", http=409)

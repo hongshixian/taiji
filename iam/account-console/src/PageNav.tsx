@@ -1,7 +1,6 @@
 import type { Feature } from "@keycloak/keycloak-account-ui";
 import {
   AppWindow,
-  Building2,
   KeyRound,
   Link2,
   MonitorSmartphone,
@@ -47,13 +46,6 @@ const items: NavEntry[] = [
     en: "Applications",
     icon: AppWindow,
     feature: "isViewApplicationsEnabled",
-  },
-  {
-    path: "organizations",
-    zh: "所属租户",
-    en: "Organizations",
-    icon: Building2,
-    feature: "isViewOrganizationsEnabled",
   },
   {
     path: "groups",

@@ -45,24 +45,7 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # ─── IAM 事件总线 ──────────────────────────────
-  nats:
-    image: nats:2.11.8-alpine
-    command: ["--config", "/etc/nats/nats.conf"]
-    environment:
-      - NATS_USER=${NATS_USER:-taiji}
-      - NATS_PASSWORD=${NATS_PASSWORD:-taiji_nats_dev}
-    volumes:
-      - ./nats/nats.conf:/etc/nats/nats.conf:ro
-      - nats_data:/data
-    healthcheck:
-      test: ["CMD-SHELL", "nc -z 127.0.0.1 4222"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-    restart: unless-stopped
-
-  # ─── Keycloak IAM ──────────────────────────────
+  # ─── 太极统一登录（仅供太极内部使用） ───────────
   keycloak:
     image: taiji-keycloak:${KEYCLOAK_VERSION:-26.7.0}
     build:
@@ -79,22 +62,16 @@ services:
       - KC_HTTP_ENABLED=true
       - KC_HEALTH_ENABLED=true
       - KC_METRICS_ENABLED=true
-      - KC_FEATURES=organization:v1
-      - KC_HOSTNAME=${IAM_PUBLIC_URL:-http://localhost:8180}
+      - KC_HTTP_RELATIVE_PATH=/iam
+      - KC_HOSTNAME=${IAM_PUBLIC_URL:-http://localhost:28080/iam}
       - KC_PROXY_HEADERS=${KC_PROXY_HEADERS:-xforwarded}
       - KC_BOOTSTRAP_ADMIN_USERNAME=${KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:-kcadmin}
       - KC_BOOTSTRAP_ADMIN_PASSWORD=${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:-dev-only-change-me}
       - TAIJI_PUBLIC_URL=${TAIJI_PUBLIC_URL:-http://localhost:28080}
       - TAIJI_OIDC_CLIENT_SECRET=${TAIJI_OIDC_CLIENT_SECRET:-taiji-web-dev-secret}
-      - TAIJI_RECONCILER_CLIENT_SECRET=${TAIJI_RECONCILER_CLIENT_SECRET:-taiji-reconciler-dev-secret}
-      - TAIJI_MIGRATOR_CLIENT_SECRET=${TAIJI_MIGRATOR_CLIENT_SECRET:-taiji-migrator-dev-secret}
-      - IAM_MIGRATION_ENABLED=${IAM_MIGRATION_ENABLED:-false}
-      - NATS_URL=nats://${NATS_USER:-taiji}:${NATS_PASSWORD:-taiji_nats_dev}@nats:4222
     depends_on:
       keycloak-db-init:
         condition: service_completed_successfully
-      nats:
-        condition: service_healthy
     healthcheck:
       test:
         - CMD-SHELL
@@ -108,29 +85,7 @@ services:
       start_period: 30s
     restart: unless-stopped
 
-  # ─── IAM 反向代理协议归一化 ────────────────────
-  # 公网 HTTPS 在 FRP 侧终止；此代理覆盖转发头，避免 Keycloak 将请求误判为 HTTP。
-  iam-proxy:
-    image: nginx:alpine
-    environment:
-      - IAM_PROXY_HOST=${IAM_PROXY_HOST:-localhost}
-      - IAM_PROXY_SCHEME=${IAM_PROXY_SCHEME:-http}
-      - IAM_PROXY_PORT=${IAM_PROXY_PORT:-8180}
-    volumes:
-      - ./nginx-iam.conf.template:/etc/nginx/templates/default.conf.template:ro
-    ports:
-      - "${KEYCLOAK_PORT:-8180}:8080"
-    depends_on:
-      keycloak:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/realms/fangcun/taiji-iam/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-    restart: unless-stopped
-
-  # ─── IAM 业务管理员一次性初始化 ─────────────────
+  # ─── 登录管理员一次性初始化 ─────────────────────
   iam-bootstrap:
     image: taiji-keycloak:${KEYCLOAK_VERSION:-26.7.0}
     build:
@@ -143,16 +98,14 @@ services:
       - IAM_BOOTSTRAP_ENABLED=${IAM_BOOTSTRAP_ENABLED:-true}
       - IAM_REALM_RECONCILE_ENABLED=${IAM_REALM_RECONCILE_ENABLED:-true}
       - IAM_REALM=fangcun
-      - IAM_PUBLIC_URL=${IAM_PUBLIC_URL:-http://localhost:8180}
+      - IAM_PUBLIC_URL=${IAM_PUBLIC_URL:-http://localhost:28080/iam}
       - IAM_BOOTSTRAP_ADMIN_EMAIL=${IAM_BOOTSTRAP_ADMIN_EMAIL:-admin@taiji.local}
       - TAIJI_PUBLIC_URL=${TAIJI_PUBLIC_URL:-http://localhost:28080}
       - TAIJI_PUBLIC_URLS=${TAIJI_PUBLIC_URLS:-}
-      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080
+      - KEYCLOAK_INTERNAL_URL=http://keycloak:8080/iam
       - KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME=${KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME:-kcadmin}
       - KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD=${KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD:-dev-only-change-me}
       - TAIJI_OIDC_CLIENT_SECRET=${TAIJI_OIDC_CLIENT_SECRET:-taiji-web-dev-secret}
-      - TAIJI_RECONCILER_CLIENT_SECRET=${TAIJI_RECONCILER_CLIENT_SECRET:-taiji-reconciler-dev-secret}
-      - TAIJI_MIGRATOR_CLIENT_SECRET=${TAIJI_MIGRATOR_CLIENT_SECRET:-taiji-migrator-dev-secret}
     depends_on:
       keycloak:
         condition: service_healthy
@@ -170,15 +123,12 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - AUTH_MODE=${AUTH_MODE:-oidc}
       - IAM_REALM=fangcun
-      - IAM_PUBLIC_URL=${IAM_PUBLIC_URL:-http://localhost:8180}
-      - IAM_INTERNAL_URL=http://keycloak:8080
+      - IAM_PUBLIC_URL=${IAM_PUBLIC_URL:-http://localhost:28080/iam}
+      - IAM_INTERNAL_URL=http://keycloak:8080/iam
       - TAIJI_PUBLIC_URL=${TAIJI_PUBLIC_URL:-http://localhost:28080}
       - TAIJI_PUBLIC_URLS=${TAIJI_PUBLIC_URLS:-}
       - TAIJI_OIDC_CLIENT_ID=taiji-web
       - TAIJI_OIDC_CLIENT_SECRET=${TAIJI_OIDC_CLIENT_SECRET:-taiji-web-dev-secret}
-      - TAIJI_RECONCILER_CLIENT_SECRET=${TAIJI_RECONCILER_CLIENT_SECRET:-taiji-reconciler-dev-secret}
-      - TAIJI_MIGRATOR_CLIENT_SECRET=${TAIJI_MIGRATOR_CLIENT_SECRET:-taiji-migrator-dev-secret}
-      - IAM_IDENTITY_CACHE_SECONDS=${IAM_IDENTITY_CACHE_SECONDS:-300}
       - SESSION_IDLE_SECONDS=${SESSION_IDLE_SECONDS:-7200}
       - SESSION_ABSOLUTE_SECONDS=${SESSION_ABSOLUTE_SECONDS:-86400}
       - SESSION_COOKIE_SECURE=${SESSION_COOKIE_SECURE:-false}
@@ -212,39 +162,6 @@ services:
       start_period: 20s
     restart: unless-stopped
 
-  # ─── IAM 事件投影与周期对账 ─────────────────────
-  iam-projector:
-    build:
-      context: ../..
-      dockerfile: deploy/taiji-docker/Dockerfile.backend
-    command: ["python", "iam_projector.py"]
-    environment:
-      - FLASK_ENV=${FLASK_ENV:-development}
-      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
-      - DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-taiji}:${POSTGRES_PASSWORD:-taiji_pw}@postgres:5432/${POSTGRES_DB:-taiji}
-      - REDIS_URL=redis://redis:6379/0
-      - AUTH_MODE=oidc
-      - IAM_REALM=fangcun
-      - IAM_PUBLIC_URL=${IAM_PUBLIC_URL:-http://localhost:8180}
-      - IAM_INTERNAL_URL=http://keycloak:8080
-      - TAIJI_PUBLIC_URL=${TAIJI_PUBLIC_URL:-http://localhost:28080}
-      - TAIJI_OIDC_CLIENT_SECRET=${TAIJI_OIDC_CLIENT_SECRET:-taiji-web-dev-secret}
-      - TAIJI_RECONCILER_CLIENT_SECRET=${TAIJI_RECONCILER_CLIENT_SECRET:-taiji-reconciler-dev-secret}
-      - TAIJI_MIGRATOR_CLIENT_SECRET=${TAIJI_MIGRATOR_CLIENT_SECRET:-taiji-migrator-dev-secret}
-      - NATS_URL=nats://${NATS_USER:-taiji}:${NATS_PASSWORD:-taiji_nats_dev}@nats:4222
-      - IAM_RECONCILE_INTERVAL_SECONDS=${IAM_RECONCILE_INTERVAL_SECONDS:-300}
-      - IAM_EVENT_BATCH_SIZE=${IAM_EVENT_BATCH_SIZE:-10}
-      - IAM_EVENT_ACK_WAIT_SECONDS=${IAM_EVENT_ACK_WAIT_SECONDS:-300}
-      - RUN_MIGRATIONS=false
-    depends_on:
-      backend:
-        condition: service_healthy
-      keycloak:
-        condition: service_healthy
-      nats:
-        condition: service_healthy
-    restart: unless-stopped
-
   # ─── Celery Worker ─────────────────────────────
   worker:
     build:
@@ -258,13 +175,11 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - AUTH_MODE=${AUTH_MODE:-oidc}
       - IAM_REALM=fangcun
-      - IAM_PUBLIC_URL=${IAM_PUBLIC_URL:-http://localhost:8180}
-      - IAM_INTERNAL_URL=http://keycloak:8080
+      - IAM_PUBLIC_URL=${IAM_PUBLIC_URL:-http://localhost:28080/iam}
+      - IAM_INTERNAL_URL=http://keycloak:8080/iam
       - TAIJI_PUBLIC_URL=${TAIJI_PUBLIC_URL:-http://localhost:28080}
       - TAIJI_OIDC_CLIENT_ID=taiji-web
       - TAIJI_OIDC_CLIENT_SECRET=${TAIJI_OIDC_CLIENT_SECRET:-taiji-web-dev-secret}
-      - TAIJI_RECONCILER_CLIENT_SECRET=${TAIJI_RECONCILER_CLIENT_SECRET:-taiji-reconciler-dev-secret}
-      - TAIJI_MIGRATOR_CLIENT_SECRET=${TAIJI_MIGRATOR_CLIENT_SECRET:-taiji-migrator-dev-secret}
       - JWT_SECRET_KEY=${JWT_SECRET_KEY:-change-me-in-production}
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
@@ -296,8 +211,8 @@ services:
     ports:
       - "${TAIJI_PORT:-28080}:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
     restart: unless-stopped
-
-volumes:
-  nats_data:

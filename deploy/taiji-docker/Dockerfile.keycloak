@@ -30,11 +30,10 @@ RUN jar --create --file /fangcun-account-ui.jar -C /account-theme .
 FROM quay.io/keycloak/keycloak:${KEYCLOAK_VERSION}
 
 ENV KC_DB=postgres \
-    KC_FEATURES=organization:v1 \
     KC_HEALTH_ENABLED=true \
     KC_METRICS_ENABLED=true
 
-COPY --from=extension-build /build/target/taiji-keycloak-extension.jar /opt/keycloak/providers/taiji-keycloak-extension.jar
+COPY --from=extension-build /build/target/taiji-legacy-password-provider.jar /opt/keycloak/providers/taiji-legacy-password-provider.jar
 COPY --from=account-theme-build /fangcun-account-ui.jar /opt/keycloak/providers/fangcun-account-ui.jar
 RUN /opt/keycloak/bin/kc.sh build
 

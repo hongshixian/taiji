@@ -3,7 +3,6 @@ import {
   DeviceActivity,
   Groups,
   LinkedAccounts,
-  Organizations,
   PersonalInfo,
   SigningIn,
 } from "@keycloak/keycloak-account-ui";
@@ -44,7 +43,6 @@ export const routes: RouteObject[] = [
       { path: "account-security/deviceActivity", element: <DeviceActivity /> },
       { path: "account-security/linkedAccounts", element: <LinkedAccounts /> },
       { path: "applications", element: <Applications /> },
-      { path: "organizations", element: <Organizations /> },
       { path: "groups", element: <Groups /> },
       { path: "*", element: <Navigate to="personalInfo" replace /> },
     ],

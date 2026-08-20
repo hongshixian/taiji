@@ -64,9 +64,9 @@ function App() {
           {navOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
 
-        <a className={style.brand} href={environment.baseUrl}>
+        <a className={style.brand} href={environment.referrerUrl || environment.baseUrl}>
           <img src={`${environment.resourceUrl}/brand.svg`} alt="" />
-          <span className={style.brandName}>方寸 IAM</span>
+          <span className={style.brandName}>太极</span>
           <span className={style.brandSection}>{copy.accountCenter}</span>
         </a>
 

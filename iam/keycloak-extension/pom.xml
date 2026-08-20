@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.fangcun.taiji</groupId>
-    <artifactId>taiji-keycloak-extension</artifactId>
+    <artifactId>taiji-legacy-password-provider</artifactId>
     <version>1.0.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
@@ -14,7 +14,6 @@
         <maven.compiler.release>21</maven.compiler.release>
         <keycloak.version>26.7.0</keycloak.version>
         <junit.version>5.12.2</junit.version>
-        <jnats.version>2.26.1</jnats.version>
         <bouncycastle.version>1.84</bouncycastle.version>
     </properties>
 
@@ -38,48 +37,15 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>org.keycloak</groupId>
-            <artifactId>keycloak-services</artifactId>
-            <version>${keycloak.version}</version>
-            <scope>provided</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>*</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>jakarta.ws.rs</groupId>
-            <artifactId>jakarta.ws.rs-api</artifactId>
-            <version>3.1.0</version>
-            <scope>provided</scope>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk18on</artifactId>
+            <version>${bouncycastle.version}</version>
         </dependency>
         <dependency>
             <groupId>org.jboss.logging</groupId>
             <artifactId>jboss-logging</artifactId>
             <version>3.6.1.Final</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.nats</groupId>
-            <artifactId>jnats</artifactId>
-            <version>${jnats.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.bouncycastle</groupId>
-                    <artifactId>bcprov-lts8on</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.jspecify</groupId>
-                    <artifactId>jspecify</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.bouncycastle</groupId>
-            <artifactId>bcprov-jdk18on</artifactId>
-            <version>${bouncycastle.version}</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -90,7 +56,7 @@
     </dependencies>
 
     <build>
-        <finalName>taiji-keycloak-extension</finalName>
+        <finalName>taiji-legacy-password-provider</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

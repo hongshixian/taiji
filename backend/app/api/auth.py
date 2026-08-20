@@ -43,7 +43,7 @@ auth_limiter = Limiter(key_func=_get_client_ip)
 def register():
     if oidc_mode():
         if request.method != "GET":
-            raise BusinessError(ErrorCode.METHOD_NOT_ALLOWED, "注册由 IAM 托管")
+            raise BusinessError(ErrorCode.METHOD_NOT_ALLOWED, "注册由统一登录服务托管")
         return _authorize_redirect(kc_action="register")
 
     data = request.get_json()
@@ -65,7 +65,7 @@ def register():
 def login():
     if oidc_mode():
         if request.method != "GET":
-            raise BusinessError(ErrorCode.METHOD_NOT_ALLOWED, "登录由 IAM 托管")
+            raise BusinessError(ErrorCode.METHOD_NOT_ALLOWED, "登录由统一登录服务托管")
         return _authorize_redirect()
 
     data = request.get_json()
@@ -142,14 +142,10 @@ def switch_current_tenant():
     if not oidc_mode():
         return ok(switch_tenant(current_user_id(), tenant_id), message="租户已切换")
 
-    tenants = refresh_identity(force=True)
-    selected = next((item for item in tenants if item["id"] == str(tenant_id)), None)
-    if selected is None:
-        raise BusinessError(ErrorCode.TENANT_NOT_FOUND, "用户不属于该租户或租户已停用")
-    tenant, membership = switch_to_tenant(selected, tenants=tenants)
+    tenant, membership = switch_to_tenant(int(tenant_id))
     return ok({
-        "tenant": dict(selected, local_id=tenant.id),
-        "role": membership.iam_role,
+        "tenant": next(item for item in current_tenant_options() if item["id"] == tenant.id),
+        "role": user_to_dict(get_user_by_id(current_user_id()), membership)["role"],
         "permissions": membership.permission_codes,
         "csrf_token": session["csrf_token"],
     }, message="租户已切换")
@@ -159,7 +155,7 @@ def switch_current_tenant():
 @login_required()
 def logout():
     if oidc_mode():
-        id_token = (session.get("iam_token") or {}).get("id_token")
+        id_token = (session.get("oidc_token") or {}).get("id_token")
         params = {
             "client_id": current_app.config["OIDC_CLIENT_ID"],
             "post_logout_redirect_uri": f"{_request_public_url()}/#/login",
@@ -187,7 +183,7 @@ def update_password():
         realm = current_app.config["IAM_REALM"]
         return ok({
             "account_url": f"{current_app.config['IAM_PUBLIC_URL']}/realms/{realm}/account/"
-        }, message="密码由 IAM 管理")
+        }, message="密码由统一登录服务管理")
 
     data = request.get_json()
     if not data:

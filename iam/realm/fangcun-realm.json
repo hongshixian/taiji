@@ -1,6 +1,6 @@
 {
   "realm": "fangcun",
-  "displayName": "方寸 IAM",
+  "displayName": "太极统一登录",
   "enabled": true,
   "sslRequired": "external",
   "registrationAllowed": true,
@@ -19,7 +19,6 @@
   "ssoSessionIdleTimeout": 7200,
   "ssoSessionMaxLifespan": 86400,
   "accessTokenLifespan": 300,
-  "organizationsEnabled": true,
   "loginTheme": "taiji",
   "accountTheme": "fangcun-account",
   "internationalizationEnabled": true,
@@ -31,8 +30,7 @@
   "eventsEnabled": true,
   "eventsExpiration": 604800,
   "eventsListeners": [
-    "jboss-logging",
-    "taiji-iam-events"
+    "jboss-logging"
   ],
   "adminEventsEnabled": true,
   "adminEventsDetailsEnabled": false,
@@ -41,15 +39,7 @@
     "realm": [
       {
         "name": "platform_admin",
-        "description": "方寸平台超级管理员"
-      },
-      {
-        "name": "tenant_admin",
-        "description": "租户管理员"
-      },
-      {
-        "name": "member",
-        "description": "租户标准成员"
+        "description": "太极平台超级管理员首次引导角色"
       }
     ]
   },
@@ -87,33 +77,8 @@
       "optionalClientScopes": [
         "address",
         "phone",
-        "offline_access",
-        "organization"
+        "offline_access"
       ]
-    },
-    {
-      "clientId": "taiji-reconciler",
-      "name": "太极 IAM 对账服务",
-      "enabled": true,
-      "clientAuthenticatorType": "client-secret",
-      "secret": "${TAIJI_RECONCILER_CLIENT_SECRET}",
-      "publicClient": false,
-      "serviceAccountsEnabled": true,
-      "standardFlowEnabled": false,
-      "directAccessGrantsEnabled": false,
-      "implicitFlowEnabled": false
-    },
-    {
-      "clientId": "taiji-migrator",
-      "name": "太极一次性 IAM 迁移工具",
-      "enabled": true,
-      "clientAuthenticatorType": "client-secret",
-      "secret": "${TAIJI_MIGRATOR_CLIENT_SECRET}",
-      "publicClient": false,
-      "serviceAccountsEnabled": true,
-      "standardFlowEnabled": false,
-      "directAccessGrantsEnabled": false,
-      "implicitFlowEnabled": false
     }
   ]
 }

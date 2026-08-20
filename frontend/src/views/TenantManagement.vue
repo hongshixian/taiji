@@ -171,7 +171,6 @@ const { t } = useI18n()
 
 interface TenantRow {
   id: number
-  iam_tenant_id?: string
   slug: string
   name: string
   is_active?: boolean
@@ -379,8 +378,7 @@ async function handleSwitchTo(row: Record<string, unknown>) {
   })
   if (!ok) return
   try {
-    if (!r.iam_tenant_id) throw new Error('Tenant is not projected from IAM')
-    await authStore.switchTenant(r.iam_tenant_id)
+    await authStore.switchTenant(r.id)
     toast.success(t('admin.tenantSwitchedTo', { name: r.name }))
     setTimeout(() => window.location.reload(), 300)
   } catch (err: unknown) {

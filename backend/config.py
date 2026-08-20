@@ -53,14 +53,6 @@ class Config:
                 raise RuntimeError(
                     "生产环境禁止使用默认 TAIJI_OIDC_CLIENT_SECRET，请配置随机强密钥"
                 )
-            if cls.IAM_MIGRATOR_CLIENT_SECRET == "taiji-migrator-dev-secret":
-                raise RuntimeError(
-                    "生产环境禁止使用默认 TAIJI_MIGRATOR_CLIENT_SECRET，请配置随机强密钥"
-                )
-            if cls.IAM_RECONCILER_CLIENT_SECRET == "taiji-reconciler-dev-secret":
-                raise RuntimeError(
-                    "生产环境禁止使用默认 TAIJI_RECONCILER_CLIENT_SECRET，请配置随机强密钥"
-                )
 
     # 数据库 (默认 SQLite, 生产用 PostgreSQL)
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "sqlite:///data/taiji.db")
@@ -81,31 +73,11 @@ class Config:
     IAM_INTERNAL_URL = os.getenv("IAM_INTERNAL_URL", IAM_PUBLIC_URL).rstrip("/")
     OIDC_CLIENT_ID = os.getenv("TAIJI_OIDC_CLIENT_ID", "taiji-web")
     OIDC_CLIENT_SECRET = os.getenv("TAIJI_OIDC_CLIENT_SECRET", "taiji-web-dev-secret")
-    IAM_MIGRATOR_CLIENT_ID = os.getenv("TAIJI_MIGRATOR_CLIENT_ID", "taiji-migrator")
-    IAM_MIGRATOR_CLIENT_SECRET = os.getenv(
-        "TAIJI_MIGRATOR_CLIENT_SECRET", "taiji-migrator-dev-secret"
-    )
-    IAM_RECONCILER_CLIENT_ID = os.getenv(
-        "TAIJI_RECONCILER_CLIENT_ID", "taiji-reconciler"
-    )
-    IAM_RECONCILER_CLIENT_SECRET = os.getenv(
-        "TAIJI_RECONCILER_CLIENT_SECRET", "taiji-reconciler-dev-secret"
-    )
-    NATS_URL = os.getenv("NATS_URL", "nats://localhost:4222")
-    IAM_EVENT_STREAM = os.getenv("IAM_EVENT_STREAM", "IAM_EVENTS")
-    IAM_EVENT_SUBJECT = os.getenv("IAM_EVENT_SUBJECT", "iam.>")
-    IAM_EVENT_CONSUMER = os.getenv("IAM_EVENT_CONSUMER", "taiji-projection-v1")
-    IAM_EVENT_BATCH_SIZE = int(os.getenv("IAM_EVENT_BATCH_SIZE", "10"))
-    IAM_EVENT_ACK_WAIT_SECONDS = int(os.getenv("IAM_EVENT_ACK_WAIT_SECONDS", "300"))
-    IAM_RECONCILE_INTERVAL_SECONDS = int(
-        os.getenv("IAM_RECONCILE_INTERVAL_SECONDS", "300")
-    )
     READINESS_CHECK_EXTERNALS = _env_bool("READINESS_CHECK_EXTERNALS", True)
     ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
     TAIJI_PUBLIC_URL = os.getenv("TAIJI_PUBLIC_URL", "http://localhost:8080").rstrip("/")
     TAIJI_PUBLIC_URLS = _env_urls("TAIJI_PUBLIC_URLS", TAIJI_PUBLIC_URL)
     OIDC_POST_LOGIN_PATH = os.getenv("OIDC_POST_LOGIN_PATH", "/")
-    IAM_IDENTITY_CACHE_SECONDS = int(os.getenv("IAM_IDENTITY_CACHE_SECONDS", "300"))
 
     # Redis server-side browser session
     SESSION_TYPE = "redis"

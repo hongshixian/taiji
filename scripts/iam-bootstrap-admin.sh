@@ -3,7 +3,7 @@ set -euo pipefail
 
 if [[ "${IAM_BOOTSTRAP_ENABLED:-true}" != "true" \
       && "${IAM_REALM_RECONCILE_ENABLED:-true}" != "true" ]]; then
-  echo "IAM bootstrap and realm reconciliation are disabled."
+  echo "Login bootstrap and realm reconciliation are disabled."
   exit 0
 fi
 
@@ -59,53 +59,16 @@ if [[ "${IAM_REALM_RECONCILE_ENABLED:-true}" == "true" ]]; then
     -s internationalizationEnabled=true \
     -s 'supportedLocales=["zh-CN","en"]' \
     -s defaultLocale=zh-CN >/dev/null
-  echo "IAM themes and locale reconciled."
+  echo "Login themes and locale reconciled."
 
   "${kcadm}" update users/profile -r "${realm}" \
     -f /opt/keycloak/conf/taiji/user-profile.json >/dev/null
-  echo "IAM user profile reconciled."
-
-  reconcile_service_client() {
-    local client_id="$1"
-    local client_name="$2"
-    local client_secret="$3"
-    local internal_id
-    internal_id="$("${kcadm}" get clients -r "${realm}" \
-      -q "clientId=${client_id}" --fields id --format csv --noquotes | sed -n '1p')"
-    if [[ -z "${internal_id}" ]]; then
-    "${kcadm}" create clients -r "${realm}" \
-      -s "clientId=${client_id}" \
-      -s "name=${client_name}" \
-      -s enabled=true \
-      -s publicClient=false \
-      -s serviceAccountsEnabled=true \
-      -s standardFlowEnabled=false \
-      -s directAccessGrantsEnabled=false \
-      -s "secret=${client_secret}" >/dev/null
-      echo "IAM ${client_id} client created."
-    else
-      "${kcadm}" update "clients/${internal_id}" -r "${realm}" \
-      -s enabled=true \
-      -s publicClient=false \
-      -s serviceAccountsEnabled=true \
-      -s standardFlowEnabled=false \
-      -s directAccessGrantsEnabled=false \
-      -s "secret=${client_secret}" >/dev/null
-      echo "IAM ${client_id} client reconciled."
-    fi
-  }
-
-  reconcile_service_client \
-    taiji-migrator '太极一次性 IAM 迁移工具' \
-    "${TAIJI_MIGRATOR_CLIENT_SECRET:?missing migrator client secret}"
-  reconcile_service_client \
-    taiji-reconciler '太极 IAM 对账服务' \
-    "${TAIJI_RECONCILER_CLIENT_SECRET:?missing reconciler client secret}"
+  echo "Login user profile reconciled."
 
   web_id="$("${kcadm}" get clients -r "${realm}" \
     -q clientId=taiji-web --fields id --format csv --noquotes | sed -n '1p')"
   if [[ -z "${web_id}" ]]; then
-    echo "IAM taiji-web client is missing; restore the realm baseline before startup." >&2
+    echo "Taiji web client is missing; restore the realm baseline before startup." >&2
     exit 1
   fi
   "${kcadm}" update "clients/${web_id}" -r "${realm}" \
@@ -118,27 +81,27 @@ if [[ "${IAM_REALM_RECONCILE_ENABLED:-true}" == "true" ]]; then
     -s "webOrigins=${web_origins_json}" \
     -s "attributes.\"post.logout.redirect.uris\"=\"${logout_uris}\"" \
     -s "secret=${TAIJI_OIDC_CLIENT_SECRET:?missing OIDC client secret}" >/dev/null
-  echo "IAM taiji-web client reconciled."
+  echo "Taiji web client reconciled."
 
   account_console_id="$("${kcadm}" get clients -r "${realm}" \
     -q clientId=account-console --fields id --format csv --noquotes | sed -n '1p')"
   if [[ -z "${account_console_id}" ]]; then
-    echo "IAM account-console client is missing; restore the realm baseline before startup." >&2
+    echo "Account console client is missing; restore the realm baseline before startup." >&2
     exit 1
   fi
   "${kcadm}" update "clients/${account_console_id}" -r "${realm}" \
-    -s "webOrigins=[\"${IAM_PUBLIC_URL:?missing IAM public URL}\"]" >/dev/null
-  echo "IAM account-console origin reconciled."
+    -s "webOrigins=[\"${taiji_public_url}\"]" >/dev/null
+  echo "Account console origin reconciled."
 fi
 
 if [[ "${IAM_BOOTSTRAP_ENABLED:-true}" != "true" ]]; then
-  echo "IAM business administrator bootstrap is disabled."
+  echo "Taiji platform administrator bootstrap is disabled."
   exit 0
 fi
 
 realm_attributes="$("${kcadm}" get "realms/${realm}")"
 if grep -Eq '"fc_bootstrap_completed"[[:space:]]*:[[:space:]]*"?true"?' <<<"${realm_attributes}"; then
-  echo "IAM business administrator bootstrap was already completed."
+  echo "Taiji platform administrator bootstrap was already completed."
   exit 0
 fi
 
@@ -146,7 +109,7 @@ existing_id="$("${kcadm}" get users -r "${realm}" \
   -q exact=true -q "username=${business_username}" \
   --fields id --format csv --noquotes | sed -n '1p')"
 if [[ -n "${existing_id}" ]]; then
-  echo "Refusing to overwrite existing IAM user '${business_username}' without a bootstrap marker." >&2
+  echo "Refusing to overwrite existing login user '${business_username}' without a bootstrap marker." >&2
   echo "Migrate or recover this account explicitly, then set realm attribute fc_bootstrap_completed=true." >&2
   exit 1
 fi
@@ -169,7 +132,7 @@ temporary_password="${random_part}!Aa1"
 "${kcadm}" update "realms/${realm}" -s 'attributes.fc_bootstrap_completed="true"' >/dev/null
 
 printf '%s\n' \
-  "IAM bootstrap completed." \
+  "Taiji login bootstrap completed." \
   "username: ${business_username}" \
   "temporary password: ${temporary_password}" \
   "This password is shown once. Sign in and replace it immediately."

@@ -136,9 +136,6 @@ def create_app(config_obj=Config):
     # 注册错误处理器
     register_error_handlers(flask_app)
 
-    from app.cli.iam_migration import register_commands
-    register_commands(flask_app)
-
     # ── 限流超出处理器 ──────────────────────────────────────
     @flask_app.errorhandler(429)
     def ratelimit_error(e):
@@ -180,12 +177,17 @@ def create_app(config_obj=Config):
 
             if flask_app.config.get("AUTH_MODE") == "oidc":
                 try:
-                    from app.services.iam_client import IamClient
+                    import requests
 
-                    IamClient().health()
-                    checks["iam"] = "ok"
+                    realm = flask_app.config["IAM_REALM"]
+                    response = requests.get(
+                        f"{flask_app.config['IAM_INTERNAL_URL']}/realms/{realm}",
+                        timeout=2,
+                    )
+                    response.raise_for_status()
+                    checks["identity"] = "ok"
                 except Exception:
-                    checks["iam"] = "unavailable"
+                    checks["identity"] = "unavailable"
 
         available = all(value == "ok" for value in checks.values())
         return jsonify({"status": "ok" if available else "unavailable", "checks": checks}), (
@@ -257,7 +259,7 @@ def create_app(config_obj=Config):
                     "tenant_id": g.tenant_id,
                     "perms": session.get("permissions", []),
                     "is_superuser": g.is_superuser,
-                    "iam_role": session.get("iam_role"),
+                    "role": session.get("role"),
                 }
 
                 if request.method not in {"GET", "HEAD", "OPTIONS", "TRACE"}:
@@ -274,12 +276,6 @@ def create_app(config_obj=Config):
                     if local_session_projection_stale():
                         from app.services.oidc_session_service import refresh_identity
                         refresh_identity(force=True)
-                verified_at = int(session.get("identity_verified_at", 0))
-                if request.endpoint not in public_endpoints and (
-                    now - verified_at >= flask_app.config["IAM_IDENTITY_CACHE_SECONDS"]
-                ):
-                    from app.services.oidc_session_service import refresh_identity
-                    refresh_identity(force=False)
             return
 
         try:

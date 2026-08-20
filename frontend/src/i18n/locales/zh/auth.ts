@@ -12,7 +12,7 @@ export default {
   // 登录 — 表单区
   loginKicker: '登录',
   loginTitle: '欢迎回来',
-  loginSubtitle: '通过方寸 IAM 安全登录。太极不会在浏览器中保存身份令牌。',
+  loginSubtitle: '通过太极统一登录安全访问。身份令牌不会保存在浏览器中。',
   loginButton: '使用统一身份登录',
   noAccount: '还没有账号？',
   registerLink: '注册账号',
@@ -22,7 +22,7 @@ export default {
   registerBrandTitleLine2: '开始你的',
   registerBrandTitleEm: '第一次',
   registerBrandTitleEnd: '提交。',
-  registerBrandDesc: '账号由方寸 IAM 统一管理，注册后自动获得你的个人空间。',
+  registerBrandDesc: '注册太极账号，首次登录后自动获得你的个人空间。',
   registerStep1: '填写用户名 / 邮箱 / 密码',
   registerStep2: '配置被测模型，提交一个 Benchmark 测评',
   registerStep3: '查看评测结果与排行榜',
@@ -30,8 +30,8 @@ export default {
   // 注册 — 表单区
   registerKicker: '注册',
   registerTitle: '创建账号',
-  registerSubtitle: '前往统一身份服务创建账号和个人空间。',
-  registerButton: '前往 IAM 注册',
+  registerSubtitle: '继续创建太极账号和个人空间。',
+  registerButton: '注册太极账号',
   haveAccount: '已有账号？',
   loginLink: '返回登录',
 

@@ -21,11 +21,8 @@ class User(db.Model):
     # 早于此时间签发的 JWT 全部失效（改密 / 禁用 / 改角色时设置）
     tokens_revoked_at = db.Column(db.DateTime, nullable=True)
 
-    # IAM identity projection. Keycloak subject is provider-specific; iam_user_id is portable.
-    iam_user_id = db.Column(db.String(36), unique=True, nullable=True, index=True)
+    # Keycloak only proves the login identity; Taiji owns all business attributes.
     keycloak_subject = db.Column(db.String(64), unique=True, nullable=True, index=True)
-    last_iam_tenant_id = db.Column(db.String(36), nullable=True)
-    last_synced_at = db.Column(db.DateTime, nullable=True)
 
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc),

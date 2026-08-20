@@ -7,7 +7,7 @@ export function getMe() {
   return request.get('/auth/me')
 }
 
-export function switchTenant(tenantId: string) {
+export function switchTenant(tenantId: number) {
   return request.post('/auth/switch-tenant', { tenant_id: tenantId })
 }
 

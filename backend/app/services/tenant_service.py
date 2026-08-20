@@ -1,7 +1,9 @@
 """租户管理业务逻辑（仅 superuser 可调）"""
 
 from app import db
-from app.models.tenant import Tenant
+from uuid import uuid4
+
+from app.models.tenant import ENTERPRISE_TENANT_TYPE, PERSONAL_TENANT_TYPE, Tenant
 from app.models.tenant_membership import TenantMembership
 from app.models.task import Task
 from app.utils.errors import BusinessError, ErrorCode
@@ -15,10 +17,7 @@ def tenant_to_dict(tenant: Tenant, with_stats: bool = False) -> dict:
         "name": tenant.name,
         "is_active": tenant.is_active,
         "is_system": tenant.is_system,
-        "iam_tenant_id": tenant.iam_tenant_id,
-        "keycloak_org_id": tenant.keycloak_org_id,
         "tenant_type": tenant.tenant_type,
-        "lifecycle_status": tenant.lifecycle_status,
         "is_protected": tenant.is_protected,
         "created_at": tenant.created_at.isoformat() if tenant.created_at else None,
     }
@@ -43,10 +42,17 @@ def get_tenant(tenant_id: int) -> Tenant:
     return t
 
 
-def create_tenant(slug: str, name: str) -> Tenant:
+def create_tenant(slug: str, name: str, *, tenant_type: str = ENTERPRISE_TENANT_TYPE,
+                  is_protected: bool = False) -> Tenant:
     if Tenant.query.filter_by(slug=slug).first():
         raise BusinessError(ErrorCode.TENANT_EXISTS)
-    tenant = Tenant(slug=slug, name=name, is_system=False)
+    tenant = Tenant(
+        slug=slug,
+        name=name,
+        is_system=False,
+        tenant_type=tenant_type,
+        is_protected=is_protected,
+    )
     db.session.add(tenant)
     db.session.flush()
     from app.services.audit_log_service import record_audit_log
@@ -60,6 +66,42 @@ def create_tenant(slug: str, name: str) -> Tenant:
     )
     db.session.commit()
     return tenant
+
+
+def create_enterprise_tenant(name: str, initial_admin: str) -> Tenant:
+    """Create an enterprise tenant and its first administrator atomically."""
+    from app.services.auth_service import _add_membership, _find_user
+    from app.utils.decorators import bypass_tenant_filter
+
+    with bypass_tenant_filter():
+        user = _find_user(initial_admin)
+        if user is None:
+            raise BusinessError(ErrorCode.USER_NOT_FOUND, "初始管理员尚未注册太极账号")
+        tenant = Tenant(
+            slug=f"tenant-{uuid4().hex[:12]}",
+            name=name,
+            tenant_type=ENTERPRISE_TENANT_TYPE,
+            is_system=False,
+        )
+        db.session.add(tenant)
+        db.session.flush()
+        membership = _add_membership(user.id, tenant.id, "admin", is_owner=True)
+        db.session.flush()
+        from app.services.audit_log_service import record_audit_log
+        record_audit_log(
+            action="tenant.create",
+            resource_type="tenant",
+            resource_id=tenant.id,
+            resource_name=tenant.name,
+            tenant_id=tenant.id,
+            after_data={
+                **_tenant_audit_snapshot(tenant),
+                "initial_admin_user_id": user.id,
+                "initial_membership_id": membership.id,
+            },
+        )
+        db.session.commit()
+        return tenant
 
 
 def update_tenant(tenant_id: int, data: dict) -> Tenant:
@@ -95,7 +137,7 @@ def update_tenant(tenant_id: int, data: dict) -> Tenant:
 
 def delete_tenant(tenant_id: int):
     tenant = get_tenant(tenant_id)
-    if tenant.is_system:
+    if tenant.is_system or tenant.is_protected or tenant.tenant_type == PERSONAL_TENANT_TYPE:
         raise BusinessError(ErrorCode.SYSTEM_TENANT_PROTECTED, "系统租户不可删除")
     before = _tenant_audit_snapshot(tenant)
 
