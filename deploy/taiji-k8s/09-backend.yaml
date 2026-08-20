@@ -53,7 +53,7 @@ spec:
             - name: shared
               mountPath: /shared
         - name: migrate-database
-          image: harbor.aixiongan.org.cn:9443/lihao/taiji-backend:fa5e890
+          image: harbor.aixiongan.org.cn:9443/lihao/taiji-backend:fa5e890-r2
           imagePullPolicy: IfNotPresent
           command: ["/entrypoint.sh"]
           args: ["true"]
@@ -74,7 +74,7 @@ spec:
               memory: 1Gi
       containers:
         - name: backend
-          image: harbor.aixiongan.org.cn:9443/lihao/taiji-backend:fa5e890
+          image: harbor.aixiongan.org.cn:9443/lihao/taiji-backend:fa5e890-r2
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:

@@ -57,6 +57,7 @@ if [[ "${IAM_REALM_RECONCILE_ENABLED:-true}" == "true" ]]; then
     -s loginTheme=taiji \
     -s accountTheme=fangcun-account \
     -s organizationsEnabled=false \
+    -s 'eventsListeners=["jboss-logging"]' \
     -s internationalizationEnabled=true \
     -s 'supportedLocales=["zh-CN","en"]' \
     -s defaultLocale=zh-CN >/dev/null

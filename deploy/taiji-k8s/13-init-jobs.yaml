@@ -30,7 +30,7 @@ spec:
               memory: 128Mi
       containers:
         - name: iam-bootstrap
-          image: harbor.aixiongan.org.cn:9443/lihao/taiji-keycloak:fa5e890
+          image: harbor.aixiongan.org.cn:9443/lihao/taiji-keycloak:fa5e890-r4
           imagePullPolicy: IfNotPresent
           command: ["/opt/keycloak/bin/taiji-iam-bootstrap.sh"]
           envFrom:
