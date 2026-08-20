@@ -111,21 +111,6 @@ spec:
                 secretKeyRef:
                   name: taiji-secrets
                   key: TAIJI_OIDC_CLIENT_SECRET
-            - name: TAIJI_RECONCILER_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: taiji-secrets
-                  key: TAIJI_RECONCILER_CLIENT_SECRET
-            - name: TAIJI_MIGRATOR_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: taiji-secrets
-                  key: TAIJI_MIGRATOR_CLIENT_SECRET
-            - name: NATS_URL
-              valueFrom:
-                secretKeyRef:
-                  name: taiji-secrets
-                  key: NATS_URL
           ports:
             - name: http
               containerPort: 8080
@@ -133,21 +118,21 @@ spec:
               containerPort: 9000
           startupProbe:
             httpGet:
-              path: /health/started
+              path: /iam/health/started
               port: management
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 30
           readinessProbe:
             httpGet:
-              path: /health/ready
+              path: /iam/health/ready
               port: management
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 6
           livenessProbe:
             httpGet:
-              path: /health/live
+              path: /iam/health/live
               port: management
             periodSeconds: 15
             timeoutSeconds: 5

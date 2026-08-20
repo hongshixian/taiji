@@ -39,7 +39,7 @@ spec:
               mountPath: /shared
       containers:
         - name: worker
-          image: harbor.aixiongan.org.cn:9443/lihao/taiji-worker:b059d56
+          image: harbor.aixiongan.org.cn:9443/lihao/taiji-backend:b059d56-r2
           imagePullPolicy: IfNotPresent
           args:
             - celery

@@ -53,7 +53,7 @@ services:
       dockerfile: deploy/taiji-docker/Dockerfile.keycloak
       args:
         KEYCLOAK_VERSION: ${KEYCLOAK_VERSION:-26.7.0}
-    command: ["start-dev", "--import-realm"]
+    command: ["start", "--optimized", "--import-realm"]
     environment:
       - KC_DB=postgres
       - KC_DB_URL=jdbc:postgresql://postgres:5432/${KEYCLOAK_DB:-keycloak}
@@ -77,12 +77,12 @@ services:
         - CMD-SHELL
         - >-
           exec 3<>/dev/tcp/127.0.0.1/9000 &&
-          printf 'GET /health/ready HTTP/1.1\r\nhost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          printf 'GET /iam/health/ready HTTP/1.1\r\nhost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
           grep -q '200 OK' <&3
       interval: 10s
       timeout: 5s
-      retries: 20
-      start_period: 30s
+      retries: 30
+      start_period: 180s
     restart: unless-stopped
 
   # ─── 登录管理员一次性初始化 ─────────────────────
@@ -113,6 +113,7 @@ services:
 
   # ─── Flask 后端 ────────────────────────────────
   backend:
+    image: taiji-backend:local
     build:
       context: ../..
       dockerfile: deploy/taiji-docker/Dockerfile.backend
@@ -158,15 +159,16 @@ services:
       test: ["CMD", "curl", "-fsS", "http://localhost:5000/api/ready"]
       interval: 10s
       timeout: 5s
-      retries: 12
-      start_period: 20s
+      retries: 18
+      start_period: 180s
     restart: unless-stopped
 
   # ─── Celery Worker ─────────────────────────────
   worker:
+    image: taiji-backend:local
     build:
       context: ../..
-      dockerfile: deploy/taiji-docker/Dockerfile.worker
+      dockerfile: deploy/taiji-docker/Dockerfile.backend
     command: ["celery", "-A", "celery_app", "worker", "-l", "info", "--concurrency=4", "--max-tasks-per-child=10", "-Ofair"]
     environment:
       - FLASK_ENV=${FLASK_ENV:-development}
@@ -205,6 +207,7 @@ services:
 
   # ─── Vue 前端 ──────────────────────────────────
   frontend:
+    image: taiji-frontend:local
     build:
       context: ../..
       dockerfile: deploy/taiji-docker/Dockerfile.frontend

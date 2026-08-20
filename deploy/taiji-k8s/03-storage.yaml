@@ -25,17 +25,3 @@ spec:
   resources:
     requests:
       storage: 5Gi
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: taiji-nats-data
-  labels:
-    app.kubernetes.io/part-of: taiji
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: rancher-local-path
-  resources:
-    requests:
-      storage: 10Gi

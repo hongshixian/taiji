@@ -7,18 +7,17 @@ compose() {
     -f "${repo_root}/deploy/taiji-docker/docker-compose.yml" "$@"
 }
 
-iam_url="${IAM_PUBLIC_URL:-http://localhost:${KEYCLOAK_PORT:-8180}}"
+taiji_url="${TAIJI_PUBLIC_URL:-http://localhost:28080}"
+iam_url="${IAM_PUBLIC_URL:-${taiji_url}/iam}"
 realm="${IAM_REALM:-fangcun}"
 
 discovery="$(curl -fsS "${iam_url}/realms/${realm}/.well-known/openid-configuration")"
 printf '%s' "$discovery" | grep -q "\"issuer\":\"${iam_url}/realms/${realm}\""
 
-extension_health="$(curl -fsS "${iam_url}/realms/${realm}/taiji-iam/health")"
-printf '%s' "$extension_health" | grep -q '"status":"ok"'
-printf '%s' "$extension_health" | grep -q '"provider":"taiji-iam"'
+curl -fsS "${taiji_url}/api/ready" | grep -q '"status":"ok"'
+test -n "$(compose ps -q keycloak)"
+test -z "$(compose ps -q nats 2>/dev/null || true)"
+test -z "$(compose ps -q iam-projector 2>/dev/null || true)"
+test -z "$(compose ps -q iam-proxy 2>/dev/null || true)"
 
-nats_container="$(compose ps -q nats)"
-test -n "$nats_container"
-docker exec "$nats_container" wget -qO- http://127.0.0.1:8222/jsz | grep -q '"store_dir"'
-
-printf 'IAM smoke test passed (%s, realm=%s)\n' "$iam_url" "$realm"
+printf 'Taiji sign-in smoke test passed (%s, realm=%s)\n' "$iam_url" "$realm"

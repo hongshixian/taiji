@@ -20,7 +20,7 @@ spec:
           imagePullPolicy: IfNotPresent
           command: ["sh", "-ec"]
           args:
-            - until wget -q -O /dev/null http://keycloak:8080/realms/fangcun/taiji-iam/health; do sleep 5; done
+            - until wget -q -O /dev/null http://keycloak:8080/iam/realms/fangcun; do sleep 5; done
           resources:
             requests:
               cpu: 25m

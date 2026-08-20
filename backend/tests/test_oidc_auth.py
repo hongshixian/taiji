@@ -190,6 +190,13 @@ def test_login_uses_allowed_request_domain_for_callback(oidc_client):
     ]
 
 
+def test_register_uses_standard_create_prompt(oidc_client):
+    response = oidc_client.get("/api/v1/auth/register")
+    assert response.status_code == 302
+    query = parse_qs(urlsplit(response.location).query)
+    assert query["prompt"] == ["create"]
+
+
 def test_login_rejects_unconfigured_request_domain(oidc_client):
     response = oidc_client.get(
         "/api/v1/auth/login", base_url="https://untrusted.example.com"

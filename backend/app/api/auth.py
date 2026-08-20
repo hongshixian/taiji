@@ -44,7 +44,7 @@ def register():
     if oidc_mode():
         if request.method != "GET":
             raise BusinessError(ErrorCode.METHOD_NOT_ALLOWED, "注册由统一登录服务托管")
-        return _authorize_redirect(kc_action="register")
+        return _authorize_redirect(prompt="create")
 
     data = request.get_json()
     if not data:

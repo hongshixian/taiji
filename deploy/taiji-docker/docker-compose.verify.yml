@@ -1,0 +1,27 @@
+services:
+  postgres:
+    volumes:
+      - verify_postgres_data:/var/lib/postgresql/data
+
+  redis:
+    volumes:
+      - verify_redis_data:/data
+
+  backend:
+    volumes:
+      - verify_app_data:/app/data
+      - verify_app_logs:/app/logs
+      - verify_hf_cache:/app/hf_cache
+
+  worker:
+    volumes:
+      - verify_app_data:/app/data
+      - verify_app_logs:/app/logs
+      - verify_hf_cache:/app/hf_cache
+
+volumes:
+  verify_postgres_data:
+  verify_redis_data:
+  verify_app_data:
+  verify_app_logs:
+  verify_hf_cache:

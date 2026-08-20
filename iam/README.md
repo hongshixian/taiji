@@ -1,82 +1,60 @@
-# Taiji IAM
+# Taiji 登录内核
 
-本目录保存太极专用的 Keycloak 扩展、Realm 声明和主题。它随 `taiji` 仓库维护，与同级其他仓库无关。
+本目录保存太极专用的 Keycloak Realm、登录主题、账号中心和历史密码校验 provider。Keycloak 是太极内部组件，不作为独立 IAM 产品发布，也不保存业务租户、成员关系或业务权限。
+
+## 目录职责
+
+- `realm/`：`fangcun` Realm 与 `taiji-web` OIDC 客户端基线。
+- `themes/taiji/login/`：登录、注册、找回密码和必做动作页面。
+- `account-console/`：基于官方 Keycloak Account UI 的账号与密码管理界面。
+- `keycloak-extension/`：只保留历史 Werkzeug 密码哈希兼容 provider。
+- `config/user-profile.json`：登录用户资料字段约束。
+
+用户、个人空间、企业租户、成员关系、平台管理员、租户管理员和业务权限均以 Taiji PostgreSQL 数据为准。Keycloak 的 `platform_admin` realm role 只在用户第一次进入 Taiji 时引导本地超级管理员，之后不会覆盖本地授权。
 
 ## 版本基线
 
-- Keycloak: 26.7.0
-- Keycloak Account UI: 26.7.0
-- Java: 21
-- Maven: 3.9.11
-- Node.js: 20
-- NATS Server: 2.11.8
+- Keycloak 与 Account UI：26.7.0
+- Java：21
+- Maven：3.9.11
+- Node.js：20
 
-版本在 `deploy/taiji-docker/Dockerfile.keycloak`、`deploy/taiji-docker/docker-compose.yml`、扩展 `pom.xml` 和 `account-console/package.json` 中固定。升级 Keycloak 时必须同步服务端、Java 扩展和 Account UI 版本，并重新执行扩展测试和浏览器验证。
+版本由 `deploy/taiji-docker/Dockerfile.keycloak`、扩展 `pom.xml` 和 `account-console/package.json` 固定。升级时必须同步服务端、Java provider 和 Account UI，并重新执行镜像构建、后端测试和浏览器冒烟验证。
 
-## 界面主题
+## 构建与启动
 
-- `themes/taiji/login` 覆盖 Keycloak 托管的登录、注册、找回密码、必做动作和状态页面。
-- `account-console` 使用官方 `@keycloak/keycloak-account-ui` 页面组件，提供方寸品牌外壳、导航和响应式布局。
-- `Dockerfile.keycloak` 在构建期将账号中心打包成 `fangcun-account-ui.jar`，与 Keycloak 同进程发布，不增加独立运行端口。
-- `iam-bootstrap-admin.sh` 幂等设置 `loginTheme=taiji`、`accountTheme=fangcun-account` 和 Realm 语言配置。
-
-账号中心前端可单独执行静态构建检查：
+根据 `deploy/taiji-docker/.env.example` 创建本地 `.env`，再构建并启动完整太极平台：
 
 ```bash
-cd iam/account-console
-npm ci
-npm run build
-```
-
-## 本地启动
-
-先根据 `deploy/taiji-docker/.env.example` 配置 `deploy/taiji-docker/.env`。模板中的 IAM 密码和 Client Secret 只允许用于开发环境。
-
-```bash
-make iam-build
-make iam-up
+make build
+make up
 make iam-smoke
 ```
 
-默认地址：
+默认统一入口：
 
-- Keycloak: `http://localhost:8180`
-- Realm: `fangcun`
-- OIDC Discovery: `http://localhost:8180/realms/fangcun/.well-known/openid-configuration`
-- 扩展健康检查: `http://localhost:8180/realms/fangcun/taiji-iam/health`
+- 太极平台：`http://localhost:28080/`
+- 登录与账号中心：`http://localhost:28080/iam/`
+- OIDC Discovery：`http://localhost:28080/iam/realms/fangcun/.well-known/openid-configuration`
+- 后端 API：`http://localhost:28080/api/`
 
-停止 IAM 组件：
+只有前端 Nginx 暴露宿主机端口。Keycloak、后端、PostgreSQL 和 Redis 只通过 Compose 内部网络访问。
 
-```bash
-make iam-down
-```
-
-`keycloak-db-init` 会在现有 PostgreSQL 实例中幂等创建独立的 `keycloak` 逻辑数据库。NATS JetStream 数据保存在 Docker 命名卷 `taiji_nats_data`。
-
-## 扩展测试
-
-宿主机不需要安装 Java 或 Maven：
+## 验证
 
 ```bash
 make iam-test
+cd iam/account-console && npm ci && npm run build
 ```
 
-Maven 依赖保存在 Docker 命名卷 `taiji_maven_cache`，重复测试不会重新下载全部依赖。完整 Keycloak 镜像构建还会执行相同的 `mvn verify`，随后运行 `kc.sh build` 验证 SPI 能被 Keycloak 发现。
+完整 Keycloak 镜像构建会执行 Maven 测试，将账号中心与历史密码 provider 打入镜像，并在构建期执行 `kc.sh build`。运行时使用 `start --optimized`，避免重复增强。
 
-## 旧数据迁移
-
-迁移默认只做只读预检，一次性迁移端点在日常运行时保持关闭。执行顺序、安全要求、续跑和回滚步骤见 [`docs/operations/iam-migration.md`](../docs/operations/iam-migration.md)。
-
-隔离测试环境可运行真实旧密码换密验证：
-
-```bash
-make iam-migration-integration-test
-```
+真实 OIDC 流程可使用 `scripts/oidc-browser-smoke.py`、`scripts/oidc-registration-smoke.py` 和 `scripts/oidc-platform-smoke.py` 验证。
 
 ## 生产约束
 
-- 禁止使用 `deploy/taiji-docker/.env.example` 中的任何默认密码或 Secret。
-- 使用 `start` 和正式 HTTPS 域名，不使用 Compose 中的 `start-dev`。
-- Keycloak Admin Console 只能从运维网络访问。
-- NATS 使用持久化集群、独立账号和 TLS。
-- Keycloak 升级必须先验证自定义 REST 和 Event Listener SPI 兼容性。
+- 禁止使用示例密码、Client Secret 或 Flask Secret。
+- 公网只暴露太极统一入口，由 `/iam/` 路由转发到 Keycloak。
+- Keycloak Admin Console 只允许运维网络访问。
+- Keycloak 数据库与 Taiji 业务数据库使用独立逻辑数据库。
+- 升级与历史数据处理见 `docs/operations/iam-migration.md`。

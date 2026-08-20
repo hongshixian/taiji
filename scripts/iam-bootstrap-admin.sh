@@ -83,6 +83,28 @@ if [[ "${IAM_REALM_RECONCILE_ENABLED:-true}" == "true" ]]; then
     -s "secret=${TAIJI_OIDC_CLIENT_SECRET:?missing OIDC client secret}" >/dev/null
   echo "Taiji web client reconciled."
 
+  roles_scope_id="$("${kcadm}" get client-scopes -r "${realm}" \
+    --fields id,name --format csv --noquotes \
+    | sed -n 's/,roles$//p' | sed -n '1p')"
+  if [[ -z "${roles_scope_id}" ]]; then
+    echo "Built-in roles client scope is missing." >&2
+    exit 1
+  fi
+  realm_roles_mapper_id="$("${kcadm}" get \
+    "client-scopes/${roles_scope_id}/protocol-mappers/models" -r "${realm}" \
+    --fields id,name --format csv --noquotes \
+    | sed -n 's/,realm roles$//p' | sed -n '1p')"
+  if [[ -z "${realm_roles_mapper_id}" ]]; then
+    echo "Realm roles protocol mapper is missing." >&2
+    exit 1
+  fi
+  "${kcadm}" update \
+    "client-scopes/${roles_scope_id}/protocol-mappers/models/${realm_roles_mapper_id}" \
+    -r "${realm}" \
+    -s 'config."id.token.claim"="true"' \
+    -s 'config."userinfo.token.claim"="true"' >/dev/null
+  echo "Platform bootstrap role claim reconciled."
+
   account_console_id="$("${kcadm}" get clients -r "${realm}" \
     -q clientId=account-console --fields id --format csv --noquotes | sed -n '1p')"
   if [[ -z "${account_console_id}" ]]; then

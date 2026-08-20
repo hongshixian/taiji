@@ -1,6 +1,6 @@
 # 太极 (Taiji) Makefile
 
-.PHONY: dev test build up down docker-build docker-up docker-down clean iam-build iam-test iam-up iam-down iam-smoke iam-integration-test iam-migration-integration-test iam-bootstrap-password iam-reconcile k8s-validate k8s-sync-images k8s-build-push k8s-secret k8s-deploy k8s-status k8s-delete
+.PHONY: dev test build up down docker-build docker-up docker-down clean iam-build iam-test iam-smoke iam-bootstrap-password k8s-validate k8s-sync-images k8s-build-push k8s-secret k8s-deploy k8s-status k8s-delete
 
 DOCKER_DEPLOY_DIR := deploy/taiji-docker
 COMPOSE_OVERRIDE := $(wildcard $(DOCKER_DEPLOY_DIR)/docker-compose.override.yml)
@@ -49,36 +49,22 @@ iam-build:
 iam-test:
 	docker run --rm -v taiji_maven_cache:/root/.m2 -v "$(CURDIR)/iam/keycloak-extension:/build" -w /build maven:3.9.11-eclipse-temurin-21 mvn --batch-mode test
 
-iam-up:
-	$(COMPOSE) up -d postgres keycloak-db-init nats keycloak iam-proxy iam-bootstrap
-
-iam-down:
-	$(COMPOSE) stop iam-proxy keycloak nats
-
 iam-smoke:
 	./scripts/iam-smoke.sh
 
-iam-integration-test:
-	./scripts/iam-integration-test.sh
-
-iam-migration-integration-test:
-	./scripts/iam-migration-integration-test.sh
-
 iam-bootstrap-password:
 	$(COMPOSE) logs --no-log-prefix iam-bootstrap
-
-iam-reconcile:
-	$(COMPOSE) run --rm --no-deps iam-projector python iam_projector.py --reconcile-only
 
 k8s-validate:
 	@unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY; \
 	kubectl kustomize $(K8S_DEPLOY_DIR) >/dev/null; \
 	kubectl apply --dry-run=client -k $(K8S_DEPLOY_DIR) >/dev/null; \
-	kubectl apply --dry-run=server -k $(K8S_DEPLOY_DIR) >/dev/null
+	kubectl apply --dry-run=server -k $(K8S_DEPLOY_DIR) \
+		-l 'app.kubernetes.io/name!=iam-bootstrap' >/dev/null
 
 k8s-sync-images:
 	@set -e; \
-	for image in postgres:16-alpine redis:7-alpine nats:2.11.8-alpine nginx:alpine; do \
+	for image in postgres:16-alpine redis:7-alpine nginx:alpine; do \
 		docker image inspect "$$image" >/dev/null 2>&1 || docker pull "$$image"; \
 		docker tag "$$image" "$(HARBOR_REGISTRY)/$$image"; \
 		docker push "$(HARBOR_REGISTRY)/$$image"; \
@@ -86,11 +72,9 @@ k8s-sync-images:
 
 k8s-build-push:
 	docker build -f $(DOCKER_DEPLOY_DIR)/Dockerfile.backend -t $(HARBOR_REGISTRY)/taiji-backend:$(IMAGE_TAG) .
-	docker build -f $(DOCKER_DEPLOY_DIR)/Dockerfile.worker -t $(HARBOR_REGISTRY)/taiji-worker:$(IMAGE_TAG) .
 	docker build -f $(DOCKER_DEPLOY_DIR)/Dockerfile.frontend -t $(HARBOR_REGISTRY)/taiji-frontend:$(IMAGE_TAG) .
 	docker build -f $(DOCKER_DEPLOY_DIR)/Dockerfile.keycloak -t $(HARBOR_REGISTRY)/taiji-keycloak:$(IMAGE_TAG) .
 	docker push $(HARBOR_REGISTRY)/taiji-backend:$(IMAGE_TAG)
-	docker push $(HARBOR_REGISTRY)/taiji-worker:$(IMAGE_TAG)
 	docker push $(HARBOR_REGISTRY)/taiji-frontend:$(IMAGE_TAG)
 	docker push $(HARBOR_REGISTRY)/taiji-keycloak:$(IMAGE_TAG)
 
