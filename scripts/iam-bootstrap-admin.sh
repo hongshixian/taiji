@@ -56,6 +56,7 @@ if [[ "${IAM_REALM_RECONCILE_ENABLED:-true}" == "true" ]]; then
   "${kcadm}" update "realms/${realm}" \
     -s loginTheme=taiji \
     -s accountTheme=fangcun-account \
+    -s organizationsEnabled=false \
     -s internationalizationEnabled=true \
     -s 'supportedLocales=["zh-CN","en"]' \
     -s defaultLocale=zh-CN >/dev/null

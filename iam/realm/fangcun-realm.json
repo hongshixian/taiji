@@ -2,6 +2,7 @@
   "realm": "fangcun",
   "displayName": "太极统一登录",
   "enabled": true,
+  "organizationsEnabled": false,
   "sslRequired": "external",
   "registrationAllowed": true,
   "registrationEmailAsUsername": false,
