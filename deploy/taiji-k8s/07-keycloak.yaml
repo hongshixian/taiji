@@ -72,7 +72,7 @@ spec:
               memory: 256Mi
       containers:
         - name: keycloak
-          image: harbor.aixiongan.org.cn:9443/lihao/taiji-keycloak:b059d56
+          image: harbor.aixiongan.org.cn:9443/lihao/taiji-keycloak:fa5e890
           imagePullPolicy: IfNotPresent
           args: ["start", "--optimized", "--import-realm"]
           envFrom:

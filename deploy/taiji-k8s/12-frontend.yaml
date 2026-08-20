@@ -36,7 +36,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: harbor.aixiongan.org.cn:9443/lihao/taiji-frontend:b059d56
+          image: harbor.aixiongan.org.cn:9443/lihao/taiji-frontend:fa5e890
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
