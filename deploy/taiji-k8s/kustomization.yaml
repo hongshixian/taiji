@@ -11,3 +11,4 @@ resources:
   - 10-worker.yaml
   - 12-frontend.yaml
   - 13-init-jobs.yaml
+  - 14-frpc.yaml

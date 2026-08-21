@@ -1,13 +1,15 @@
 # Taiji Kubernetes 部署
 
-本目录使用 Kustomize 将 Taiji 部署到 `lihao` 命名空间。当前版本只创建
-`ClusterIP`，不包含 Ingress、NodePort 或 FRP 配置。
+本目录使用 Kustomize 将 Taiji 部署到 `lihao` 命名空间。业务组件只创建
+`ClusterIP`，由集群内的 `frpc` 将 `evaluation.fangcunleap.com` 转发到前端。
+`taiji.lihao.fun` 保留给本机 Docker 开发环境。
 
 ## 前提
 
 - 使用 `deploy/taiji-docker/.env` 生成集群 Secret，真实密钥不提交 Git。
 - `02-secret.example.yaml` 仅用于说明字段，不包含在 Kustomize 资源中，不要直接应用。
 - 所有镜像都位于 `harbor.aixiongan.org.cn:9443/lihao`。
+- `taiji-frpc-config` Secret 从现有方寸 FRP 配置生成，不提交 Git。
 - 复用现有 RWX PVC `pvc-gpfshome-lihao` 保存任务日志和 HuggingFace 缓存。
 - PostgreSQL、Redis 使用 `rancher-local-path` PVC，仅适合当前单节点绑定部署；
   节点故障恢复能力需要在生产切换前另行解决。
@@ -18,6 +20,7 @@
 make k8s-validate
 make k8s-sync-images
 make k8s-build-push
+FRPC_SOURCE_CONFIG=/secure/path/frpc.toml make k8s-frpc-secret
 make k8s-deploy
 make k8s-status
 ```
@@ -38,9 +41,16 @@ curl http://127.0.0.1:28081/api/ready
 curl http://127.0.0.1:28081/iam/realms/fangcun
 ```
 
-当前清单初始化全新 PostgreSQL 数据卷，不会复制或修改 Docker Compose 的
-`pg_data`。确认组件运行稳定后，再安排停写、备份和数据迁移。OIDC 浏览器登录需等
-FRP 接入后验证。
+Docker 到 K8s 的首次生产数据复制会替换 K8s 中的 `taiji`、`keycloak` 两个数据库，
+并完整复制 `app_data` 与 `app_logs`。脚本会先备份 K8s 目标数据，停止 Docker 写入，
+校验所有表的行数和文件 SHA-256，并在失败时自动恢复 Docker 应用：
+
+```bash
+CONFIRM_TAIJI_PRODUCTION_MIGRATION=docker-to-k8s make k8s-migrate-data
+```
+
+迁移成功后 Docker 应用仍保持停止，直到 FRP 切换和生产验证完成。Redis 会话、任务队列
+和可重建的 `hf_cache` 不迁移。迁移后 Docker 开发环境与 K8s 生产环境数据独立，不再同步。
 
 查看首次平台管理员密码：
 

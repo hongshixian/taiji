@@ -8,17 +8,17 @@ data:
   FLASK_ENV: production
   AUTH_MODE: oidc
   IAM_REALM: fangcun
-  IAM_PUBLIC_URL: https://taiji.lihao.fun/iam
+  IAM_PUBLIC_URL: https://evaluation.fangcunleap.com/iam
   IAM_INTERNAL_URL: http://keycloak:8080/iam
-  TAIJI_PUBLIC_URL: https://taiji.lihao.fun
-  TAIJI_PUBLIC_URLS: https://taiji.lihao.fun,https://evaluation.fangcunleap.com
+  TAIJI_PUBLIC_URL: https://evaluation.fangcunleap.com
+  TAIJI_PUBLIC_URLS: https://evaluation.fangcunleap.com
   TAIJI_OIDC_CLIENT_ID: taiji-web
   IAM_BOOTSTRAP_ENABLED: "true"
   IAM_REALM_RECONCILE_ENABLED: "true"
   SESSION_IDLE_SECONDS: "7200"
   SESSION_ABSOLUTE_SECONDS: "86400"
   SESSION_COOKIE_SECURE: "true"
-  CORS_ORIGINS: https://taiji.lihao.fun,https://evaluation.fangcunleap.com
+  CORS_ORIGINS: https://evaluation.fangcunleap.com
   RATELIMIT_STORAGE_URL: redis://redis:6379/1
   READINESS_CHECK_EXTERNALS: "true"
   REDIS_URL: redis://redis:6379/0
@@ -34,6 +34,6 @@ data:
   KC_HEALTH_ENABLED: "true"
   KC_METRICS_ENABLED: "true"
   KC_HTTP_RELATIVE_PATH: /iam
-  KC_HOSTNAME: https://taiji.lihao.fun/iam
+  KC_HOSTNAME: https://evaluation.fangcunleap.com/iam
   KC_PROXY_HEADERS: xforwarded
   KEYCLOAK_INTERNAL_URL: http://keycloak:8080/iam

@@ -1,6 +1,6 @@
 # 太极 (Taiji) Makefile
 
-.PHONY: dev test build up down docker-build docker-up docker-down clean iam-build iam-test iam-smoke iam-bootstrap-password k8s-validate k8s-sync-images k8s-build-push k8s-secret k8s-deploy k8s-status k8s-delete
+.PHONY: dev test build up down docker-build docker-up docker-down clean iam-build iam-test iam-smoke iam-bootstrap-password k8s-validate k8s-sync-images k8s-build-push k8s-secret k8s-frpc-secret k8s-migrate-data k8s-deploy k8s-status k8s-delete
 
 DOCKER_DEPLOY_DIR := deploy/taiji-docker
 COMPOSE_OVERRIDE := $(wildcard $(DOCKER_DEPLOY_DIR)/docker-compose.override.yml)
@@ -69,6 +69,9 @@ k8s-sync-images:
 		docker tag "$$image" "$(HARBOR_REGISTRY)/$$image"; \
 		docker push "$(HARBOR_REGISTRY)/$$image"; \
 	done
+	docker image inspect fatedier/frpc:v0.69.0 >/dev/null 2>&1 || docker pull fatedier/frpc:v0.69.0
+	docker tag fatedier/frpc:v0.69.0 $(HARBOR_REGISTRY)/frpc:v0.69.0
+	docker push $(HARBOR_REGISTRY)/frpc:v0.69.0
 
 k8s-build-push:
 	docker build -f $(DOCKER_DEPLOY_DIR)/Dockerfile.backend -t $(HARBOR_REGISTRY)/taiji-backend:$(IMAGE_TAG) .
@@ -80,6 +83,12 @@ k8s-build-push:
 
 k8s-secret:
 	KUBE_NAMESPACE=$(KUBE_NAMESPACE) ./scripts/k8s-create-secret.sh
+
+k8s-frpc-secret:
+	KUBE_NAMESPACE=$(KUBE_NAMESPACE) ./scripts/k8s-create-frpc-secret.sh
+
+k8s-migrate-data:
+	KUBE_NAMESPACE=$(KUBE_NAMESPACE) ./scripts/k8s-migrate-from-docker.sh
 
 k8s-deploy: k8s-secret
 	@unset http_proxy https_proxy HTTP_PROXY HTTPS_PROXY; \

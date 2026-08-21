@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taiji-frpc
+  labels:
+    app.kubernetes.io/name: frpc
+    app.kubernetes.io/part-of: taiji
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: frpc
+      app.kubernetes.io/part-of: taiji
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: frpc
+        app.kubernetes.io/part-of: taiji
+    spec:
+      containers:
+        - name: frpc
+          image: harbor.aixiongan.org.cn:9443/lihao/frpc:v0.69.0
+          imagePullPolicy: IfNotPresent
+          args: ["-c", "/etc/frp/frpc.toml"]
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/frp
+              readOnly: true
+      volumes:
+        - name: config
+          secret:
+            secretName: taiji-frpc-config
