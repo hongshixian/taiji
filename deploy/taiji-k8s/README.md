@@ -52,6 +52,8 @@ CONFIRM_TAIJI_PRODUCTION_MIGRATION=docker-to-k8s make k8s-migrate-data
 迁移成功后 Docker 应用仍保持停止，直到 FRP 切换和生产验证完成。Redis 会话、任务队列
 和可重建的 `hf_cache` 不迁移。迁移后 Docker 开发环境与 K8s 生产环境数据独立，不再同步。
 
+首次生产迁移的实际结果和回滚边界见 [MIGRATION.md](./MIGRATION.md)。
+
 查看首次平台管理员密码：
 
 ```bash
