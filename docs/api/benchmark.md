@@ -3,9 +3,9 @@
 任务管理下「Benchmark 测评」模块的前后端交互接口约定。
 
 - 所有接口统一前缀 `/api/v1`，由前端 `src/api/request.ts` 的 `baseURL` 注入。
-- 鉴权：除登录外均需 `Authorization: Bearer <jwt>`，并要求对应权限（见各接口「权限」）。
+- 鉴权：使用 Redis 服务端会话和 HttpOnly Cookie；非安全方法还需携带 `/auth/me` 返回的 `X-CSRF-Token`，并要求对应权限。
 - 统一响应 envelope：`{ "code": 0, "message": "...", "data": ... }`；`code=0` 成功，非 0 为业务错误。分页响应的 `data` 形如 `{ items, total, page, per_page, pages }`。
-- 多租户：所有查询自动限定在当前租户（JWT 解析出的 `tenant_id`），前端无需传租户参数。
+- 多租户：所有查询自动限定在当前服务端会话选中的 `tenant_id`，前端无需传租户参数。
 
 > 本文档随 API 变动同步更新。新增 / 修改接口后请回来修订对应小节。
 
@@ -17,10 +17,11 @@
 
 ### 1.1 获取全部测评集
 
-`GET /benchmarks/suites`
+`GET /benchmarks/suites?enabled_only=true`
 
-- 权限：`task:read`
-- 返回当前引擎注册的全部 `SuiteDescriptor`（含已禁用项，前端按 `disabled` 过滤展示）。
+- 权限：已登录。
+- 默认返回当前引擎注册的全部 `SuiteDescriptor`（含已禁用项）；传
+  `enabled_only=true` 时只返回当前租户有效启用的测评集，任务创建下拉使用该模式。
 
 响应 `data`：
 
@@ -35,6 +36,9 @@
       "description": "...",
       "needs_judge": false,           // 是否需要评委模型
       "needs_sandbox": false,
+      "gated": false,                 // 是否需要额外的数据集授权
+      "data_source": "hf",           // hf / github / bundled
+      "sample_count": 14042,          // 静态维护的数据集总样本数；未知时为 null
       "default_config": {},           // 含 execution 默认值等
       "config_schema": { "fields": [ /* DynamicField 定义 */ ] },
       "disabled": false,
@@ -42,7 +46,7 @@
       "notes": null                   // 前端 tooltip
     }
   ],
-  "total": 36
+  "total": 50
 }
 ```
 
@@ -50,8 +54,23 @@
 
 `GET /benchmarks/execution-schema`
 
-- 权限：`task:read`
+- 权限：已登录。
 - 返回 `execution_config` 各字段的 schema（供前端表单渲染）。
+
+### 1.3 测评集资产管理
+
+以下接口挂在 `/benchmarks/manage` 下，状态按当前租户隔离：
+
+| 方法 | 路径 | 权限 | 说明 |
+|---|---|---|---|
+| `GET` | `/benchmarks/manage/suites` | `benchmark:read` | 返回全部 suite、徽章元数据、有效启用状态和最近检测结果 |
+| `PATCH` | `/benchmarks/manage/suites/<suite_key>` | `benchmark:write` | 传 `{ "enabled": true/false/null }`；`null` 恢复 YAML 默认值 |
+| `POST` | `/benchmarks/manage/suites/<suite_key>/check` | `benchmark:write` | 异步执行一次数据集可访问性检测；每分钟最多 6 次 |
+
+`GET` 返回的扩展字段包括 `effective_enabled`、`override_enabled`、
+`last_check_status`（`unknown/pending/ok/failed`）、`last_check_error`、`last_check_at`
+和 `last_check_ms`。资产页将 `gated`、`needs_judge`、`needs_sandbox` 显示为名称旁的徽章，
+不为它们单独占用表格列。
 
 ---
 
@@ -75,7 +94,7 @@
   "target_model_id": 1,                       // 必填，被测模型 id
   "judge_model_id": 2,                        // needs_judge=true 时必填
   "execution_config": {                       // 引擎无关执行控制
-    "limit": 20,                              // 样本数；null=全集
+    "limit": 20,                              // 仅部分执行时传入
     "max_connections": 10,
     "epochs": 1,
     "timeout_minutes": 60
@@ -83,6 +102,9 @@
   "suite_config": {}                          // suite 特有参数（DynamicField 提交的 KV）
 }
 ```
+
+完整执行时，前端不向 `execution_config` 传 `limit`；后端因此执行测评集全部样本。
+部分执行时才传正整数 `limit`，前端会用测评集的 `sample_count` 限制上限。
 
 - 响应 `data`：`BenchmarkTask`（见 §4.1），HTTP 201。
 - 提交后由后端 `delay` Celery 任务异步执行。
@@ -124,7 +146,7 @@
 
 - 权限：`task:read`
 - 响应 `data`：`BenchmarkTask`（含 `result`，但 `samples_preview` 同样为空，见 §2.2 说明）。
-- 前端用于展开行渲染结果卡片 + 轮询进行中任务的进度。
+- 前端用于展开行渲染样本状态网格，并轮询进行中任务的进度；展开区暂不显示 suite、模型、指标和汇总统计。
 
 ### 2.5 重试任务
 
@@ -171,7 +193,7 @@
 
 `DELETE /tasks/benchmark/<task_id>`
 
-- 权限：`task:delete:any`（管理员）
+- 权限：`task:delete:any`
 - 级联删除详情记录与产物关联。响应仅 `message`。
 
 ---
@@ -190,7 +212,7 @@
 {
   "task_id": 10,
   "task_type": "benchmark",
-  "log_path": "/data/logs/.../task_10.jsonl",
+  "log_path": "tasks/tenant_1/benchmark/task_10.jsonl",
   "items": [
     { "ts": "2026-07-15T10:00:00Z", "level": "info", "step": "run", "event": "engine_started", "msg": "...", "elapsed_ms": 0, "data": {} }
   ]
@@ -279,4 +301,4 @@
 |------------|----------------------------------------------------------------------|
 | 2026-07-15 | 执行中样本网格全量渲染：未执行样本默认黄色占位，完成后逐个更新为绿/红。移除 50 条预览上限：`samples_preview` 不再随结果存储，`GET /<id>/samples/<sample_id>` 改为按需读取 `.eval` log 解析对应样本（无条数上限）。 |
 | 2026-07-15 | 执行中实时样本网格：`progress.sample_grid` 由 `on_sample_end` hook 逐样本累积（reporter 1s 节流），前端执行中回退渲染该网格，完成后切换到 `result.sample_grid`。 |
-| 2026-07-15 | 新增 `GET /stats`（全局状态计数）；新增 `GET /<id>/samples/<sample_id>`（样本预览懒加载）；列表/详情默认剥离 `samples_preview`，改回传 `samples_preview_count`。 |
+| 2026-07-15 | 新增 `GET /stats`（全局状态计数）；新增 `GET /<id>/samples/<sample_id>`（样本预览懒加载）；列表/详情默认剥离 `samples_preview`。 |

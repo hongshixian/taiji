@@ -40,6 +40,9 @@ make iam-smoke
 
 只有前端 Nginx 暴露宿主机端口。Keycloak、后端、PostgreSQL 和 Redis 只通过 Compose 内部网络访问。
 
+当前本机 Docker 开发域名是 `https://taiji.lihao.fun`，Kubernetes 生产域名是
+`https://evaluation.fangcunleap.com`；两者都把 Keycloak 放在各自主域名的 `/iam/`，且数据独立。
+
 ## 验证
 
 ```bash

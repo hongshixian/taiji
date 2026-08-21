@@ -28,14 +28,11 @@
 - 生产 OIDC Client 仅允许 `evaluation.fangcunleap.com` 回调与 Web Origin。
 - K8s 后端、Keycloak、Worker、前端、PostgreSQL、Redis 和 FRP 均已就绪。
 - 公网健康检查、OIDC 跳转和同页用户名密码表单已通过。
-
-真实管理员密码已与最初部署环境中的 `ADMIN_PASSWORD` 不同，自动化完整登录没有执行成功，
-且未重置密码。需要使用当前有效密码完成人工生产登录验收。
+- 用户已完成生产登录验收；默认进入个人空间时任务列表为空，符合租户隔离预期。
+- 切换到历史企业租户后，已确认历史任务及相关业务数据可见。
 
 ## 回滚边界
 
-生产环境尚未产生新业务写入时，可以停止 `taiji-frpc`，重新启用本机 FRP 的 `fangcun`
-实例，并临时把 Docker 的允许域名恢复为 `evaluation.fangcunleap.com` 后重新执行 IAM 校正。
-
-生产环境产生新写入后，不得直接切回 Docker，否则会丢失 K8s 新数据。此时必须先停止生产写入，
+生产环境已经完成真实登录和业务数据验收，应按已经产生新写入处理，不得直接切回 Docker，
+否则会丢失 K8s 新数据。必须先停止生产写入，
 备份 K8s 的 `taiji`、`keycloak`、`app_data` 和 `app_logs`，再执行反向迁移或修复后继续使用 K8s。

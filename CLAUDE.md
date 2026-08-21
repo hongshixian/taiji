@@ -1,88 +1,134 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file gives coding agents the current repository conventions. Read `README.md` and the
+component-specific documentation before changing an architectural boundary.
 
 ## Project overview
 
-太极 (Taiji) — Flask 3 + Vue 3 + Celery + Redis full-stack AI 模型测评平台。JWT auth (RBAC + revocation)、多租户数据隔离、Celery 异步任务（Benchmark 测评 + 自动红队测评）、flask-limiter 限流，`docker compose up` 一键部署。默认 SQLite，`DATABASE_URL` 可切换。
+Taiji is a multi-tenant AI evaluation platform built with Flask 3, Vue 3, Celery, Redis,
+PostgreSQL and an embedded Keycloak 26.7 login kernel. Production authentication uses an
+OIDC BFF: tokens stay in a Redis-backed server session and the browser holds only an HttpOnly
+cookie. Keycloak authenticates users; Taiji PostgreSQL owns users' business records, personal
+spaces, enterprise tenants, memberships, roles and permissions.
+
+`AUTH_MODE=legacy` remains only as a rollback path. Do not design new features around browser
+JWTs, Keycloak Organizations or a separate IAM platform.
 
 ## Common commands
 
 ```bash
-# Backend (from backend/)
-pip install -r requirements.txt && flask db upgrade && python run.py
-celery -A celery_app worker -l info       # separate terminal
+# Full Docker development stack (repo root)
+cp deploy/taiji-docker/.env.example deploy/taiji-docker/.env
+make docker-build
+make docker-up
+make docker-down
 
-# Frontend (from frontend/)
-npm install && npm run dev                # Vite on :5173
+# Backend and worker (backend/; infrastructure and environment must already exist)
+pip install -r requirements.txt
+flask db upgrade
+python run.py
+celery -A celery_app worker -l info
+
+# Frontend (frontend/)
+npm ci
+npm run dev
+npm run type-check
 npm run build
 
-# Tests (from backend/)
-conda run -n py12pt python -m pytest tests/ -v
-make test                                 # repo-root shortcut
+# Tests (repo root)
+make test
+make iam-test
 
-# Migrations (from backend/)
-flask db migrate -m "describe change" && flask db upgrade
-
-# Docker (from repo root)
-make docker-up && make docker-down
+# Kubernetes production deployment
+make k8s-validate
+make k8s-status
 ```
 
-Default admin: seeded on first start by `deploy/taiji-docker/entrypoint.sh`. Uses `ADMIN_USERNAME/EMAIL/PASSWORD` env vars; if unset, generates a random password printed once — `make iam-bootstrap-password`. Seeded admin is `is_superuser=True`, added to `guest` tenant as owner. Seed is skipped when an admin already exists.
+The Docker entry point is `http://localhost:28080` by default. The configured environments are
+`https://taiji.lihao.fun` for local Docker development and
+`https://evaluation.fangcunleap.com` for K8s production. They have independent data after the
+one-time migration recorded in `deploy/taiji-k8s/MIGRATION.md`.
 
-Model configs: `backend/seed_models.py` seeds a preset list of LLM endpoints (Claude, DeepSeek, GLM, GPT, Kimi, MiniMax, Qwen) into the `guest` tenant. Run from `backend/`: `python seed_models.py`. Idempotent — skips entries where `display_name` already exists.
+## Authentication and tenants
 
-## Architecture
+- `backend/app/api/auth.py` implements login, registration, callback, session refresh, tenant
+  switching, logout and the account-center link.
+- `backend/app/auth_context.py` is the compatibility boundary between OIDC sessions and legacy
+  JWT auth. Handlers use `login_required()` and current-context helpers from this module.
+- OIDC browser requests use the Redis-backed Flask session. Mutating requests require the CSRF
+  value returned by `GET /api/v1/auth/me` in `X-CSRF-Token`.
+- `users` is global. `tenant_memberships` links a user to a tenant and fixed local role.
+  Business models inherit `TenantMixin`; the request's active tenant is applied automatically.
+- First OIDC login atomically creates the local user, protected personal tenant, owner
+  membership and local `admin` role. The personal tenant is the default active tenant.
+- Header tenant switching changes only the current browser session. It does not issue a browser
+  token and does not change data in another session.
+- Keycloak's `platform_admin` role is only a first-login bootstrap signal. Once the user exists,
+  `users.is_superuser` in Taiji is authoritative.
+- Platform administrators manage enterprise tenants and platform administrators. They do not
+  bypass tenant filtering without a membership in the selected tenant.
+- Tenant administrators can add an already provisioned global user directly to their enterprise
+  tenant. Keycloak never owns this membership.
 
-### Backend (`backend/`)
+The fixed permission matrix is in `backend/app/permissions.py`:
 
-- **App factory** (`app/__init__.py`): `create_app()` wires SQLAlchemy, Flask-Migrate, JWT, flask-limiter, CORS, Celery. All business blueprints mount under `/api/v1/`; `/api/health` is outside the prefix. `@before_request` reads JWT claims into `g.tenant_id / g.is_superuser`. Production rejects weak secrets via `Config._check_secrets()`.
-- **Multi-tenancy** (`TenantMixin` + `tenant_memberships`): `users` is global (no `tenant_id`). Memberships link users to tenants with per-tenant roles. Business models inherit `TenantMixin` which auto-injects `WHERE tenant_id = g.tenant_id`. Only system tenant is `guest` (`GUEST_TENANT_SLUG`). `default` tenant removed in migration `0011` — do not reference `DEFAULT_TENANT_SLUG`.
-- **RBAC** (`app/permissions.py`): permissions are enum constants seeded into DB. System roles `admin/user/guest` are global+immutable; custom roles are tenant-scoped. Use `@require_permission(Permission.XXX)` on handlers — no `@admin_required` shortcut.
-- **Superuser** (`users.is_superuser`): manages tenants via `/api/v1/superadmin/*`, gated by `@superuser_required`. Does **not** bypass tenant filtering on normal endpoints.
-- **Auth flows**: registration auto-assigns `user`-role membership in the tenant from `system_setting_service.get_default_registration_tenant_slug()` (client cannot specify tenant). Login selects first active membership. `/auth/switch-tenant` issues new scoped token.
-- **JWT revocation**: two channels — (1) Redis blocklist on `jti` for single-token logout; (2) `users.tokens_revoked_at` for user-wide revocation on password/role/membership changes. Revoke marker rounded up to next second to avoid same-second collisions.
-- **Task architecture**: `tasks` table stores lifecycle fields + `log_path`. Detail tables per type: `benchmark_tasks`, `red_team_tasks`. `BaseTaskHandler` (`app/handlers/base.py`) auto-generates 5 routes + Celery task; subclasses implement `submit/execute/to_dict`. `TaskRegistry` wires everything in `create_app()`. Task logs are JSONL files under `TASK_LOG_ROOT`, not DB rows.
-- **Celery** (`celery_app.py`): all task DB work inside `with celery.flask_app.app_context():`. Tasks must carry `tenant_id` as argument; use `bypass_tenant_filter()` inside tasks.
-- **Layering**: `api/` → `services/` → `models/`. Validate with marshmallow via `validate_schema()`. Return via `ok()` / `created()` / `paginated()` — never hand-roll `jsonify`. Raise `BusinessError(ErrorCode.XXX)` from services; global handler converts to envelope `{"code": int, "message": str, "data": ...}`.
-- **Rate limiting**: shared `limiter` for most endpoints; `auth_limiter` (separate instance) for auth routes. Both use `_get_client_ip()` for reverse-proxy support.
-- **SSRF** (`app/utils/ssrf.py`): use `safe_requests_get()` / `validate_url()` for any user-provided URL. Rejects private IPs, internal hostnames, non-http(s) schemes.
-- **Audit logs** (`AuditLog`): does not inherit `TenantMixin`; scope enforced in service. Call `record_audit_log()` before `db.session.commit()` — it only `add()`s, never commits.
-- **Model config** (`ModelConfig(TenantMixin)`): per-tenant LLM endpoints. `api_key` is write-only, excluded from all API output. Permissions `model:read/write/delete` granted to `admin+user` roles.
-- **Benchmark suites** (`app/schemas/benchmark_schema.py`): `BENCHMARK_SUITES` is the authoritative allowlist for submitted suite names — 46 suites covering safety (HealthBench, AgentHarm, WMDP, StrongREJECT, BeaverTails…), alignment (SycophancyEval, Deceptionbench…), and capability (MMLU, GSM8K, HumanEval, BigCodeBench…). Update this list when adding new evaluation sets.
-- **Migrations**: Flask-Migrate/Alembic in `backend/migrations/versions/`. Always generate a migration when models change; do not rely on `db.create_all()` outside tests.
+- `admin`: member, task, model, benchmark and audit administration.
+- `user`: task and model operations plus benchmark read.
+- `guest`: task read only.
 
-### Frontend (`frontend/`)
+Use `@require_permission(Permission.XXX)` on business handlers. Update `Permission`,
+`PERMISSIONS_REGISTRY`, `SYSTEM_ROLES` and a migration together when changing the matrix.
 
-- **Stack**: Vue 3 + Vite + Pinia + Element Plus, hash-mode router.
-- **HTTP**: `src/api/request.js` is the only entry point — auto-attaches Bearer token, transparently refreshes on 401, redirects to `#/login` on refresh failure. **Never use `window.location.href = '/login'`** (breaks hash routing). `baseURL` is `/api/v1`.
-- **Auth store** (`src/stores/auth.js`): holds `/me` payload. `switchTenant()` calls `/auth/switch-tenant`, swaps token, re-fetches `/me`. `originalTenantId` persisted in localStorage.
-- **Router guards**: `meta.requiresAuth / .guest / .requiresPermission / .requiresSuperuser`. Lazy-fetches user on first navigation if token present but no in-memory user.
-- **Task pages**: `BenchmarkManagement` + `RedTeamManagement` use `activeTasks` polling (2s, MAX_POLLS=30) via reactive proxy (`_updateActiveTask/_getActiveTask`) — never hold raw object references from closures.
-- **Theme — Fangcun tokens** (`src/assets/theme.css`): three-tier CSS variables: Primitive (`--violet-*`, `--ink-*`, `--space-*`, `--radius-*`) → Semantic (`--bg-*`, `--fg-*`, `--border-*`, `--shadow-*`, `--color-{success,warning,danger,info}-{bg,fg,border}`) → Element Plus overrides. **Use tokens; never hard-code hex or `--taiji-*` (removed).**
-- **Brand**: header displays "方寸AI测评平台 / Fangcun AI Evaluation Platform". Logo mark (`logo-mark-purple.svg`) rendered at 72px. Favicon (`public/favicon.svg`) uses transparent background with the brand mark at `scale(0.45)`.
-- **Dark mode**: `applyTheme(isDark)` sets both `html.dark` and `html[data-theme="dark"]`. Persisted in `localStorage['taiji-theme']`.
-- **Page conventions**: `.page-shell` wrapper → `.page-header` (eyebrow/title/lede) → `.task-section/.data-section/.settings-card` containers. Status badges use `.status-pill[data-tone="success|warning|danger|progress|neutral"]`, not `<el-tag :type>`. Empty states: dashed border + eyebrow/title/lede + CTA.
-- **Icons**: globally registered from `@element-plus/icons-vue` — `<el-icon><HomeFilled /></el-icon>` directly, no per-file import. No emoji for icons.
-- **Permission gates**: `const { has } = usePermission()` → `v-if="has('user:write')"`. Superuser UI uses `v-if="authStore.isSuperuser"`.
-- **Voice**: no emoji, no exclamation marks, no empty superlatives in UI copy.
+## Backend conventions
 
-### Deployment (`deploy/taiji-docker/` and `deploy/taiji-k8s/`)
+- `backend/app/__init__.py` creates the Flask app, extensions, request hooks, health checks and
+  blueprints. Business APIs mount under `/api/v1`; `/api/health` and `/api/ready` are stable.
+- Keep the layering `api/ -> services/ -> models/`. Validate input with Marshmallow and
+  `validate_schema()`. Use `ok()`, `created()` and `paginated()` response helpers.
+- Raise `BusinessError(ErrorCode.XXX)` from services. The global handler creates the standard
+  `{code, message, data}` envelope.
+- Cross-tenant maintenance requires an explicit `bypass_tenant_filter()` context. Never use it
+  to simplify ordinary request handlers.
+- Celery tasks carry `tenant_id`, enter `celery.flask_app.app_context()` and use the explicit
+  cross-tenant context only where required.
+- `tasks` stores common lifecycle fields. Benchmark and red-team details live in their own tables.
+  JSONL logs live below `TASK_LOG_ROOT`; database `log_path` values are relative paths.
+- Benchmark suite metadata comes from the engine registry and
+  `backend/app/benchmark/engine/inspect_evals/suites.yaml`, not a schema constant.
+- Full benchmark execution omits `execution_config.limit`; partial execution passes a positive
+  limit. Preserve this distinction when changing form defaults or engine merging.
+- Use `safe_requests_get()` and `validate_url()` for user-provided URLs.
+- `ModelConfig.api_key` is write-only and must never be returned by an API.
+- Record audit entries before the owning transaction's `db.session.commit()`.
+- Model changes require an Alembic revision in `backend/migrations/versions/`; do not rely on
+  `db.create_all()` outside tests.
 
-Services: `redis`, `backend` (gunicorn 4 workers, runs migrations + conditional admin seed), `worker` (same image, celery, `RUN_MIGRATIONS=false`), `frontend` (nginx). SQLite in `./app_data:/app/data`; logs in `./app_logs:/app/logs` (shared by backend + worker).
+## Frontend conventions
 
-**Do not reset `app_data/taiji.db` during routine verification.**
+- The frontend uses Vue 3, Vite, TypeScript, Pinia, Vue Router hash history, Tailwind CSS 4,
+  Reka UI and Lucide icons. Some older utility files remain JavaScript.
+- `frontend/src/api/request.ts` is the shared Axios instance. It sends cookies, adds CSRF on
+  mutations and clears local auth state on HTTP 401. Do not add Bearer-token storage.
+- `frontend/src/stores/auth.ts` owns `/auth/me`, the CSRF token and tenant switching.
+- Router gates use `requiresAuth`, `guest`, `requiresPermission`, `requiresSuperuser` and
+  `requiresEnterpriseTenant` metadata.
+- Prefer project UI primitives in `frontend/src/components/ui/` and Lucide icons. Use semantic
+  variables from `frontend/src/assets/theme.css`; preserve dark-mode support.
+- Keep API types in `frontend/src/api/types.ts` and run both `npm run type-check` and
+  `npm run build` after frontend changes.
 
-## Conventions when extending
+## Deployment boundaries
 
-- **New model**: extend `TenantMixin`; use `foreign_keys="MyModel.tenant_id"` (string, not bare name) for `db.relationship`.
-- **New endpoint**: `@jwt_required()` + `@require_permission(...)` → `validate_schema()` → service → `ok()/created()/paginated()`. Mount under `/api/v1/`. Superuser-only goes in `superadmin.py`.
-- **New permission**: add to `Permission` + `PERMISSIONS_REGISTRY` + `SYSTEM_ROLES`; regenerate migration.
-- **New system setting**: add to `SETTING_DEFINITIONS` in `system_setting_service.py`.
-- **Cross-tenant query**: `with bypass_tenant_filter():`.
-- **New Celery task**: define in `app/tasks/`, import in `celery_app.py`. Take `tenant_id` as arg; use `app_context` + `bypass_tenant_filter`.
-- **Rate limit**: use shared `limiter`; only create separate instance for fundamentally different policy (as auth does).
-- **SSRF**: `safe_requests_get()` + `validate_url()` for any user-provided URL.
-- **Frontend API**: new module under `src/api/`, import `request` from `./request`.
-- **Token revocation on mutations**: set `user.tokens_revoked_at = _revoke_marker()` whenever role/membership/password/active changes.
-- **Audit logging**: call `record_audit_log()` before `db.session.commit()` in service functions that mutate users/tenants/memberships.
+- Compose definitions, images and Nginx configuration live in `deploy/taiji-docker/`. Services
+  are PostgreSQL, Redis, Keycloak database initialization, Keycloak, IAM bootstrap, backend,
+  frontend and worker. Only frontend publishes host port `28080` by default.
+- The OIDC bootstrap creates username `admin` only in a new Realm, assigns a random temporary
+  password and prints it once. Read it with `make iam-bootstrap-password`. Never add a fixed
+  bootstrap password.
+- Kustomize manifests live in `deploy/taiji-k8s/`. Internal services are ClusterIP; the
+  `taiji-frpc` pod publishes only the frontend gateway for production.
+- K8s images come from `harbor.aixiongan.org.cn:9443/lihao`. Secrets are generated from the
+  ignored Docker `.env` and FRP source config; secret manifests are not committed.
+- Do not reset PostgreSQL data, `app_data`, `app_logs` or PVCs during routine verification.
+- Follow `docs/operations/iam-deployment.md` and `deploy/taiji-k8s/README.md` for releases and
+  rollback. The `0021_local_identity` authority migration has no direct Alembic downgrade.

@@ -25,7 +25,15 @@ Flask -> Redis (BFF session and Celery)
 Flask -> Keycloak /iam (OIDC back channel only)
 ```
 
-外部只暴露前端网关端口。Docker 默认地址为 `http://localhost:28080`；生产主地址为 `https://taiji.lihao.fun`，登录路由随之为 `/iam/`。Kubernetes 中各组件通过 `ClusterIP` 互访，FRP 只需连接 `frontend` 服务入口。
+外部只暴露前端网关，Keycloak 始终使用同一 Origin 下的 `/iam/`。
+当前环境边界是：
+
+- 本机 Docker 开发环境：`https://taiji.lihao.fun`。
+- Kubernetes 生产环境：`https://evaluation.fangcunleap.com`。
+- 源码直启的 Compose 默认入口：`http://localhost:28080`。
+
+Kubernetes 中各组件通过 `ClusterIP` 互访，集群内 `taiji-frpc` 只连接
+`frontend:80`。Docker 和 K8s 为两套独立环境，不共享数据库、任务文件或登录会话。
 
 ## 登录与注册
 
@@ -71,3 +79,4 @@ Keycloak 镜像暂时保留 `taiji-legacy-password-provider`，只用于验证�
 3. 太极请求不调用远程租户管理 API，也不依赖事件投影获得授权。
 4. Keycloak、PostgreSQL 和 Redis 不直接暴露公网端口。
 5. 外部域名变化时同时更新 `TAIJI_PUBLIC_URL`、`TAIJI_PUBLIC_URLS`、`IAM_PUBLIC_URL=<TAIJI_PUBLIC_URL>/iam` 和 Keycloak client redirect URI。
+6. 一个公网域名只指向一套环境，不在 Docker 与 K8s 之间共享会话或做实时数据同步。

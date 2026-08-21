@@ -15,7 +15,7 @@
 | 权限 | 太极本地租户成员关系 + RBAC 权限矩阵 |
 | 多租户 | 共享 schema + 全局 query 拦截器（数据自动隔离） |
 | 异步 | Celery + Redis |
-| 前端 | Vue 3 + Vite + Element Plus + Pinia |
+| 前端 | Vue 3 + Vite + TypeScript + Pinia + Tailwind CSS + Reka UI |
 | 登录入口 | 同源 `/iam/`，不单独暴露 Keycloak 端口 |
 | 部署 | Docker Compose / Kubernetes（PostgreSQL、Keycloak、Redis） |
 
@@ -23,13 +23,13 @@
 
 ## 快速开始
 
-### Docker 方式（推荐）
+### Docker 开发环境（推荐）
 
 ```bash
 git clone https://github.com/hongshixian/taiji.git
 cd taiji
 cp deploy/taiji-docker/.env.example deploy/taiji-docker/.env
-# 编辑 deploy/taiji-docker/.env 中的生产 Secret 与公网 URL
+# 编辑 deploy/taiji-docker/.env 中的 Secret 与对外 URL
 make docker-up
 ```
 
@@ -48,8 +48,9 @@ make docker-up
 
 ### Kubernetes 方式
 
-Kubernetes 使用 Harbor 中的镜像和 Kustomize 清单，当前默认只创建集群内部的
-`ClusterIP`，不会对公网暴露端口：
+Kubernetes 使用 Harbor 镜像和 Kustomize 清单。业务服务只创建
+`ClusterIP`，集群内的 `taiji-frpc` 将统一前端入口发布为
+`https://evaluation.fangcunleap.com`：
 
 ```bash
 make k8s-validate
@@ -59,16 +60,20 @@ make k8s-deploy
 make k8s-status
 ```
 
-完整的资源、存储和内部端口说明见
+该环境是生产环境，与 `https://taiji.lihao.fun` 对应的本机 Docker
+开发环境数据独立，不会自动同步。完整的资源、存储和发布流程见
 [`deploy/taiji-k8s/README.md`](deploy/taiji-k8s/README.md)。
 
 ### 本地开发
 
+完整登录链路需要同源 `/iam/`，端到端联调应使用上面的 Docker 开发环境。仅进行应用代码
+迭代且已经准备好数据库、Redis 和认证环境时，可以分别启动后端、Worker 和 Vite：
+
 ```bash
 # 1. 后端
 cd backend
-cp ../deploy/taiji-docker/.env.example .env  # 编辑数据库和密钥
 pip install -r requirements.txt
+# 按当前基础设施创建 backend/.env；源码默认 AUTH_MODE=legacy、SQLite
 flask db upgrade
 python run.py            # 启动于 :5000
 
@@ -78,9 +83,12 @@ celery -A celery_app worker -l info
 
 # 3. 前端（新终端）
 cd frontend
-npm install
+npm ci
 npm run dev              # 启动于 :5173
 ```
+
+Vite 只代理 `/api` 到 `localhost:5000`，不代理 `/iam`；因此不要用 `:5173` 验证完整 OIDC
+登录回调。前端具体说明见 [`frontend/README.md`](frontend/README.md)。
 
 ---
 
@@ -94,7 +102,7 @@ taiji/
 │   │   ├── models/       # SQLAlchemy 模型
 │   │   ├── services/     # 业务逻辑层
 │   │   ├── tasks/        # Celery 异步任务
-│   │   └── utils/        # 日志、错误处理、JWT 工具
+│   │   └── utils/        # 日志、错误处理和通用工具
 │   ├── tests/            # pytest 测试
 │   ├── config.py         # 环境变量配置
 │   ├── celery_app.py     # Celery 实例
@@ -209,7 +217,9 @@ cd backend
 python -m pytest tests/ -v
 ```
 
-56 个后端测试覆盖 OIDC BFF、CSRF、个人空间、本地租户切换、多租户隔离、固定权限、旧认证回滚路径和审计日志；Keycloak 历史密码兼容提供器另有 4 个 Maven 测试。
+后端测试覆盖 OIDC BFF、CSRF、个人空间、本地租户切换、多租户隔离、固定权限、
+旧认证回滚路径和审计日志。Keycloak 历史密码兼容提供器的测试使用
+`make iam-test` 运行。
 
 ---
 
@@ -218,14 +228,15 @@ python -m pytest tests/ -v
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
 | `SECRET_KEY` | Flask 密钥 | `dev-secret-change-me` |
-| `DATABASE_URL` | 数据库地址 | `sqlite:///../data/taiji.db` |
+| `DATABASE_URL` | 数据库地址；Compose/K8s 使用 PostgreSQL | 源码直启默认 `sqlite:///data/taiji.db` |
 | `REDIS_URL` | Redis 地址 | `redis://localhost:6379/0` |
 | `AUTH_MODE` | 认证模式；生产为 `oidc` | `legacy` |
-| `IAM_PUBLIC_URL` | 浏览器访问内置登录路由 | `http://localhost:28080/iam` |
+| `IAM_PUBLIC_URL` | 浏览器访问内置登录路由 | Compose 默认 `http://localhost:28080/iam` |
 | `IAM_INTERNAL_URL` | 后端访问 Keycloak 的地址 | 同 `IAM_PUBLIC_URL` |
-| `TAIJI_PUBLIC_URL` | 浏览器访问太极的地址 | `http://localhost:28080` |
+| `TAIJI_PUBLIC_URL` | 当前环境的主公网地址 | Compose 默认 `http://localhost:28080` |
+| `TAIJI_PUBLIC_URLS` | 允许发起 OIDC 回调的平台 Origin 白名单 | 至少包含 `TAIJI_PUBLIC_URL` |
 | `TAIJI_OIDC_CLIENT_SECRET` | OIDC Web Client Secret | 仅开发默认值 |
-| `TASK_LOG_ROOT` | 任务日志根目录 | `../app_logs` |
+| `TASK_LOG_ROOT` | 任务日志根目录 | 源码直启默认 `../app_logs` |
 
 ---
 

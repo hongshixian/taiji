@@ -1,6 +1,6 @@
 # Fangcun Account Console
 
-方寸 IAM 账号中心基于 Keycloak 官方 `@keycloak/keycloak-account-ui` 组件构建，服务端与前端版本固定为 26.7.0。自定义工程负责方寸品牌外壳、导航与响应式布局；个人资料、密码、会话、应用、组织和用户组功能继续使用 Keycloak 官方实现。
+方寸账号中心基于 Keycloak 官方 `@keycloak/keycloak-account-ui` 组件构建，服务端与前端版本固定为 26.7.0。自定义工程负责方寸品牌外壳、导航与响应式布局；个人资料、密码和登录会话仍使用 Keycloak 官方实现。企业租户、成员和业务权限不在账号中心管理，以太极 PostgreSQL 为准。
 
 ## 本地校验
 
