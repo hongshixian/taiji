@@ -196,8 +196,10 @@ helper_created=true
 kubectl_cmd wait --for=condition=Ready pod/taiji-migration-files -n "${namespace}" --timeout=180s
 kubectl_cmd exec -n "${namespace}" taiji-migration-files -- sh -ec \
   'rm -rf /shared/taiji/app_data /shared/taiji/app_logs; mkdir -p /shared/taiji'
-kubectl_cmd exec -i -n "${namespace}" taiji-migration-files -- tar -xzf - -C /shared/taiji \
-  <"${backup_dir}/source-files.tar.gz"
+kubectl_cmd cp "${backup_dir}/source-files.tar.gz" \
+  "${namespace}/taiji-migration-files:/tmp/source-files.tar.gz" -c files
+kubectl_cmd exec -n "${namespace}" taiji-migration-files -- \
+  tar -xzf /tmp/source-files.tar.gz -C /shared/taiji
 kubectl_cmd exec -n "${namespace}" taiji-migration-files -- sh -c \
   'find /shared/taiji/app_data /shared/taiji/app_logs -type f -exec sha256sum {} \;' \
   | sed 's#/shared/taiji/##' | sort >"${backup_dir}/target-files.sha256"
